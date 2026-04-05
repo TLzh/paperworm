@@ -12,13 +12,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/liuzhihong/paperworm.git"
+    "url": "git+https://github.com/TLzh/paperworm.git"
   },
   "author": "TLzh",
   "bugs": {
-    "url": "https://github.com/liuzhihong/paperworm/issues"
+    "url": "https://github.com/TLzh/paperworm/issues"
   },
-  "homepage": "https://github.com/liuzhihong/paperworm#readme",
+  "homepage": "https://github.com/TLzh/paperworm#readme",
   "license": "MIT",
   "scripts": {
     "start": "zotero-plugin serve",
