@@ -1,6 +1,6 @@
 /**
  * Google Gemini Provider
- * 使用 REST API，认证通过 URL 参数 ?key=... 传入
+ * 使用 REST API，认证通过 x-goog-api-key 请求头传入（避免 Key 出现在 URL 日志中）
  * 流式输出返回 JSON 数组（Server-Sent Events 格式）
  */
 
@@ -17,10 +17,10 @@ export class GeminiProvider implements LLMProvider {
   }
 
   async chat(options: LLMRequestOptions): Promise<string> {
-    const url = `${BASE_URL}/models/${options.model}:generateContent?key=${this.apiKey}`;
+    const url = `${BASE_URL}/models/${options.model}:generateContent`;
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": this.apiKey },
       body: JSON.stringify(this.buildBody(options)),
     });
 
@@ -39,12 +39,12 @@ export class GeminiProvider implements LLMProvider {
     onDone: () => void,
     onError: (err: Error) => void,
   ): Promise<void> {
-    const url = `${BASE_URL}/models/${options.model}:streamGenerateContent?key=${this.apiKey}&alt=sse`;
+    const url = `${BASE_URL}/models/${options.model}:streamGenerateContent?alt=sse`;
     let res: Response;
     try {
       res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": this.apiKey },
         body: JSON.stringify(this.buildBody(options)),
       });
     } catch (e) {
@@ -84,9 +84,9 @@ export class GeminiProvider implements LLMProvider {
 
   async testConnection(): Promise<boolean> {
     try {
-      const res = await fetch(
-        `${BASE_URL}/models?key=${this.apiKey}`,
-      );
+      const res = await fetch(`${BASE_URL}/models`, {
+        headers: { "x-goog-api-key": this.apiKey },
+      });
       return res.ok;
     } catch {
       return false;
