@@ -62,7 +62,7 @@ workspace/
 
 ## 当前开发状态
 
-**阶段**: v0.5.0 — 偏好设置增强版
+**阶段**: v0.5.1 — 偏好设置增强 & 发布链路完善
 
 **已完成**:
 - 创建文档体系（CLAUDE.md / PRD.md / architecture.md / devlog.md）
@@ -97,7 +97,7 @@ workspace/
   - 数据格式：Zotero child note，内嵌 JSON（v2）+ 人可读 HTML transcript
   - 向下兼容 v1 归档格式（旧版笔记可正常加载）
 - **偏好设置体验优化**（v0.5.0）：
-  - Temperature 提示改为 `(0–2，学术阅读推荐 0.1–0.5)`，最大 Token 数上限提升至 32000 并加说明
+  - 高级参数提示统一三段式（范围·解释·推荐）：Temperature `(0–2，低=精准稳定 高=随机创意，推荐 0.1–0.5)`，最大 Token 数 `(100–32000，影响单次回复长度，推荐 2000–4000)`
   - 系统提示词新增内置模板：「开锁专家」（批判性论文解读）；新增「自定义（清空）」快捷选项
   - **用户自定义模板**：可将当前提示词以自定义名称保存，持久化到 Zotero prefs，支持加载和删除
   - 所有设置更改即时生效（下一条消息立刻使用新配置，无需重启）
@@ -106,6 +106,11 @@ workspace/
 - `.textLayer` 方案仅抓已渲染页（滚动过的页面）；一次性获取全部页面需先建立 Zotero 全文索引
 - 会话笔记底部的 Base64 元数据块在 Zotero 笔记 UI 中可见（Zotero 过滤 `style`/`<script>`，`<details>` 不支持折叠），功能不受影响，已在 README 中说明
 - 无笔记联动（待实现）
+
+**已上线**:
+- GitHub 仓库：[github.com/TLzh/paperworm](https://github.com/TLzh/paperworm)
+- GitHub Actions 自动发布：push tag `v*` 即触发构建、生成 `update.json`、创建 Release
+- Zotero 自动更新：已验证 v0.5.0 → v0.5.1 全链路正常
 
 **待迭代**（按需求顺序推进）:
 - 笔记联动（生成 / 追加笔记）
