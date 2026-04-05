@@ -417,6 +417,61 @@ function setMarkdown(el: HTMLElement, text: string): void {
       continue;
     }
 
+    // 表格（以 | 开头的连续行，第二行为分隔行）
+    if (line.trimStart().startsWith("|")) {
+      const tableLines: string[] = [];
+      while (i < lines.length && lines[i].trimStart().startsWith("|")) {
+        tableLines.push(lines[i++]);
+      }
+      // 第二行是分隔行（只含 |、-、:、空格）时才认定为表格
+      const isSepRow = (s: string) => /^\|[\s|:-]+\|?\s*$/.test(s.trim());
+      if (tableLines.length >= 2 && isSepRow(tableLines[1])) {
+        flushPara();
+        const parseCells = (row: string) =>
+          row.split("|").slice(1).map(c => c.trim()).filter((_, idx, arr) =>
+            !(idx === arr.length - 1 && arr[arr.length - 1] === "")
+          );
+        const alignments = parseCells(tableLines[1]).map(cell => {
+          if (cell.startsWith(":") && cell.endsWith(":")) return "center";
+          if (cell.endsWith(":")) return "right";
+          return "left";
+        });
+        const table = doc.createElement("table");
+        table.className = "pw-table";
+        // 表头
+        const thead = doc.createElement("thead");
+        const hRow = doc.createElement("tr");
+        parseCells(tableLines[0]).forEach((cell, idx) => {
+          const th = doc.createElement("th");
+          th.style.textAlign = alignments[idx] ?? "left";
+          appendInline(doc, th, cell);
+          hRow.appendChild(th);
+        });
+        thead.appendChild(hRow);
+        table.appendChild(thead);
+        // 表体
+        if (tableLines.length > 2) {
+          const tbody = doc.createElement("tbody");
+          for (let r = 2; r < tableLines.length; r++) {
+            const tr = doc.createElement("tr");
+            parseCells(tableLines[r]).forEach((cell, idx) => {
+              const td = doc.createElement("td");
+              td.style.textAlign = alignments[idx] ?? "left";
+              appendInline(doc, td, cell);
+              tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+          }
+          table.appendChild(tbody);
+        }
+        el.appendChild(table);
+      } else {
+        // 不满足表格格式，退回为普通段落行
+        for (const tl of tableLines) paraLines.push(tl);
+      }
+      continue;
+    }
+
     // 空行 → 刷出段落
     if (line.trim() === "") {
       flushPara();
@@ -907,6 +962,23 @@ const CHAT_CSS = `
 }
 .pw-msg pre code { background: none; padding: 0; }
 .pw-msg hr { border: none; border-top: 1px solid rgba(128,128,128,0.3); margin: 8px 0; }
+.pw-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 6px 0;
+  font-size: 12px;
+  overflow-x: auto;
+  display: block;
+}
+.pw-table th, .pw-table td {
+  border: 1px solid rgba(128,128,128,0.35);
+  padding: 4px 8px;
+  line-height: 1.4;
+}
+.pw-table thead tr {
+  background: rgba(128,128,128,0.15);
+  font-weight: 600;
+}
 .pw-math-display {
   text-align: center;
   margin: 8px 0;

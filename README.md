@@ -11,7 +11,7 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 
 ## Features
 
-- **Contextual chat** — the paper's title, authors, year, and abstract are automatically included in every conversation
+- **Contextual chat** — the paper's full text, title, authors, year, and abstract are automatically included in every conversation; no manual indexing required for text-based PDFs
 - **Streaming responses** — AI replies appear word by word in real time
 - **Quick actions** — one-click prompts to summarize the paper, explain a paragraph, or translate text
 - **Multi-provider** — supports OpenAI, DeepSeek, Anthropic (Claude), Google Gemini, and Ollama (local)
@@ -56,6 +56,28 @@ Every setting — provider, model, API key, temperature, max tokens, and system 
 This means you can switch providers or models at any point during a conversation. The next message will be sent to the new provider, while the full conversation history remains intact and is passed along as context.
 
 Each provider's API key and model are stored independently, so switching between providers never overwrites your other configurations.
+
+## Full-Text Context
+
+PaperWorm automatically injects the paper's full text into every conversation so the AI can answer detailed questions about the content.
+
+### How text extraction works
+
+PaperWorm tries three strategies in order, stopping at the first that succeeds:
+
+1. **Zotero full-text index** — if the paper has already been indexed by Zotero, the cached text is used immediately
+2. **On-demand indexing** — if not yet indexed, PaperWorm triggers Zotero's built-in PDF indexer (`pdftotext`) and reads the result; this is automatic and requires no user action
+3. **Rendered page text** — if indexing fails or is unavailable, PaperWorm reads the text directly from the PDF viewer's rendered pages (`.textLayer` DOM elements)
+
+**You do not need to manually pre-index papers.** Strategy 2 handles indexing automatically on first use.
+
+### Limitations
+
+- **Scanned / image-only PDFs** (no OCR text layer): none of the three strategies can extract text. The AI will work from the title, authors, and abstract only.
+- **Strategy 3 coverage**: only pages that have been rendered in the viewer (i.e., pages you have scrolled to) are available. For complete coverage of long papers, strategies 1 and 2 (which read the full file) are preferable — they are attempted first.
+- **Character limit**: up to 80,000 characters (~25 pages) of full text are injected per message.
+
+---
 
 ## Session Storage
 

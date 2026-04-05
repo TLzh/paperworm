@@ -46,7 +46,9 @@ export class PaperExtractor {
    * 1. Zotero 全文索引（已索引时最快）
    * 2. 触发 Zotero 对该附件即时索引后再读
    * 3. 直接读取 Reader 已渲染的 DOM .textLayer 文字层
-   *    （与 getSelectedText 同原理，只要选中文字能工作此方法就能工作）
+   *
+   * ⚠️ strategy 3 必须限定到目标 PDF 的 reader window，
+   *    绝不使用 getMainWindow() 全局搜索 —— 多 tab 时会读到其他 PDF 的内容。
    */
   static async getFullText(item: Zotero.Item): Promise<string> {
     const attachment = item.isAttachment()
@@ -75,13 +77,14 @@ export class PaperExtractor {
     }
 
     // 3. 直接读取 Reader 已渲染的 .textLayer DOM 元素
-    // PDF.js 为支持文字选取必然会将文字渲染为 DOM span，与 getSelectedText 同路径。
+    // 必须限定到目标 reader 的 window，不可 fallback 到 getMainWindow()。
     try {
-      const mainWin = Zotero.getMainWindow() as any;
-      if (!mainWin) return "";
+      const attachmentID = attachment?.id ?? item.id;
+      const readerWin = PaperExtractor._getReaderWindow(attachmentID);
+      if (!readerWin) return ""; // 找不到 reader window → 宁可返回空
 
       const text = PaperExtractor._findInFrames<string>(
-        mainWin,
+        readerWin,
         (win) => {
           const doc = (win as any).document;
           if (!doc?.querySelectorAll) return null;
@@ -119,6 +122,61 @@ export class PaperExtractor {
   }
 
   // ── 私有工具 ────────────────────────────────────────────────────────────────
+
+  /**
+   * 找到与指定附件 ID 对应的 Reader iframe window（即 browser.contentWindow）。
+   * 返回 null 时调用方应返回空字符串，不做全局搜索。
+   *
+   * 根据 Zotero 源码（reader.js）确认的 DOM 结构：
+   *   _tabContainer = <tab-content id="{tabID}">   ← Zotero_Tabs.add() 返回的 container
+   *     _iframe     = <browser class="reader" />   ← createXULElement('browser')
+   *
+   * Zotero_Tabs._tabs 每个 reader tab 的 data.itemID = 附件 item ID（reader.js line 1803）。
+   *
+   * 因此：getElementById(tabID).querySelector("browser.reader").contentWindow
+   * 是最可靠的取法，不依赖任何私有属性是否已初始化。
+   */
+  private static _getReaderWindow(attachmentID: number): Window | null {
+    const mainWin = Zotero.getMainWindow() as any;
+    if (!mainWin) return null;
+
+    const tabs = (globalThis as any).Zotero_Tabs;
+    const allTabs: any[] = tabs?._tabs ?? [];
+
+    // ── 主路径：_tabs[i].data.itemID 匹配 → getElementById(tabID) → browser ──
+    for (const tab of allTabs) {
+      if (tab?.type !== "reader") continue;
+      if (tab?.data?.itemID !== attachmentID) continue;
+
+      try {
+        // _tabContainer.id = tabID（Zotero 源码 reader.js line 1794/1809）
+        const tabCont = mainWin.document?.getElementById?.(tab.id);
+        if (!tabCont) continue;
+
+        // _iframe 是 <browser class="reader">（reader.js line 1812-1813）
+        const browser =
+          tabCont.querySelector?.("browser.reader") ??
+          tabCont.querySelector?.("browser");
+        if (browser?.contentWindow) return browser.contentWindow as Window;
+      } catch { /* skip */ }
+    }
+
+    // ── 降级：直接访问 Zotero.Reader._readers 数组（reader.js line 2450）──────
+    try {
+      const readers: any[] = (Zotero.Reader as any)._readers ?? [];
+      for (const r of readers) {
+        if (r?.itemID !== attachmentID) continue;
+        // _iframeWindow = _iframe.contentWindow（reader.js line 1883）
+        const win =
+          r._iframeWindow ??
+          r._iframe?.contentWindow ??
+          null;
+        if (win) return win as Window;
+      }
+    } catch { /* ignore */ }
+
+    return null;
+  }
 
   /**
    * 通用 frame 树遍历：深度优先搜索，返回第一个 finder(win) 非 null 的结果。

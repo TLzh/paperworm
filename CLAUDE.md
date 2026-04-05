@@ -62,7 +62,7 @@ workspace/
 
 ## 当前开发状态
 
-**阶段**: v0.5.1 — 偏好设置增强 & 发布链路完善
+**阶段**: v0.5.2 — 多 tab 全文提取 bug 修复
 
 **已完成**:
 - 创建文档体系（CLAUDE.md / PRD.md / architecture.md / devlog.md）
@@ -75,11 +75,12 @@ workspace/
 - Reader 侧边聊天面板（注册、UI、流式渲染、快捷操作）
 - **选中文字注入上下文**：mousedown 捕获阶段获取 PDF 选区，在发送时自动前置引用块
 - **快捷操作按钮**：总结本文 / 解释段落 / 翻译 / 引用选中，均已对接选区捕获
-- **PDF 全文提取**（三级策略，已验证）：
+- **PDF 全文提取**（三级策略，已验证，无需预建索引）：
   1. Zotero 全文索引（已索引条目直接读取）
   2. 触发即时索引后重试（`Zotero.Fulltext.indexItems`）
-  3. 读取 Reader 已渲染的 `.textLayer` DOM 文字层（主力方案，与选区捕获同路径）
+  3. 读取 Reader 已渲染的 `.textLayer` DOM 文字层（限定到目标 tab 的 reader window）
 - 全文注入上下文上限 80000 字符（约 25 页），覆盖主流论文全文
+- **已修复多 tab 全文读取错误**（v0.5.2）：策略 3 通过 `_tabs[i].data.itemID` + `getElementById(tabID).querySelector("browser.reader")` 精确定位目标 PDF 的 reader window，不再依赖私有属性或全局搜索
 - **Markdown 渲染**：流式时纯文本，完成后用纯 DOM API（`createElement`/`createTextNode`）渲染
   - 支持：标题（H1–H6）、粗体、斜体、无序列表、代码块、行内代码、水平线
   - Gecko chrome 上下文限制：innerHTML / createContextualFragment / DOMParser+adoptNode 均被拦截，必须使用纯 DOM API
@@ -127,6 +128,31 @@ workspace/
 - 在做任何 git 相关操作前，主动检查暂存内容是否含有凭证
 
 违反此规则会导致用户的 API Key 永久泄露且无法撤回。
+
+## ⚠️ PDF 全文提取陷阱 — 每次碰 extractor.ts 必读
+
+### 多 tab 场景下禁止从主窗口全局搜索 `.textLayer`
+
+`_findInFrames(Zotero.getMainWindow(), ...)` 会做深度优先搜索，
+**总是返回第一个打开的 PDF tab 的 `.textLayer`**，与当前活跃 tab 无关。
+
+**正确做法**：先定位目标 PDF 的 reader browser，再在其 contentWindow 内搜索：
+
+```typescript
+// 通过 _tabs[i].data.itemID 找到对应 tab
+const tab = tabs._tabs.find(t => t.type === "reader" && t.data?.itemID === attachmentID);
+// _tabContainer.id = tabID（Zotero 源码 reader.js 确认）
+const tabCont = mainWin.document.getElementById(tab.id);
+// _iframe = <browser class="reader">
+const browser = tabCont.querySelector("browser.reader") ?? tabCont.querySelector("browser");
+// 在正确的 window 内搜索，不会跨 tab 污染
+return browser.contentWindow;
+```
+
+这是基于 Zotero 开源代码（`chrome/content/zotero/xpcom/reader.js`）确认的 DOM 结构，
+不依赖任何可能为 undefined 的私有属性（`_iframeWindow`、`_window` 等均为可选字段）。
+
+---
 
 ## ⚠️ Zotero XUL UI 开发陷阱 — 每次写 UI 必读
 
