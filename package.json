@@ -1,7 +1,7 @@
 {
   "name": "paperworm",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "description": "AI-powered paper reading assistant for Zotero",
   "config": {
     "addonName": "PaperWorm",
@@ -14,12 +14,12 @@
     "type": "git",
     "url": "git+https://github.com/liuzhihong/paperworm.git"
   },
-  "author": "liuzhihong",
+  "author": "TLzh",
   "bugs": {
     "url": "https://github.com/liuzhihong/paperworm/issues"
   },
   "homepage": "https://github.com/liuzhihong/paperworm#readme",
-  "license": "AGPL-3.0-or-later",
+  "license": "MIT",
   "scripts": {
     "start": "zotero-plugin serve",
     "build": "zotero-plugin build && tsc --noEmit",
