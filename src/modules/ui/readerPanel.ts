@@ -306,11 +306,11 @@ async function buildSystemContent(item: Zotero.Item): Promise<string> {
   if (meta.year) ctx += `\nYear: ${meta.year}`;
   if (meta.abstract) ctx += `\nAbstract: ${meta.abstract}`;
 
-  // 全文注入（最多 30000 字符，约 6–8 页；Gemini/DeepSeek 上下文窗口均可容纳）
+  // 全文注入（最多 80000 字符，约 25 页；Gemini/DeepSeek/OpenAI 上下文均可容纳）
   const fullText = await PaperExtractor.getFullText(item);
   if (fullText) {
-    ctx += `\n\nFull text (excerpt):\n${fullText.slice(0, 30000)}`;
-    if (fullText.length > 30000) ctx += "\n[truncated…]";
+    ctx += `\n\nFull text (excerpt):\n${fullText.slice(0, 80000)}`;
+    if (fullText.length > 80000) ctx += "\n[truncated…]";
   }
 
   return ctx;
