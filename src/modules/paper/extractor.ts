@@ -69,7 +69,10 @@ export class PaperExtractor {
 
       const pdfApp = PaperExtractor._findInFrames<any>(
         readerWin,
-        (win) => (win as any).PDFViewerApplication?.pdfDocument ?? null,
+        (win) => {
+          const app = (win as any).PDFViewerApplication;
+          return app?.pdfDocument ? app : null;
+        },
         new Set(),
       );
       if (!pdfApp) return "";
