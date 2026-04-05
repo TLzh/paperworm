@@ -45,7 +45,7 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 | OpenAI | `gpt-4o` | Requires API key |
 | DeepSeek | `deepseek-chat` | Requires API key |
 | Anthropic | `claude-sonnet-4-5` | Requires API key |
-| Google Gemini | `gemini-1.5-flash` | Requires API key |
+| Google Gemini | `gemini-2.0-flash` | Requires API key |
 | Ollama | any local model | No API key needed; set base URL (default: `http://localhost:11434`) |
 
 ## Switching Providers Mid-Conversation
