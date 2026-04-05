@@ -21,50 +21,56 @@ export class PaperExtractor {
 
   /**
    * 获取 Reader 中当前选中的文字。
-   * PDF.js 渲染在 reader._iframeWindow 内的嵌套 iframe 里，
-   * 需要逐层向下搜索才能拿到真正的选区。
+   * 从 Zotero 主窗口出发递归遍历所有 frame（包括 XUL <browser> 元素），
+   * 这样无论 PDF.js 嵌套多深都能找到选区。
+   * 用 visited Set 防止循环引用。
    */
   static getSelectedText(): string {
     try {
-      const tabs = (globalThis as any).Zotero_Tabs;
-      const reader = Zotero.Reader.getByTabID(tabs?.selectedID as string);
-      if (!reader) return "";
-
-      const readerWin = (reader as any)?._iframeWindow as Window | undefined;
-      if (!readerWin) return "";
-
-      // 第一层：reader 应用本身
-      let text = readerWin.getSelection()?.toString()?.trim() ?? "";
-      if (text) return text;
-
-      // 第二层：PDF.js viewer（通常在嵌套的 <iframe> 里）
-      const iframes = Array.from(
-        readerWin.document?.querySelectorAll("iframe") ?? [],
-      ) as HTMLIFrameElement[];
-
-      for (const iframe of iframes) {
-        try {
-          const win = iframe.contentWindow;
-          text = win?.getSelection()?.toString()?.trim() ?? "";
-          if (text) return text;
-
-          // 第三层：部分 PDF.js 版本还有一层嵌套
-          const inner = Array.from(
-            win?.document?.querySelectorAll("iframe") ?? [],
-          ) as HTMLIFrameElement[];
-          for (const sub of inner) {
-            try {
-              text = sub.contentWindow?.getSelection()?.toString()?.trim() ?? "";
-              if (text) return text;
-            } catch { /* cross-origin */ }
-          }
-        } catch { /* cross-origin */ }
-      }
-
-      return "";
+      const mainWin = Zotero.getMainWindow() as any;
+      return mainWin ? PaperExtractor._searchSelection(mainWin, new Set()) : "";
     } catch {
       return "";
     }
+  }
+
+  private static _searchSelection(win: any, visited: Set<any>): string {
+    if (!win || visited.has(win)) return "";
+    visited.add(win);
+
+    // 当前 window 的选区
+    try {
+      const text = win.getSelection?.()?.toString?.()?.trim?.() ?? "";
+      if (text) return text;
+    } catch { /* ignore */ }
+
+    // 通过 frames[] 遍历子框架
+    try {
+      for (let i = 0; i < (win.frames?.length ?? 0); i++) {
+        try {
+          const result = PaperExtractor._searchSelection(win.frames[i], visited);
+          if (result) return result;
+        } catch { /* cross-origin */ }
+      }
+    } catch { /* ignore */ }
+
+    // 通过 DOM 查询（捕获 XUL <browser> 元素，它不一定出现在 frames[] 里）
+    try {
+      const elements = Array.from(
+        win.document?.querySelectorAll?.("iframe, browser") ?? [],
+      ) as any[];
+      for (const el of elements) {
+        try {
+          const cw = el.contentWindow;
+          if (cw) {
+            const result = PaperExtractor._searchSelection(cw, visited);
+            if (result) return result;
+          }
+        } catch { /* cross-origin */ }
+      }
+    } catch { /* ignore */ }
+
+    return "";
   }
 
   /**
