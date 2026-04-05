@@ -306,11 +306,11 @@ async function buildSystemContent(item: Zotero.Item): Promise<string> {
   if (meta.year) ctx += `\nYear: ${meta.year}`;
   if (meta.abstract) ctx += `\nAbstract: ${meta.abstract}`;
 
-  // 尝试加载 Zotero 已索引的 PDF 全文（前 6000 字符）
+  // 全文注入（最多 30000 字符，约 6–8 页；Gemini/DeepSeek 上下文窗口均可容纳）
   const fullText = await PaperExtractor.getFullText(item);
   if (fullText) {
-    ctx += `\n\nFull text (excerpt):\n${fullText.slice(0, 6000)}`;
-    if (fullText.length > 6000) ctx += "\n[truncated…]";
+    ctx += `\n\nFull text (excerpt):\n${fullText.slice(0, 30000)}`;
+    if (fullText.length > 30000) ctx += "\n[truncated…]";
   }
 
   return ctx;
