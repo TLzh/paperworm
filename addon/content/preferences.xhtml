@@ -1,0 +1,219 @@
+<linkset>
+  <html:link rel="localization" href="__addonRef__-preferences.ftl" />
+</linkset>
+
+<!-- ── Section 1: LLM Service ── -->
+<!-- onload 必须挂在真实容器元素上，不能挂在自闭合元素上 -->
+<groupbox onload="Zotero.__addonInstance__.hooks.onPrefsEvent('load', { window })">
+  <label><html:h2 data-l10n-id="pref-llm-section"></html:h2></label>
+
+  <!-- Provider selector -->
+  <hbox align="center" style="margin-bottom:6px">
+    <label data-l10n-id="pref-provider-label" style="width:110px;min-width:110px" />
+    <menulist
+      id="__addonRef__-provider"
+      preference="llm.provider"
+      style="flex:1"
+    >
+      <menupopup>
+        <menuitem value="openai"    label="OpenAI" />
+        <menuitem value="deepseek"  label="DeepSeek" />
+        <menuitem value="anthropic" label="Anthropic (Claude)" />
+        <menuitem value="gemini"    label="Google Gemini" />
+        <menuitem value="ollama"    label="Ollama（本地）" />
+      </menupopup>
+    </menulist>
+  </hbox>
+
+  <!-- OpenAI -->
+  <vbox id="__addonRef__-section-openai" style="margin-left:8px">
+    <hbox align="center" style="margin-bottom:4px">
+      <label data-l10n-id="pref-apikey-label" style="width:110px;min-width:110px" />
+      <html:input
+        type="password"
+        id="__addonRef__-openai-apikey"
+        preference="llm.openai.apiKey"
+        style="flex:1;padding:2px 4px"
+      />
+    </hbox>
+    <hbox align="center">
+      <label data-l10n-id="pref-model-label" style="width:110px;min-width:110px" />
+      <html:input
+        type="text"
+        id="__addonRef__-openai-model"
+        preference="llm.openai.model"
+        placeholder="gpt-4o"
+        style="flex:1;padding:2px 4px"
+      />
+    </hbox>
+  </vbox>
+
+  <!-- DeepSeek（兼容 OpenAI 格式，Base URL 不同）-->
+  <vbox id="__addonRef__-section-deepseek" style="margin-left:8px" hidden="true">
+    <hbox align="center" style="margin-bottom:4px">
+      <label data-l10n-id="pref-apikey-label" style="width:110px;min-width:110px" />
+      <html:input
+        type="password"
+        id="__addonRef__-deepseek-apikey"
+        preference="llm.deepseek.apiKey"
+        style="flex:1;padding:2px 4px"
+      />
+    </hbox>
+    <hbox align="center">
+      <label data-l10n-id="pref-model-label" style="width:110px;min-width:110px" />
+      <html:input
+        type="text"
+        id="__addonRef__-deepseek-model"
+        preference="llm.deepseek.model"
+        placeholder="deepseek-chat"
+        style="flex:1;padding:2px 4px"
+      />
+    </hbox>
+  </vbox>
+
+  <!-- Anthropic -->
+  <vbox id="__addonRef__-section-anthropic" style="margin-left:8px" hidden="true">
+    <hbox align="center" style="margin-bottom:4px">
+      <label data-l10n-id="pref-apikey-label" style="width:110px;min-width:110px" />
+      <html:input
+        type="password"
+        id="__addonRef__-anthropic-apikey"
+        preference="llm.anthropic.apiKey"
+        style="flex:1;padding:2px 4px"
+      />
+    </hbox>
+    <hbox align="center">
+      <label data-l10n-id="pref-model-label" style="width:110px;min-width:110px" />
+      <html:input
+        type="text"
+        id="__addonRef__-anthropic-model"
+        preference="llm.anthropic.model"
+        placeholder="claude-sonnet-4-5"
+        style="flex:1;padding:2px 4px"
+      />
+    </hbox>
+  </vbox>
+
+  <!-- Gemini -->
+  <vbox id="__addonRef__-section-gemini" style="margin-left:8px" hidden="true">
+    <hbox align="center" style="margin-bottom:4px">
+      <label data-l10n-id="pref-apikey-label" style="width:110px;min-width:110px" />
+      <html:input
+        type="password"
+        id="__addonRef__-gemini-apikey"
+        preference="llm.gemini.apiKey"
+        style="flex:1;padding:2px 4px"
+      />
+    </hbox>
+    <hbox align="center">
+      <label data-l10n-id="pref-model-label" style="width:110px;min-width:110px" />
+      <html:input
+        type="text"
+        id="__addonRef__-gemini-model"
+        preference="llm.gemini.model"
+        placeholder="gemini-2.0-flash"
+        style="flex:1;padding:2px 4px"
+      />
+    </hbox>
+  </vbox>
+
+  <!-- Ollama -->
+  <vbox id="__addonRef__-section-ollama" style="margin-left:8px" hidden="true">
+    <hbox align="center" style="margin-bottom:4px">
+      <label data-l10n-id="pref-baseurl-label" style="width:110px;min-width:110px" />
+      <html:input
+        type="text"
+        id="__addonRef__-ollama-baseurl"
+        preference="llm.ollama.baseUrl"
+        placeholder="http://localhost:11434"
+        style="flex:1;padding:2px 4px"
+      />
+    </hbox>
+    <hbox align="center">
+      <label data-l10n-id="pref-model-label" style="width:110px;min-width:110px" />
+      <html:input
+        type="text"
+        id="__addonRef__-ollama-model"
+        preference="llm.ollama.model"
+        placeholder="llama3.2"
+        style="flex:1;padding:2px 4px"
+      />
+    </hbox>
+  </vbox>
+
+  <!-- Test connection -->
+  <hbox align="center" style="margin-top:10px">
+    <button
+      id="__addonRef__-test-btn"
+      data-l10n-id="pref-test-btn"
+    />
+    <label
+      id="__addonRef__-test-result"
+      style="margin-left:10px"
+    />
+  </hbox>
+</groupbox>
+
+<!-- ── Section 2: Advanced ── -->
+<groupbox>
+  <label><html:h2 data-l10n-id="pref-advanced-section"></html:h2></label>
+
+  <hbox align="center" style="margin-bottom:6px">
+    <label data-l10n-id="pref-temperature-label" style="width:110px;min-width:110px" />
+    <html:input
+      type="number"
+      preference="llm.temperature"
+      min="0" max="2" step="0.1"
+      style="width:80px;padding:2px 4px"
+    />
+    <label value="(0 – 2)" style="margin-left:6px;opacity:0.6;font-size:0.9em" />
+  </hbox>
+
+  <hbox align="center">
+    <label data-l10n-id="pref-maxtokens-label" style="width:110px;min-width:110px" />
+    <html:input
+      type="number"
+      preference="llm.maxTokens"
+      min="100" max="8000" step="100"
+      style="width:80px;padding:2px 4px"
+    />
+  </hbox>
+</groupbox>
+
+<!-- ── Section 3: System Prompt ── -->
+<groupbox>
+  <label><html:h2 data-l10n-id="pref-prompt-section"></html:h2></label>
+
+  <hbox align="center" style="margin-bottom:8px">
+    <label data-l10n-id="pref-template-label" style="width:110px;min-width:110px" />
+    <menulist id="__addonRef__-prompt-template" style="flex:1">
+      <menupopup>
+        <menuitem value="academic"  label="学术阅读助手" />
+        <menuitem value="translate" label="翻译模式" />
+        <menuitem value="critical"  label="批判性分析" />
+        <menuitem value="notes"     label="研究笔记助手" />
+      </menupopup>
+    </menulist>
+    <button
+      id="__addonRef__-apply-template"
+      data-l10n-id="pref-apply-template"
+      style="margin-left:6px"
+    />
+  </hbox>
+
+  <html:textarea
+    id="__addonRef__-system-prompt"
+    preference="systemPrompt.content"
+    rows="8"
+    style="width:100%;padding:6px;font-family:monospace;font-size:0.9em;resize:vertical"
+  ></html:textarea>
+</groupbox>
+
+<!-- ── Footer ── -->
+<vbox>
+  <label
+    style="opacity:0.5;font-size:0.85em;margin-top:4px"
+    data-l10n-id="pref-help"
+    data-l10n-args='{"name":"__addonName__","version":"__buildVersion__"}'
+  />
+</vbox>

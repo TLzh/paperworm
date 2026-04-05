@@ -1,0 +1,134 @@
+# PaperWorm — Claude 项目说明书
+
+## 项目概述
+
+PaperWorm 是一个 Zotero 8 插件，定位为**论文阅读 AI 助手**。
+用户在 Zotero 阅读 PDF 时，可以在侧边面板与 LLM 对话，
+对当前论文提问、总结、解释段落、生成笔记等。
+
+## 关键信息
+
+- **插件 ID**: `paperworm@paperworm.dev`
+- **Namespace / addonRef**: `paperworm`
+- **Zotero 全局实例**: `Zotero.PaperWorm`
+- **目标平台**: Zotero 8（兼容 6.999+）
+- **构建工具**: zotero-plugin-scaffold + esbuild (target: firefox115)
+- **主语言**: TypeScript
+- **核心依赖**: zotero-plugin-toolkit ^5.x, zotero-types ^4.x
+
+## 项目目录结构
+
+本仓库是工作区（workspace）的子目录，工作区结构如下：
+
+```
+workspace/
+├── PaperWorm/                ← 本仓库（open-source plugin）
+│   ├── CLAUDE.md             ← 本文件
+│   ├── README.md
+│   ├── addon/                ← 插件静态资源
+│   │   ├── bootstrap.js      ← Zotero 加载入口
+│   │   ├── manifest.json     ← 插件清单
+│   │   ├── prefs.js          ← 偏好设置默认值（不入 git）
+│   │   └── content/          ← XHTML / CSS / 图标
+│   ├── src/                  ← TypeScript 源码
+│   │   ├── index.ts          ← 入口，挂载到 Zotero.PaperWorm
+│   │   ├── addon.ts          ← Addon 类，持有全局状态
+│   │   ├── hooks.ts          ← 生命周期钩子分发
+│   │   ├── modules/          ← 功能模块
+│   │   │   ├── llm/          ← LLM 抽象层（Provider 接口 + 各厂商实现）
+│   │   │   ├── paper/        ← PDF 内容提取
+│   │   │   ├── chat/         ← 聊天逻辑与历史管理
+│   │   │   └── ui/           ← UI 注册（面板、菜单等）
+│   │   └── utils/            ← 工具函数
+│   └── typings/              ← 全局类型声明
+├── docs/                     ← 内部开发文档（不入 git）
+├── refs/                     ← 参考资料
+└── releases/                 ← 编译产物归档（.xpi）
+```
+
+## 架构核心思路
+
+### LLM 抽象层
+所有 LLM 调用通过统一的 `LLMProvider` 接口，
+业务代码不感知具体厂商，便于后续扩展。
+
+### 内容提取策略
+从 `Zotero.Reader` 获取当前打开的 PDF 条目，
+优先使用用户选中文本，其次提取全文（分块避免 token 超限）。
+
+### UI 策略
+主界面在 Reader Pane 右侧侧边面板（`registerReaderItemPaneSection`），
+设置界面在 Zotero 偏好设置中注册独立分页。
+
+## 当前开发状态
+
+**阶段**: v0.1.0 — 初始测试版本（已验证可用）
+
+**已完成**:
+- 创建文档体系（CLAUDE.md / PRD.md / architecture.md / devlog.md）
+- 项目代码骨架初始化（基于 zotero-plugin-template）
+- 偏好设置页面（LLM 服务配置 / 高级参数 / 系统提示词）
+- 支持服务商：OpenAI、DeepSeek、Anthropic、Gemini、Ollama
+- LLM Provider 接口 + 五个实现（含流式输出）
+- LLMManager：从 prefs 读取配置，按需实例化 Provider
+- 偏好设置"测试连接"接入真实 API
+- Reader 侧边聊天面板（注册、UI、流式渲染、快捷操作、对话历史）
+- **已验证**：面板正常显示，论文上下文注入，对话流式回复，清空功能
+
+**已知约束**（v0.1.0）:
+- 对话历史仅存内存，重启 Zotero 后清空
+- 无选中文本感知（解释段落需手动粘贴）
+- 无笔记联动
+
+**待迭代**（按需求顺序推进）:
+- 选中文本自动注入上下文
+- 笔记联动（生成 / 追加笔记）
+- 右键菜单快捷入口
+- 对话导出
+
+## ⚠️ 安全红线 — 每次开发必读
+
+**API Key 绝对不能出现在任何版本控制或云端存储中。**
+
+- Zotero prefs 以**明文**存储 API Key，`prefs.js` 文件不得进入 Git
+- 代码中**禁止硬编码**任何 API Key，包括测试用的临时 Key
+- 日志、注释、文档中**禁止出现**真实 Key 的任何片段
+- `.gitignore` 必须包含：`.env`、`prefs.js`、`*.key`
+- 在做任何 git 相关操作前，主动检查暂存内容是否含有凭证
+
+违反此规则会导致用户的 API Key 永久泄露且无法撤回。
+
+## ⚠️ Zotero XUL UI 开发陷阱 — 每次写 UI 必读
+
+### Item Pane Section 中禁止使用 `<button>` 元素
+
+在 `ItemPaneManager.registerSection` 的 `onRender` body 内，
+**Zotero 的全局 CSS 会将所有 `<button>` 元素隐藏（`display: none`）**，
+无论用 `innerHTML` 还是 `createElement` 创建，统统不可见。
+
+**正确做法**：
+```typescript
+// ❌ 错误 — button 在 Item Pane body 里不可见
+const btn = doc.createElement("button");
+
+// ✅ 正确 — 用 div 模拟按钮
+const btn = doc.createElement("div");
+btn.setAttribute("role", "button");
+btn.setAttribute("tabindex", "0");
+btn.style.cursor = "pointer";
+```
+
+- `disabled` 状态用 CSS class（如 `.pw-disabled`）而非 `element.disabled`
+- `<input type="button">` 同样不可用，统一改 div/span
+
+### CSS 注入方式
+
+将 `<style>` 标签放在面板 wrapper div 内部（随内容一起 innerHTML），
+不要尝试注入到 `doc.head`（XUL 文档的 CSS 作用域可能隔离）。
+
+## 重要约定
+
+- 不要在 hooks.ts 里写业务逻辑，只做分发
+- LLM Provider 必须支持流式输出（streaming）
+- API Key 只存储在 Zotero prefs，永远不写入代码
+- 每个阶段完成后更新本文件的"当前开发状态"

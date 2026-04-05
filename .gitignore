@@ -1,0 +1,21 @@
+# macOS
+**/.DS_Store
+
+# Node.js
+node_modules
+pnpm-lock.yaml
+yarn.lock
+
+# TypeScript
+tsconfig.tsbuildinfo
+
+# Scaffold build output
+.scaffold
+build
+logs
+
+# Zotero preferences (contains API keys in plain text — never commit)
+addon/prefs.js
+
+# Environment
+.env

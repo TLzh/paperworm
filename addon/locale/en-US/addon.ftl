@@ -1,0 +1,3 @@
+startup-begin = PaperWorm loading...
+startup-finish = PaperWorm ready
+prefs-title = PaperWorm

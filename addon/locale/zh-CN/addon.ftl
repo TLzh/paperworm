@@ -1,0 +1,3 @@
+startup-begin = PaperWorm 加载中...
+startup-finish = PaperWorm 已就绪
+prefs-title = PaperWorm
