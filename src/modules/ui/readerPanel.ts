@@ -112,17 +112,32 @@ function bindEvents(
   const sendBtn = panel.querySelector(".pw-send-btn") as HTMLElement;
   const clearBtn = panel.querySelector(".pw-clear-btn") as HTMLElement;
 
+  // 在用户点击面板任何元素之前（mousedown 阶段）捕获 PDF 选区。
+  // 此时焦点尚未离开 PDF iframe，选区还在。
+  let capturedSelection = "";
+
+  panel.addEventListener(
+    "mousedown",
+    () => {
+      const sel = PaperExtractor.getSelectedText();
+      if (sel.length >= 10) capturedSelection = sel;
+    },
+    true, // capture 阶段，早于任何 click/focus 处理
+  );
+
   function doSend() {
     if (sendBtn.classList.contains("pw-disabled")) return;
     const text = textarea.value.trim();
     if (!text) return;
     textarea.value = "";
-    void send(doc, messagesEl, item, text, sendBtn);
+    const sel = capturedSelection;
+    capturedSelection = ""; // 用完即清，避免下一条消息重复注入
+    void send(doc, messagesEl, item, text, sel, sendBtn);
   }
 
   sendBtn.addEventListener("click", doSend);
 
-  // capture:true 在事件传播最早阶段拦截，防止 Reader 层吞掉 Enter
+  // capture:true 防止 Reader 层吞掉 Enter
   textarea.addEventListener(
     "keydown",
     (e: KeyboardEvent) => {
@@ -138,7 +153,8 @@ function bindEvents(
   panel.querySelectorAll(".pw-action-btn").forEach((btn: Element) => {
     btn.addEventListener("click", () => {
       const action = (btn as HTMLElement).dataset.action ?? "";
-      handleAction(action, textarea, item);
+      // 快捷操作按钮点击时 capturedSelection 已在 mousedown 中更新
+      handleAction(action, textarea, item, capturedSelection);
     });
   });
 
@@ -154,6 +170,7 @@ function handleAction(
   action: string,
   textarea: HTMLTextAreaElement,
   item: Zotero.Item,
+  capturedSel: string,
 ) {
   const meta = PaperExtractor.getItemMetadata(item);
   switch (action) {
@@ -162,29 +179,23 @@ function handleAction(
         "请对这篇论文做一个结构化总结，包括：研究问题、方法、主要发现、贡献和局限性。" +
         (meta.title ? `\n\n论文标题：${meta.title}` : "");
       break;
-    case "explain": {
-      const sel = PaperExtractor.getSelectedText();
-      textarea.value = sel
-        ? `请解释以下段落：\n\n「${sel}」`
+    case "explain":
+      textarea.value = capturedSel
+        ? `请解释以下段落：\n\n「${capturedSel}」`
         : "请解释以下段落（请粘贴要解释的内容）：\n\n";
       break;
-    }
-    case "translate": {
-      const sel = PaperExtractor.getSelectedText();
-      textarea.value = sel
-        ? `请将以下内容翻译为中文：\n\n「${sel}」`
+    case "translate":
+      textarea.value = capturedSel
+        ? `请将以下内容翻译为中文：\n\n「${capturedSel}」`
         : "请将以下内容翻译为中文（请粘贴要翻译的内容）：\n\n";
       break;
-    }
-    case "quote": {
-      const sel = PaperExtractor.getSelectedText();
-      if (sel) {
-        textarea.value = `「${sel}」\n\n`;
+    case "quote":
+      if (capturedSel) {
+        textarea.value = `「${capturedSel}」\n\n`;
       } else {
         textarea.placeholder = "请先在 PDF 中选中一段文字，再点击引用选中";
       }
       break;
-    }
   }
   textarea.focus();
   textarea.setSelectionRange(textarea.value.length, textarea.value.length);
@@ -197,17 +208,16 @@ async function send(
   messagesEl: HTMLElement,
   item: Zotero.Item,
   userText: string,
+  selectedText: string,
   sendBtn: HTMLElement,
 ) {
   sendBtn.classList.add("pw-disabled");
   const history = getHistory(item.id);
 
-  // 检测 Reader 中的选中文字（≥10 字符才注入，避免误触发）
-  const selectedText = PaperExtractor.getSelectedText();
-  const finalText =
-    selectedText.length >= 10
-      ? `「${selectedText}」\n\n${userText}`
-      : userText;
+  // 若有选中文字，将其作为引用块前置到用户消息中
+  const finalText = selectedText
+    ? `「${selectedText}」\n\n${userText}`
+    : userText;
 
   appendMessage(doc, messagesEl, "user", finalText);
   history.add({ role: "user", content: finalText });
@@ -217,9 +227,9 @@ async function send(
   aiEl.classList.add("pw-msg-loading");
   scrollToBottom(messagesEl);
 
-  // 构建 messages：system（含论文上下文）+ 对话历史
+  // 构建 messages：system（含论文上下文 + 全文）+ 对话历史
   const messages = [
-    { role: "system" as const, content: buildSystemContent(item) },
+    { role: "system" as const, content: await buildSystemContent(item) },
     ...history.getAll(),
   ];
 
@@ -281,7 +291,7 @@ function scrollToBottom(el: HTMLElement) {
   el.scrollTop = el.scrollHeight;
 }
 
-function buildSystemContent(item: Zotero.Item): string {
+async function buildSystemContent(item: Zotero.Item): Promise<string> {
   const base =
     (Zotero.Prefs.get(
       `${config.prefsPrefix}.systemPrompt.content`,
@@ -294,7 +304,15 @@ function buildSystemContent(item: Zotero.Item): string {
   ctx += `\nTitle: ${meta.title}`;
   if (meta.authors.length) ctx += `\nAuthors: ${meta.authors.join(", ")}`;
   if (meta.year) ctx += `\nYear: ${meta.year}`;
-  if (meta.abstract) ctx += `\nAbstract: ${meta.abstract.slice(0, 800)}`;
+  if (meta.abstract) ctx += `\nAbstract: ${meta.abstract}`;
+
+  // 尝试加载 Zotero 已索引的 PDF 全文（前 6000 字符）
+  const fullText = await PaperExtractor.getFullText(item);
+  if (fullText) {
+    ctx += `\n\nFull text (excerpt):\n${fullText.slice(0, 6000)}`;
+    if (fullText.length > 6000) ctx += "\n[truncated…]";
+  }
+
   return ctx;
 }
 
