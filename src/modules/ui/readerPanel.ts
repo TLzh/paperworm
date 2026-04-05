@@ -261,7 +261,7 @@ async function send(
     () => {
       aiEl.classList.remove("pw-msg-loading");
       if (fullResponse) {
-        aiEl.innerHTML = renderMarkdown(fullResponse);
+        setHTML(aiEl, renderMarkdown(fullResponse));
         history.add({ role: "assistant", content: fullResponse });
       }
       sendBtn.classList.remove("pw-disabled");
@@ -288,12 +288,31 @@ function appendMessage(
   const el = doc.createElement("div");
   el.className = `pw-msg pw-msg-${role}`;
   if (asMarkdown && text) {
-    el.innerHTML = renderMarkdown(text);
+    setHTML(el, renderMarkdown(text));
   } else {
     el.textContent = text;
   }
   container.appendChild(el);
   return el;
+}
+
+/**
+ * 在 Gecko chrome 上下文中安全地将 HTML 字符串写入元素。
+ * 直接使用 innerHTML 在已挂载的 chrome 特权元素上会抛出
+ * "An invalid or illegal string was specified"，
+ * 正确方式是 Range.createContextualFragment()。
+ */
+function setHTML(el: HTMLElement, html: string): void {
+  // 先清空
+  while (el.firstChild) el.removeChild(el.firstChild);
+  try {
+    const range = (el.ownerDocument as Document).createRange();
+    range.selectNodeContents(el);
+    el.appendChild(range.createContextualFragment(html));
+  } catch {
+    // 兜底：退化为纯文本
+    el.textContent = html;
+  }
 }
 
 function scrollToBottom(el: HTMLElement) {
