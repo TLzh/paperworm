@@ -4,8 +4,6 @@
 
 PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, you can ask questions, request summaries, translate passages, and have a conversation — all in context with the paper you are currently reading.
 
-![PaperWorm panel screenshot](docs/screenshot.png)
-
 ---
 
 ## Features
@@ -25,7 +23,7 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 
 ## Installation
 
-1. Download the latest `.xpi` file from [Releases](../../releases)
+1. Download the latest `.xpi` file from [Releases](https://github.com/TLzh/paperworm/releases)
 2. In Zotero, open **Tools → Add-ons**
 3. Click the gear icon → **Install Add-on From File…**
 4. Select the downloaded `.xpi`
