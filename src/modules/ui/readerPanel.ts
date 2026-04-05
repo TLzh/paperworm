@@ -7,6 +7,7 @@ import { config } from "../../../package.json";
 import { LLMManager } from "../llm/manager";
 import { ChatHistory } from "../chat/history";
 import { PaperExtractor } from "../paper/extractor";
+import katex from "katex";
 
 // 每篇论文单独维护一份对话历史（以 item ID 为 key）
 const histories = new Map<number, ChatHistory>();
@@ -326,6 +327,32 @@ function setMarkdown(el: HTMLElement, text: string): void {
   while (i < lines.length) {
     const line = lines[i];
 
+    // 显示数学公式：$$ 单独一行作为围栏开始/结束
+    if (line.trim() === "$$") {
+      flushPara();
+      i++;
+      const mathLines: string[] = [];
+      while (i < lines.length && lines[i].trim() !== "$$") mathLines.push(lines[i++]);
+      if (lines[i]?.trim() === "$$") i++;
+      const wrap = doc.createElement("div");
+      wrap.className = "pw-math-display";
+      renderMath(doc, wrap, mathLines.join("\n"), true);
+      el.appendChild(wrap);
+      continue;
+    }
+
+    // 显示数学公式：$$formula$$ 同行
+    const dmatch = line.match(/^\$\$(.+)\$\$\s*$/);
+    if (dmatch) {
+      flushPara();
+      const wrap = doc.createElement("div");
+      wrap.className = "pw-math-display";
+      renderMath(doc, wrap, dmatch[1].trim(), true);
+      el.appendChild(wrap);
+      i++;
+      continue;
+    }
+
     // 代码块
     if (line.startsWith("```")) {
       flushPara();
@@ -387,13 +414,26 @@ function setMarkdown(el: HTMLElement, text: string): void {
   flushPara();
 }
 
-/** 在 el 内追加行内 markdown（粗体 / 斜体 / 行内代码），单行换行转 <br> */
+/** 在 el 内追加行内 markdown（粗体 / 斜体 / 行内代码 / 行内公式），单行换行转 <br> */
 function appendInline(doc: Document, el: Element, text: string): void {
   text.split("\n").forEach((line, idx, arr) => {
-    const parts = line.split(/(\*\*\*.+?\*\*\*|\*\*.+?\*\*|\*.+?\*|`.+?`)/);
+    // 分隔符：行内数学 $...$ 优先于其他模式（避免 * 在公式里被误匹配）
+    const parts = line.split(
+      /(\$\$[^$\n]+\$\$|\$[^$\n]+\$|\*\*\*.+?\*\*\*|\*\*.+?\*\*|\*.+?\*|`.+?`)/,
+    );
     for (const part of parts) {
       if (!part) continue;
-      if (/^\*\*\*.+\*\*\*$/.test(part)) {
+      // 行内显示数学 $$...$$
+      if (/^\$\$[^$]/.test(part) && part.endsWith("$$")) {
+        const span = doc.createElement("span");
+        renderMath(doc, span, part.slice(2, -2), true);
+        el.appendChild(span);
+      // 行内数学 $...$
+      } else if (part.startsWith("$") && part.endsWith("$") && part.length > 2 && !part.startsWith("$$")) {
+        const span = doc.createElement("span");
+        renderMath(doc, span, part.slice(1, -1), false);
+        el.appendChild(span);
+      } else if (/^\*\*\*.+\*\*\*$/.test(part)) {
         const s = doc.createElement("strong");
         const e = doc.createElement("em");
         e.textContent = part.slice(3, -3);
@@ -417,6 +457,31 @@ function appendInline(doc: Document, el: Element, text: string): void {
     }
     if (idx < arr.length - 1) el.appendChild(doc.createElement("br"));
   });
+}
+
+/**
+ * 用 KaTeX 渲染数学公式（MathML 输出，Firefox 原生渲染，无需 CSS/字体）。
+ * 利用"未挂载元素 innerHTML"技巧：在未 append 到文档前设置 innerHTML
+ * 是允许的（与 initPanel 中 wrapper.innerHTML 同原理），
+ * 再将节点逐一移入目标元素。
+ */
+function renderMath(doc: Document, el: HTMLElement, latex: string, display: boolean): void {
+  try {
+    const html = katex.renderToString(latex.trim(), {
+      throwOnError: false,
+      displayMode: display,
+      output: "mathml", // Firefox 原生 MathML，不依赖 KaTeX CSS/字体
+    });
+    // 未挂载的 tmp 元素可以安全使用 innerHTML
+    const tmp = doc.createElement("span");
+    tmp.innerHTML = html;
+    while (tmp.firstChild) el.appendChild(tmp.firstChild);
+  } catch {
+    // 兜底：显示原始 LaTeX
+    const code = doc.createElement("code");
+    code.textContent = display ? `$$${latex}$$` : `$${latex}$`;
+    el.appendChild(code);
+  }
 }
 
 async function buildSystemContent(item: Zotero.Item): Promise<string> {
@@ -594,4 +659,10 @@ const CHAT_CSS = `
 }
 .pw-msg pre code { background: none; padding: 0; }
 .pw-msg hr { border: none; border-top: 1px solid rgba(128,128,128,0.3); margin: 8px 0; }
+.pw-math-display {
+  text-align: center;
+  margin: 8px 0;
+  overflow-x: auto;
+  padding: 4px 0;
+}
 `;
