@@ -70,7 +70,9 @@ export class PaperExtractor {
       const pdfApp = PaperExtractor._findInFrames<any>(
         readerWin,
         (win) => {
-          const app = (win as any).PDFViewerApplication;
+          // chrome 上下文访问 content JS 全局需通过 wrappedJSObject
+          const w = (win as any).wrappedJSObject ?? win;
+          const app = w.PDFViewerApplication;
           return app?.pdfDocument ? app : null;
         },
         new Set(),
@@ -148,7 +150,8 @@ export class PaperExtractor {
 
   /** 通过 PDF.js PDFViewerApplication 提取全文（最多 50 页） */
   private static async _extractPDFText(pdfApp: any): Promise<string> {
-    const pdfDoc = pdfApp.pdfDocument;
+    // pdfApp 来自 content 上下文，通过 wrappedJSObject 访问属性
+    const pdfDoc = (pdfApp.wrappedJSObject ?? pdfApp).pdfDocument;
     if (!pdfDoc) return "";
 
     const totalPages: number = pdfDoc.numPages;
