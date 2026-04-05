@@ -76,6 +76,7 @@ ${CHAT_CSS}
     <div class="pw-action-btn" role="button" tabindex="0" data-action="summarize">总结本文</div>
     <div class="pw-action-btn" role="button" tabindex="0" data-action="explain">解释段落</div>
     <div class="pw-action-btn" role="button" tabindex="0" data-action="translate">翻译</div>
+    <div class="pw-action-btn" role="button" tabindex="0" data-action="quote">引用选中</div>
   </div>
   <div class="pw-messages"></div>
   <div class="pw-input-area">
@@ -161,12 +162,29 @@ function handleAction(
         "请对这篇论文做一个结构化总结，包括：研究问题、方法、主要发现、贡献和局限性。" +
         (meta.title ? `\n\n论文标题：${meta.title}` : "");
       break;
-    case "explain":
-      textarea.value = "请解释以下段落（请粘贴要解释的内容）：\n\n";
+    case "explain": {
+      const sel = PaperExtractor.getSelectedText();
+      textarea.value = sel
+        ? `请解释以下段落：\n\n「${sel}」`
+        : "请解释以下段落（请粘贴要解释的内容）：\n\n";
       break;
-    case "translate":
-      textarea.value = "请将以下内容翻译为中文（请粘贴要翻译的内容）：\n\n";
+    }
+    case "translate": {
+      const sel = PaperExtractor.getSelectedText();
+      textarea.value = sel
+        ? `请将以下内容翻译为中文：\n\n「${sel}」`
+        : "请将以下内容翻译为中文（请粘贴要翻译的内容）：\n\n";
       break;
+    }
+    case "quote": {
+      const sel = PaperExtractor.getSelectedText();
+      if (sel) {
+        textarea.value = `「${sel}」\n\n`;
+      } else {
+        textarea.placeholder = "请先在 PDF 中选中一段文字，再点击引用选中";
+      }
+      break;
+    }
   }
   textarea.focus();
   textarea.setSelectionRange(textarea.value.length, textarea.value.length);
@@ -184,8 +202,15 @@ async function send(
   sendBtn.classList.add("pw-disabled");
   const history = getHistory(item.id);
 
-  appendMessage(doc, messagesEl, "user", userText);
-  history.add({ role: "user", content: userText });
+  // 检测 Reader 中的选中文字（≥10 字符才注入，避免误触发）
+  const selectedText = PaperExtractor.getSelectedText();
+  const finalText =
+    selectedText.length >= 10
+      ? `「${selectedText}」\n\n${userText}`
+      : userText;
+
+  appendMessage(doc, messagesEl, "user", finalText);
+  history.add({ role: "user", content: finalText });
   scrollToBottom(messagesEl);
 
   const aiEl = appendMessage(doc, messagesEl, "assistant", "");

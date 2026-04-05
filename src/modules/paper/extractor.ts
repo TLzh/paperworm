@@ -20,6 +20,19 @@ export class PaperExtractor {
     return Zotero.Items.get(reader.itemID);
   }
 
+  /** 获取 Reader 中当前选中的文字 */
+  static getSelectedText(): string {
+    try {
+      const tabs = (globalThis as any).Zotero_Tabs;
+      const reader = Zotero.Reader.getByTabID(tabs?.selectedID as string);
+      // PDF.js 渲染在 reader._iframeWindow 里，选区独立于主窗口
+      const text = (reader as any)?._iframeWindow?.getSelection()?.toString()?.trim() ?? "";
+      return text;
+    } catch {
+      return "";
+    }
+  }
+
   /** 提取条目元数据 */
   static getItemMetadata(item: Zotero.Item): PaperMetadata {
     const parent = item.isAttachment() ? item.parentItem : item;
