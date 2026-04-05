@@ -261,7 +261,7 @@ async function send(
     () => {
       aiEl.classList.remove("pw-msg-loading");
       if (fullResponse) {
-        setHTML(aiEl, renderMarkdown(fullResponse));
+        setMarkdown(aiEl, fullResponse);
         history.add({ role: "assistant", content: fullResponse });
       }
       sendBtn.classList.remove("pw-disabled");
@@ -288,7 +288,7 @@ function appendMessage(
   const el = doc.createElement("div");
   el.className = `pw-msg pw-msg-${role}`;
   if (asMarkdown && text) {
-    setHTML(el, renderMarkdown(text));
+    setMarkdown(el, text);
   } else {
     el.textContent = text;
   }
@@ -296,62 +296,127 @@ function appendMessage(
   return el;
 }
 
-/**
- * 在 Gecko chrome 上下文中安全地将 HTML 字符串写入元素。
- * innerHTML 和 createContextualFragment 在 chrome 特权文档中均受安全限制。
- * 正确方式：DOMParser 在独立的非特权文档中解析 HTML，
- * 再用 adoptNode 将节点迁移到目标文档——完全绕过 chrome 安全限制。
- */
-function setHTML(el: HTMLElement, html: string): void {
-  while (el.firstChild) el.removeChild(el.firstChild);
-  try {
-    const parsed = new DOMParser().parseFromString(
-      `<!DOCTYPE html><body>${html}</body>`,
-      "text/html",
-    );
-    const doc = el.ownerDocument as Document;
-    const body = parsed.body as HTMLElement;
-    while (body?.firstChild) {
-      el.appendChild(doc.adoptNode(body.firstChild));
-    }
-  } catch {
-    el.textContent = html;
-  }
-}
-
 function scrollToBottom(el: HTMLElement) {
   el.scrollTop = el.scrollHeight;
 }
 
-function renderMarkdown(text: string): string {
-  let s = text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-  // 代码块（先处理，避免被其它规则破坏）
-  s = s.replace(/```[\w]*\n?([\s\S]*?)```/g, "<pre><code>$1</code></pre>");
-  s = s.replace(/`([^`\n]+)`/g, "<code>$1</code>");
-  // 标题
-  s = s.replace(/^##### (.+)$/gm, "<h5>$1</h5>");
-  s = s.replace(/^#### (.+)$/gm,  "<h4>$1</h4>");
-  s = s.replace(/^### (.+)$/gm,   "<h3>$1</h3>");
-  // 粗体 / 斜体
-  s = s.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
-  s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  s = s.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  // 无序列表（连续的 <li> 包裹为一个 <ul>）
-  s = s.replace(/^[ \t]*[-*] (.+)$/gm, "<li>$1</li>");
-  s = s.replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`);
-  // 水平线
-  s = s.replace(/^---+$/gm, "<hr>");
-  // 段落 / 换行
-  s = s.replace(/\n{2,}/g, "</p><p>").replace(/\n/g, "<br>");
-  s = "<p>" + s + "</p>";
-  s = s.replace(/<p><\/p>/g, "");
-  // 还原 pre 块内被破坏的换行和段落标签
-  s = s.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, (_, c) =>
-    `<pre><code>${c.replace(/<br>/g, "\n").replace(/<\/?p>/g, "")}</code></pre>`);
-  return s;
+/**
+ * 将 markdown 文本渲染进目标元素。
+ * 完全使用 DOM API（createElement / createTextNode / appendChild），
+ * 不生成任何 HTML 字符串，彻底绕过 Gecko chrome 上下文对
+ * innerHTML / createContextualFragment / DOMParser 的安全限制。
+ */
+function setMarkdown(el: HTMLElement, text: string): void {
+  const doc = el.ownerDocument as Document;
+  while (el.firstChild) el.removeChild(el.firstChild);
+
+  const lines = text.split("\n");
+  let paraLines: string[] = [];
+
+  function flushPara() {
+    const content = paraLines.join("\n").trim();
+    paraLines = [];
+    if (!content) return;
+    const p = doc.createElement("p");
+    appendInline(doc, p, content);
+    el.appendChild(p);
+  }
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // 代码块
+    if (line.startsWith("```")) {
+      flushPara();
+      i++;
+      const codeLines: string[] = [];
+      while (i < lines.length && !lines[i].startsWith("```")) codeLines.push(lines[i++]);
+      if (lines[i]?.startsWith("```")) i++;
+      const pre = doc.createElement("pre");
+      const code = doc.createElement("code");
+      code.textContent = codeLines.join("\n");
+      pre.appendChild(code);
+      el.appendChild(pre);
+      continue;
+    }
+
+    // 标题 (# ~ ######)
+    const hm = line.match(/^(#{1,6})\s+(.*)$/);
+    if (hm) {
+      flushPara();
+      const h = doc.createElement(`h${Math.min(hm[1].length, 6)}`);
+      appendInline(doc, h, hm[2]);
+      el.appendChild(h);
+      i++;
+      continue;
+    }
+
+    // 水平线
+    if (/^-{3,}$/.test(line.trim())) {
+      flushPara();
+      el.appendChild(doc.createElement("hr"));
+      i++;
+      continue;
+    }
+
+    // 无序列表（连续行收进同一个 <ul>）
+    if (/^[ \t]*[-*] /.test(line)) {
+      flushPara();
+      const ul = doc.createElement("ul");
+      while (i < lines.length && /^[ \t]*[-*] /.test(lines[i])) {
+        const li = doc.createElement("li");
+        appendInline(doc, li, lines[i].replace(/^[ \t]*[-*]\s+/, ""));
+        ul.appendChild(li);
+        i++;
+      }
+      el.appendChild(ul);
+      continue;
+    }
+
+    // 空行 → 刷出段落
+    if (line.trim() === "") {
+      flushPara();
+      i++;
+      continue;
+    }
+
+    paraLines.push(line);
+    i++;
+  }
+  flushPara();
+}
+
+/** 在 el 内追加行内 markdown（粗体 / 斜体 / 行内代码），单行换行转 <br> */
+function appendInline(doc: Document, el: Element, text: string): void {
+  text.split("\n").forEach((line, idx, arr) => {
+    const parts = line.split(/(\*\*\*.+?\*\*\*|\*\*.+?\*\*|\*.+?\*|`.+?`)/);
+    for (const part of parts) {
+      if (!part) continue;
+      if (/^\*\*\*.+\*\*\*$/.test(part)) {
+        const s = doc.createElement("strong");
+        const e = doc.createElement("em");
+        e.textContent = part.slice(3, -3);
+        s.appendChild(e);
+        el.appendChild(s);
+      } else if (/^\*\*.+\*\*$/.test(part)) {
+        const s = doc.createElement("strong");
+        s.textContent = part.slice(2, -2);
+        el.appendChild(s);
+      } else if (/^\*.+\*$/.test(part)) {
+        const e = doc.createElement("em");
+        e.textContent = part.slice(1, -1);
+        el.appendChild(e);
+      } else if (/^`.+`$/.test(part)) {
+        const c = doc.createElement("code");
+        c.textContent = part.slice(1, -1);
+        el.appendChild(c);
+      } else {
+        el.appendChild(doc.createTextNode(part));
+      }
+    }
+    if (idx < arr.length - 1) el.appendChild(doc.createElement("br"));
+  });
 }
 
 async function buildSystemContent(item: Zotero.Item): Promise<string> {
