@@ -357,6 +357,20 @@ function setMarkdown(el: HTMLElement, text: string): void {
       continue;
     }
 
+    // 显示数学公式：\[ 单独一行作为围栏开始/结束（LaTeX 风格）
+    if (line.trim() === "\\[") {
+      flushPara();
+      i++;
+      const mathLines: string[] = [];
+      while (i < lines.length && lines[i].trim() !== "\\]") mathLines.push(lines[i++]);
+      if (lines[i]?.trim() === "\\]") i++;
+      const wrap = doc.createElement("div");
+      wrap.className = "pw-math-display";
+      renderMath(doc, wrap, mathLines.join("\n"), true);
+      el.appendChild(wrap);
+      continue;
+    }
+
     // 显示数学公式：$$formula$$ 同行
     const dmatch = line.match(/^\$\$(.+)\$\$\s*$/);
     if (dmatch) {
@@ -364,6 +378,18 @@ function setMarkdown(el: HTMLElement, text: string): void {
       const wrap = doc.createElement("div");
       wrap.className = "pw-math-display";
       renderMath(doc, wrap, dmatch[1].trim(), true);
+      el.appendChild(wrap);
+      i++;
+      continue;
+    }
+
+    // 显示数学公式：\[formula\] 同行（LaTeX 风格）
+    const dlmatch = line.match(/^\\\[(.+)\\\]\s*$/);
+    if (dlmatch) {
+      flushPara();
+      const wrap = doc.createElement("div");
+      wrap.className = "pw-math-display";
+      renderMath(doc, wrap, dlmatch[1].trim(), true);
       el.appendChild(wrap);
       i++;
       continue;
@@ -490,7 +516,7 @@ function appendInline(doc: Document, el: Element, text: string): void {
   text.split("\n").forEach((line, idx, arr) => {
     // 分隔符：行内数学 $...$ 优先于其他模式（避免 * 在公式里被误匹配）
     const parts = line.split(
-      /(\$\$[^$\n]+\$\$|\$[^$\n]+\$|\*\*\*.+?\*\*\*|\*\*.+?\*\*|\*.+?\*|`.+?`)/,
+      /(\$\$[^$\n]+\$\$|\$[^$\n]+\$|\\\([^\n]+?\\\)|\*\*\*.+?\*\*\*|\*\*.+?\*\*|\*.+?\*|`.+?`)/,
     );
     for (const part of parts) {
       if (!part) continue;
@@ -503,6 +529,11 @@ function appendInline(doc: Document, el: Element, text: string): void {
       } else if (part.startsWith("$") && part.endsWith("$") && part.length > 2 && !part.startsWith("$$")) {
         const span = doc.createElement("span");
         renderMath(doc, span, part.slice(1, -1), false);
+        el.appendChild(span);
+      // 行内数学 \(...\)（LaTeX 风格）
+      } else if (part.startsWith("\\(") && part.endsWith("\\)")) {
+        const span = doc.createElement("span");
+        renderMath(doc, span, part.slice(2, -2), false);
         el.appendChild(span);
       } else if (/^\*\*\*.+\*\*\*$/.test(part)) {
         const s = doc.createElement("strong");

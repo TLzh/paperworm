@@ -62,7 +62,7 @@ workspace/
 
 ## 当前开发状态
 
-**阶段**: v0.5.2 — 多 tab 全文提取 bug 修复
+**阶段**: v0.5.3 — LaTeX 公式定界符渲染修复
 
 **已完成**:
 - 创建文档体系（CLAUDE.md / PRD.md / architecture.md / devlog.md）
@@ -85,7 +85,8 @@ workspace/
   - 支持：标题（H1–H6）、粗体、斜体、无序列表、代码块、行内代码、水平线
   - Gecko chrome 上下文限制：innerHTML / createContextualFragment / DOMParser+adoptNode 均被拦截，必须使用纯 DOM API
 - **KaTeX 数学公式渲染**：
-  - 块级 `$$...$$` 与行内 `$...$` 均支持
+  - 块级：`$$...$$`（围栏或同行）和 `\[...\]`（LaTeX 风格，围栏或同行）均支持
+  - 行内：`$...$` 和 `\(...\)`（LaTeX 风格）均支持
   - 使用 KaTeX MathML 输出 + 未挂载元素 innerHTML 技巧注入
   - Firefox 原生渲染 MathML，无需 KaTeX CSS / 字体文件
 - 消息区自然展开（移除 max-height 限制）
