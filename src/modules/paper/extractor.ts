@@ -42,47 +42,66 @@ export class PaperExtractor {
   }
 
   /**
-   * 获取 PDF 全文。
-   * 优先使用 Zotero 全文索引；如未索引，则通过 PDF.js API
-   * 从已打开的 Reader 实时提取（无需额外索引步骤）。
+   * 获取 PDF 全文。三级策略：
+   * 1. Zotero 全文索引（已索引时最快）
+   * 2. 触发 Zotero 对该附件即时索引后再读
+   * 3. 直接读取 Reader 已渲染的 DOM .textLayer 文字层
+   *    （与 getSelectedText 同原理，只要选中文字能工作此方法就能工作）
    */
   static async getFullText(item: Zotero.Item): Promise<string> {
-    // 1. 尝试 Zotero 全文索引
-    try {
-      const attachment = item.isAttachment()
-        ? item
-        : Zotero.Items.get(item.getAttachments()[0]);
-      if (attachment) {
+    const attachment = item.isAttachment()
+      ? item
+      : Zotero.Items.get(item.getAttachments()[0]);
+
+    // 1. 尝试 Zotero 全文索引（已索引时立即返回）
+    if (attachment) {
+      try {
         const result = await (Zotero.Fulltext as any).getItemContent(attachment);
         const text =
           typeof result === "string" ? result : (result?.content ?? "");
         if (text.trim()) return text;
-      }
-    } catch { /* fall through */ }
+      } catch { /* fall through */ }
+    }
 
-    // 2. 通过 PDF.js 从已打开的 Reader 提取
+    // 2. 触发即时索引后重试（Zotero 内置 pdftotext，不依赖 Reader 是否打开）
+    if (attachment) {
+      try {
+        await (Zotero.Fulltext as any).indexItems([attachment.id], {complete: true});
+        const result = await (Zotero.Fulltext as any).getItemContent(attachment);
+        const text =
+          typeof result === "string" ? result : (result?.content ?? "");
+        if (text.trim()) return text;
+      } catch { /* fall through */ }
+    }
+
+    // 3. 直接读取 Reader 已渲染的 .textLayer DOM 元素
+    // PDF.js 为支持文字选取必然会将文字渲染为 DOM span，与 getSelectedText 同路径。
     try {
-      const tabs = (globalThis as any).Zotero_Tabs;
-      const reader = Zotero.Reader.getByTabID(tabs?.selectedID as string);
-      const readerWin = (reader as any)?._iframeWindow;
-      if (!readerWin) return "";
+      const mainWin = Zotero.getMainWindow() as any;
+      if (!mainWin) return "";
 
-      const pdfApp = PaperExtractor._findInFrames<any>(
-        readerWin,
+      const text = PaperExtractor._findInFrames<string>(
+        mainWin,
         (win) => {
-          // chrome 上下文访问 content JS 全局需通过 wrappedJSObject
-          const w = (win as any).wrappedJSObject ?? win;
-          const app = w.PDFViewerApplication;
-          return app?.pdfDocument ? app : null;
+          const doc = (win as any).document;
+          if (!doc?.querySelectorAll) return null;
+          const layers = Array.from(
+            doc.querySelectorAll(".textLayer"),
+          ) as HTMLElement[];
+          if (!layers.length) return null;
+          const content = layers
+            .map((el) => el.innerText ?? el.textContent ?? "")
+            .join("\n\n")
+            .replace(/[ \t]{2,}/g, " ")
+            .trim();
+          return content.length > 200 ? content : null;
         },
         new Set(),
       );
-      if (!pdfApp) return "";
+      if (text) return text;
+    } catch { /* fall through */ }
 
-      return await PaperExtractor._extractPDFText(pdfApp);
-    } catch {
-      return "";
-    }
+    return "";
   }
 
   /** 提取条目元数据 */
@@ -148,32 +167,4 @@ export class PaperExtractor {
     return null;
   }
 
-  /** 通过 PDF.js PDFViewerApplication 提取全文（最多 50 页） */
-  private static async _extractPDFText(pdfApp: any): Promise<string> {
-    // pdfApp 来自 content 上下文，通过 wrappedJSObject 访问属性
-    const pdfDoc = (pdfApp.wrappedJSObject ?? pdfApp).pdfDocument;
-    if (!pdfDoc) return "";
-
-    const totalPages: number = pdfDoc.numPages;
-    const maxPages = Math.min(totalPages, 50);
-    const pageTexts: string[] = [];
-
-    for (let i = 1; i <= maxPages; i++) {
-      try {
-        const page = await pdfDoc.getPage(i);
-        const content = await page.getTextContent();
-        const text = (content.items as any[])
-          .map((it) => it.str ?? "")
-          .join(" ")
-          .replace(/\s+/g, " ")
-          .trim();
-        if (text) pageTexts.push(text);
-      } catch { /* skip page */ }
-    }
-
-    const fullText = pageTexts.join("\n\n");
-    return totalPages > maxPages
-      ? fullText + `\n\n[extracted from first ${maxPages} of ${totalPages} pages]`
-      : fullText;
-  }
 }
