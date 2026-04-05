@@ -166,7 +166,7 @@
       min="0" max="2" step="0.1"
       style="width:80px;padding:2px 4px"
     />
-    <label value="(0 – 2)" style="margin-left:6px;opacity:0.6;font-size:0.9em" />
+    <label value="(0–2，学术阅读推荐 0.1–0.5)" style="margin-left:6px;opacity:0.6;font-size:0.9em" />
   </hbox>
 
   <hbox align="center">
@@ -174,9 +174,10 @@
     <html:input
       type="number"
       preference="llm.maxTokens"
-      min="100" max="8000" step="100"
+      min="100" max="32000" step="100"
       style="width:80px;padding:2px 4px"
     />
+    <label value="影响单次回复长度" style="margin-left:6px;opacity:0.6;font-size:0.9em" />
   </hbox>
 </groupbox>
 
@@ -188,10 +189,13 @@
     <label data-l10n-id="pref-template-label" style="width:110px;min-width:110px" />
     <menulist id="__addonRef__-prompt-template" style="flex:1">
       <menupopup>
+        <menuitem value="__blank__" label="自定义（清空）" />
+        <menuitem value="unlocker"  label="开锁专家" />
         <menuitem value="academic"  label="学术阅读助手" />
         <menuitem value="translate" label="翻译模式" />
         <menuitem value="critical"  label="批判性分析" />
         <menuitem value="notes"     label="研究笔记助手" />
+        <menuseparator id="__addonRef__-user-template-sep" hidden="true" />
       </menupopup>
     </menulist>
     <button
@@ -199,7 +203,19 @@
       data-l10n-id="pref-apply-template"
       style="margin-left:6px"
     />
+    <button id="__addonRef__-delete-template" label="删除"   disabled="true" style="margin-left:4px" />
+    <button id="__addonRef__-saveas-template" label="另存为" style="margin-left:4px" />
   </hbox>
+
+  <hbox id="__addonRef__-save-row" hidden="true" align="center" style="margin-bottom:4px">
+    <label value="模板名称：" style="width:110px;min-width:110px" />
+    <html:input type="text" id="__addonRef__-template-name-input"
+      placeholder="输入模板名称" style="flex:1;padding:2px 4px" />
+    <button id="__addonRef__-confirm-save" label="保存" style="margin-left:6px" />
+    <button id="__addonRef__-cancel-save"  label="取消" style="margin-left:4px" />
+  </hbox>
+  <label id="__addonRef__-save-error" hidden="true"
+    style="color:red;font-size:0.85em;margin-bottom:4px" />
 
   <html:textarea
     id="__addonRef__-system-prompt"

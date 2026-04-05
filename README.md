@@ -14,7 +14,9 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 - **Streaming responses** — AI replies appear word by word in real time
 - **Quick actions** — one-click prompts to summarize the paper, explain a paragraph, or translate text
 - **Multi-provider** — supports OpenAI, DeepSeek, Anthropic (Claude), Google Gemini, and Ollama (local)
-- **Per-paper history** — conversation history is kept separately for each paper within a session
+- **Persistent sessions with cross-device sync** — every conversation is automatically saved as a Zotero child note attached to the paper; sessions survive Zotero restarts and sync to other devices via your free Zotero account
+- **Multiple sessions per paper** — start new conversations and switch between them via the **Session List** view
+- **Rich text rendering** — Markdown (headings, bold, lists, code blocks) and LaTeX math (via KaTeX MathML) rendered in AI responses
 
 ## Requirements
 
@@ -45,6 +47,35 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 | Anthropic | `claude-sonnet-4-5` | Requires API key |
 | Google Gemini | `gemini-1.5-flash` | Requires API key |
 | Ollama | any local model | No API key needed; set base URL (default: `http://localhost:11434`) |
+
+## Switching Providers Mid-Conversation
+
+Every setting — provider, model, API key, temperature, max tokens, and system prompt — is read fresh on each message send. There is no restart or reload required.
+
+This means you can switch providers or models at any point during a conversation. The next message will be sent to the new provider, while the full conversation history remains intact and is passed along as context.
+
+Each provider's API key and model are stored independently, so switching between providers never overwrites your other configurations.
+
+## Session Storage
+
+PaperWorm stores each conversation as a **Zotero child note** attached to the paper item. This has two benefits:
+
+1. **Persistence** — sessions survive Zotero restarts (unlike in-memory history)
+2. **Free cross-device sync** — Zotero notes are item metadata and sync automatically with a free Zotero account, with no file storage subscription required
+
+### Note format
+
+Each session note contains:
+- A human-readable transcript (`用户` / `AI` turns)
+- A machine-readable metadata block used by PaperWorm to restore the session
+
+The metadata block appears at the bottom of the note as a collapsed `▶ 会话元数据` section containing a Base64-encoded JSON string. **This is intentional and expected** — it is how PaperWorm stores the conversation data for reloading.
+
+> If you open a PaperWorm session note directly in Zotero's note editor, you will see this Base64 text at the bottom. You can ignore it. Do not edit or delete it manually, as doing so will prevent PaperWorm from loading that session.
+
+Session notes are titled `PaperWorm · <first message>` and are listed under the paper in Zotero's item tree.
+
+---
 
 ## Security
 

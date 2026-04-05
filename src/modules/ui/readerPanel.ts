@@ -19,6 +19,9 @@ function getHistory(itemID: number): ChatHistory {
   return histories.get(itemID)!;
 }
 
+// 当前激活的会话 noteID（null = 新会话尚未保存到 Zotero）
+const activeNoteIDs = new Map<number, number | null>();
+
 // ── 注册入口 ────────────────────────────────────────────────────────────────
 
 export function registerReaderPanel() {
@@ -43,14 +46,14 @@ export function registerReaderPanel() {
         body.textContent = "";
         return;
       }
-      initPanel(body, item);
+      void initPanel(body, item);
     },
   });
 }
 
 // ── 面板初始化 ───────────────────────────────────────────────────────────────
 
-function initPanel(body: HTMLElement, item: Zotero.Item) {
+async function initPanel(body: HTMLElement, item: Zotero.Item) {
   const doc = body.ownerDocument as Document;
   body.textContent = "";
 
@@ -71,7 +74,7 @@ ${CHAT_CSS}
 <div class="pw-panel">
   <div class="pw-header">
     <span class="pw-model-badge">${providerName} · ${modelName}</span>
-    <div class="pw-clear-btn" role="button" tabindex="0">清空</div>
+    <div class="pw-sessions-btn" role="button" tabindex="0">会话列表</div>
   </div>
   <div class="pw-actions">
     <div class="pw-action-btn" role="button" tabindex="0" data-action="summarize">总结本文</div>
@@ -90,14 +93,17 @@ ${CHAT_CSS}
   const panel = wrapper.querySelector(".pw-panel") as HTMLElement;
   const messagesEl = panel.querySelector(".pw-messages") as HTMLElement;
 
-  // 恢复历史消息
-  for (const msg of getHistory(item.id).getAll()) {
-    if (msg.role !== "system") {
-      appendMessage(doc, messagesEl, msg.role as "user" | "assistant", msg.content,
-        msg.role === "assistant");
+  if (getHistory(item.id).getAll().length > 0) {
+    // 内存中有活跃对话，直接渲染
+    renderChatHistory(doc, messagesEl, item);
+  } else {
+    // 内存为空，检查 Zotero 中是否有历史会话
+    const sessions = await loadSessions(item);
+    if (sessions.length > 0) {
+      showSessionList(doc, messagesEl, sessions, item);
     }
+    // 无历史：空聊天界面（默认状态）
   }
-  scrollToBottom(messagesEl);
 
   bindEvents(doc, panel, messagesEl, item);
 }
@@ -112,7 +118,7 @@ function bindEvents(
 ) {
   const textarea = panel.querySelector(".pw-input") as HTMLTextAreaElement;
   const sendBtn = panel.querySelector(".pw-send-btn") as HTMLElement;
-  const clearBtn = panel.querySelector(".pw-clear-btn") as HTMLElement;
+  const sessionsBtn = panel.querySelector(".pw-sessions-btn") as HTMLElement;
 
   // 在用户点击面板任何元素之前（mousedown 阶段）捕获 PDF 选区。
   // 此时焦点尚未离开 PDF iframe，选区还在。
@@ -160,9 +166,18 @@ function bindEvents(
     });
   });
 
-  clearBtn.addEventListener("click", () => {
-    getHistory(item.id).clear();
-    messagesEl.textContent = "";
+  sessionsBtn.addEventListener("click", () => {
+    // 若当前已在会话列表 → 若有活跃会话则返回聊天，否则不响应
+    if (messagesEl.querySelector(".pw-session-list")) {
+      if (getHistory(item.id).getAll().length > 0) {
+        renderChatHistory(doc, messagesEl, item);
+      }
+      return;
+    }
+    // 切换到会话列表
+    void loadSessions(item).then((sessions) => {
+      showSessionList(doc, messagesEl, sessions, item);
+    });
   });
 }
 
@@ -264,6 +279,7 @@ async function send(
       if (fullResponse) {
         setMarkdown(aiEl, fullResponse);
         history.add({ role: "assistant", content: fullResponse });
+        void saveSession(item, history); // 自动保存到 Zotero 笔记
       }
       sendBtn.classList.remove("pw-disabled");
       scrollToBottom(messagesEl);
@@ -509,6 +525,238 @@ async function buildSystemContent(item: Zotero.Item): Promise<string> {
   return ctx;
 }
 
+// ── 会话持久化 ───────────────────────────────────────────────────────────────
+
+interface SessionData {
+  version: number;
+  title: string;
+  created: string; // ISO 8601
+  updated: string; // ISO 8601
+  messages: Array<{ role: string; content: string }>;
+}
+
+/**
+ * 将 SessionData 序列化为 base64 字符串。
+ * 用 TextEncoder 确保 Unicode 正确处理，避免 btoa 对非 ASCII 字符报错。
+ */
+function sessionToBase64(data: SessionData): string {
+  const json = JSON.stringify(data);
+  const bytes = new TextEncoder().encode(json);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+/** 从 base64 字符串还原 SessionData */
+function base64ToSession(b64: string): SessionData {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return JSON.parse(new TextDecoder().decode(bytes)) as SessionData;
+}
+
+/**
+ * 构建 Zotero 笔记 HTML。
+ * 数据存储在 <details> 内的 <code class="pw-archive-data"> 中（base64 编码）。
+ * - <details> 是标准 HTML，Zotero 笔记视图（web 引擎）默认折叠，用户不会看到 base64 字符串
+ * - <code> 是普通标签，Zotero 不会过滤（<script> 会被过滤，style="display:none" 会被过滤）
+ */
+function buildNoteHtml(title: string, visibleMsgs: Array<{ role: string; content: string }>, data: SessionData): string {
+  const rows = visibleMsgs
+    .map((m) => `<p><b>${m.role === "user" ? "用户" : "AI"}：</b>${escapeHtml(m.content)}</p>`)
+    .join("\n");
+  const b64 = sessionToBase64(data);
+  return (
+    `<h2>PaperWorm · ${escapeHtml(title)}</h2>\n` +
+    `<div>${rows}</div>\n` +
+    `<details><summary>会话元数据</summary><code class="pw-archive-data">${b64}</code></details>`
+  );
+}
+
+/** 从笔记 HTML 中提取 SessionData，返回 null 表示非 PaperWorm 笔记或解析失败 */
+function parseNoteHtml(html: string): SessionData | null {
+  const codeMatch = html.match(/<code[^>]*class="pw-archive-data"[^>]*>([A-Za-z0-9+/=\s]+)<\/code>/);
+  if (codeMatch) {
+    try {
+      return base64ToSession(codeMatch[1].trim());
+    } catch { /* fall through */ }
+  }
+  return null;
+}
+
+/** 自动保存当前会话到 Zotero child note（每次 AI 响应完成后调用） */
+async function saveSession(item: Zotero.Item, history: ChatHistory): Promise<void> {
+  const msgs = history.getAll();
+  const visibleMsgs = msgs.filter((m) => m.role !== "system");
+  if (!visibleMsgs.length) return;
+
+  // 标题 = 首条用户消息前 25 字（去换行）
+  const firstUser = visibleMsgs.find((m) => m.role === "user");
+  const title = firstUser
+    ? firstUser.content.replace(/\n/g, " ").trim().slice(0, 25)
+    : "未命名会话";
+
+  const now = new Date().toISOString();
+  const existingID = activeNoteIDs.get(item.id) ?? null;
+
+  let created = now;
+  if (existingID != null) {
+    // 保留原 created 时间
+    try {
+      const prev = parseNoteHtml(Zotero.Items.get(existingID).getNote());
+      if (prev?.created) created = prev.created;
+    } catch { /* ignore */ }
+  }
+
+  const data: SessionData = { version: 2, title, created, updated: now, messages: msgs };
+  const noteContent = buildNoteHtml(title, visibleMsgs, data);
+
+  if (existingID != null) {
+    const note = Zotero.Items.get(existingID);
+    note.setNote(noteContent);
+    await note.saveTx();
+  } else {
+    const note = new Zotero.Item("note");
+    note.setNote(noteContent);
+    const parentItem = item.isAttachment() ? (item.parentItem ?? item) : item;
+    note.parentID = parentItem.id;
+    const newID = await note.saveTx();
+    activeNoteIDs.set(item.id, newID as number);
+  }
+}
+
+/** 读取该论文的所有 PaperWorm 会话，新→旧排序 */
+async function loadSessions(
+  item: Zotero.Item,
+): Promise<Array<{ noteID: number; title: string; updated: string; data: SessionData }>> {
+  const parentItem = item.isAttachment() ? (item.parentItem ?? item) : item;
+  const noteIDs: number[] = (parentItem as any).getNotes() as number[];
+  const results: Array<{ noteID: number; title: string; updated: string; data: SessionData }> = [];
+
+  for (const nid of noteIDs) {
+    try {
+      const note = Zotero.Items.get(nid);
+      const html = note.getNote();
+      const data = parseNoteHtml(html);
+      if (!data) continue;
+      results.push({ noteID: nid, title: data.title, updated: data.updated, data });
+    } catch { /* skip malformed */ }
+  }
+
+  return results.sort((a, b) => b.updated.localeCompare(a.updated));
+}
+
+/** 渲染聊天历史到消息区 */
+function renderChatHistory(doc: Document, messagesEl: HTMLElement, item: Zotero.Item): void {
+  messagesEl.textContent = "";
+  for (const msg of getHistory(item.id).getAll()) {
+    if (msg.role !== "system") {
+      appendMessage(doc, messagesEl, msg.role as "user" | "assistant", msg.content,
+        msg.role === "assistant");
+    }
+  }
+  scrollToBottom(messagesEl);
+}
+
+/** 显示会话列表 */
+function showSessionList(
+  doc: Document,
+  messagesEl: HTMLElement,
+  sessions: Array<{ noteID: number; title: string; updated: string; data: SessionData }>,
+  item: Zotero.Item,
+): void {
+  messagesEl.textContent = "";
+
+  const list = doc.createElement("div");
+  list.className = "pw-session-list";
+
+  // "新建对话"按钮
+  const newBtn = doc.createElement("div");
+  newBtn.className = "pw-new-chat-btn";
+  newBtn.setAttribute("role", "button");
+  newBtn.setAttribute("tabindex", "0");
+  newBtn.textContent = "+ 新建对话";
+  newBtn.addEventListener("click", () => {
+    getHistory(item.id).clear();
+    activeNoteIDs.set(item.id, null);
+    messagesEl.textContent = "";
+  });
+  list.appendChild(newBtn);
+
+  if (sessions.length > 0) {
+    const sectionTitle = doc.createElement("div");
+    sectionTitle.className = "pw-session-section-title";
+    sectionTitle.textContent = "历史会话";
+    list.appendChild(sectionTitle);
+  }
+
+  for (const sess of sessions) {
+    const row = doc.createElement("div");
+    row.className = "pw-session-item";
+    // 高亮当前激活会话
+    if (activeNoteIDs.get(item.id) === sess.noteID) {
+      row.classList.add("pw-session-active");
+    }
+
+    const titleEl = doc.createElement("span");
+    titleEl.className = "pw-session-title";
+    titleEl.textContent = sess.title;
+    row.appendChild(titleEl);
+
+    const metaEl = doc.createElement("span");
+    metaEl.className = "pw-session-date";
+    metaEl.textContent = sess.updated.slice(0, 10);
+    row.appendChild(metaEl);
+
+    const delBtn = doc.createElement("span");
+    delBtn.className = "pw-session-del";
+    delBtn.setAttribute("role", "button");
+    delBtn.setAttribute("tabindex", "0");
+    delBtn.textContent = "×";
+    row.appendChild(delBtn);
+
+    // 加载会话
+    titleEl.addEventListener("click", () => {
+      const history = getHistory(item.id);
+      history.clear();
+      for (const msg of sess.data.messages) {
+        history.add(msg as { role: "user" | "assistant" | "system"; content: string });
+      }
+      activeNoteIDs.set(item.id, sess.noteID);
+      renderChatHistory(doc, messagesEl, item);
+    });
+
+    // 删除会话
+    delBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      void (async () => {
+        try {
+          const noteItem = Zotero.Items.get(sess.noteID);
+          await noteItem.eraseTx();
+          // 若删的是当前激活会话，清空内存
+          if (activeNoteIDs.get(item.id) === sess.noteID) {
+            getHistory(item.id).clear();
+            activeNoteIDs.set(item.id, null);
+          }
+          const newSessions = await loadSessions(item);
+          showSessionList(doc, messagesEl, newSessions, item);
+        } catch { /* ignore */ }
+      })();
+    });
+
+    list.appendChild(row);
+  }
+
+  messagesEl.appendChild(list);
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 // ── CSS ──────────────────────────────────────────────────────────────────────
 
 const CHAT_CSS = `
@@ -531,7 +779,7 @@ const CHAT_CSS = `
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.pw-clear-btn {
+.pw-sessions-btn {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 4px;
@@ -541,7 +789,7 @@ const CHAT_CSS = `
   color: inherit;
   flex-shrink: 0;
 }
-.pw-clear-btn:hover { opacity: 0.7; }
+.pw-sessions-btn:hover { opacity: 0.7; }
 .pw-actions {
   display: flex;
   flex-wrap: wrap;
@@ -665,4 +913,59 @@ const CHAT_CSS = `
   overflow-x: auto;
   padding: 4px 0;
 }
+.pw-session-list {
+  padding: 8px 4px;
+}
+.pw-new-chat-btn {
+  width: 100%;
+  margin-bottom: 10px;
+  text-align: center;
+  padding: 7px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: rgba(128,128,128,0.1);
+  font-size: 12px;
+  box-sizing: border-box;
+}
+.pw-new-chat-btn:hover { background: rgba(128,128,128,0.2); }
+.pw-session-section-title {
+  font-size: 11px;
+  opacity: 0.5;
+  margin-bottom: 6px;
+  padding: 0 2px;
+}
+.pw-session-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin: 3px 0;
+  background: rgba(128,128,128,0.08);
+  cursor: pointer;
+}
+.pw-session-item:hover { background: rgba(128,128,128,0.16); }
+.pw-session-active { background: rgba(26,127,212,0.1); }
+.pw-session-active:hover { background: rgba(26,127,212,0.16); }
+.pw-session-title {
+  flex: 1;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pw-session-date {
+  font-size: 10px;
+  opacity: 0.45;
+  flex-shrink: 0;
+  padding: 0 6px;
+}
+.pw-session-del {
+  font-size: 13px;
+  opacity: 0.35;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0 2px;
+  line-height: 1;
+}
+.pw-session-del:hover { opacity: 0.8; }
 `;

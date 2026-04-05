@@ -21,6 +21,7 @@ declare namespace _ZoteroTypes {
       "llm.temperature": string;
       "llm.maxTokens": string;
       "systemPrompt.content": string;
+      "systemPrompt.userTemplates": string;
     };
   }
 }
