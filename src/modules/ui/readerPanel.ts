@@ -92,7 +92,8 @@ ${CHAT_CSS}
   // 恢复历史消息
   for (const msg of getHistory(item.id).getAll()) {
     if (msg.role !== "system") {
-      appendMessage(doc, messagesEl, msg.role as "user" | "assistant", msg.content);
+      appendMessage(doc, messagesEl, msg.role as "user" | "assistant", msg.content,
+        msg.role === "assistant");
     }
   }
   scrollToBottom(messagesEl);
@@ -259,7 +260,10 @@ async function send(
     },
     () => {
       aiEl.classList.remove("pw-msg-loading");
-      if (fullResponse) history.add({ role: "assistant", content: fullResponse });
+      if (fullResponse) {
+        aiEl.innerHTML = renderMarkdown(fullResponse);
+        history.add({ role: "assistant", content: fullResponse });
+      }
       sendBtn.classList.remove("pw-disabled");
       scrollToBottom(messagesEl);
     },
@@ -279,16 +283,52 @@ function appendMessage(
   container: HTMLElement,
   role: "user" | "assistant",
   text: string,
+  asMarkdown = false,
 ): HTMLElement {
   const el = doc.createElement("div");
   el.className = `pw-msg pw-msg-${role}`;
-  el.textContent = text;
+  if (asMarkdown && text) {
+    el.innerHTML = renderMarkdown(text);
+  } else {
+    el.textContent = text;
+  }
   container.appendChild(el);
   return el;
 }
 
 function scrollToBottom(el: HTMLElement) {
   el.scrollTop = el.scrollHeight;
+}
+
+function renderMarkdown(text: string): string {
+  let s = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  // 代码块（先处理，避免被其它规则破坏）
+  s = s.replace(/```[\w]*\n?([\s\S]*?)```/g, "<pre><code>$1</code></pre>");
+  s = s.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+  // 标题
+  s = s.replace(/^##### (.+)$/gm, "<h5>$1</h5>");
+  s = s.replace(/^#### (.+)$/gm,  "<h4>$1</h4>");
+  s = s.replace(/^### (.+)$/gm,   "<h3>$1</h3>");
+  // 粗体 / 斜体
+  s = s.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
+  s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/\*(.+?)\*/g, "<em>$1</em>");
+  // 无序列表（连续的 <li> 包裹为一个 <ul>）
+  s = s.replace(/^[ \t]*[-*] (.+)$/gm, "<li>$1</li>");
+  s = s.replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`);
+  // 水平线
+  s = s.replace(/^---+$/gm, "<hr>");
+  // 段落 / 换行
+  s = s.replace(/\n{2,}/g, "</p><p>").replace(/\n/g, "<br>");
+  s = "<p>" + s + "</p>";
+  s = s.replace(/<p><\/p>/g, "");
+  // 还原 pre 块内被破坏的换行和段落标签
+  s = s.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, (_, c) =>
+    `<pre><code>${c.replace(/<br>/g, "\n").replace(/<\/?p>/g, "")}</code></pre>`);
+  return s;
 }
 
 async function buildSystemContent(item: Zotero.Item): Promise<string> {
@@ -373,7 +413,6 @@ const CHAT_CSS = `
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 400px;
   min-height: 4px;
 }
 .pw-msg {
@@ -381,7 +420,6 @@ const CHAT_CSS = `
   padding: 8px 10px;
   border-radius: 10px;
   line-height: 1.55;
-  white-space: pre-wrap;
   word-break: break-word;
   font-size: 13px;
 }
@@ -445,4 +483,27 @@ const CHAT_CSS = `
   background: rgba(128,128,128,0.3);
   cursor: not-allowed;
 }
+.pw-msg h3 { font-size: 14px; font-weight: 700; margin: 8px 0 4px; }
+.pw-msg h4 { font-size: 13px; font-weight: 700; margin: 6px 0 3px; }
+.pw-msg h5 { font-size: 12px; font-weight: 700; margin: 4px 0 2px; }
+.pw-msg p  { margin: 4px 0; }
+.pw-msg ul { margin: 4px 0 4px 18px; padding: 0; }
+.pw-msg li { margin: 2px 0; }
+.pw-msg code {
+  font-family: monospace;
+  font-size: 12px;
+  background: rgba(128,128,128,0.15);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.pw-msg pre {
+  background: rgba(128,128,128,0.12);
+  border-radius: 6px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  font-size: 12px;
+  margin: 6px 0;
+}
+.pw-msg pre code { background: none; padding: 0; }
+.pw-msg hr { border: none; border-top: 1px solid rgba(128,128,128,0.3); margin: 8px 0; }
 `;
