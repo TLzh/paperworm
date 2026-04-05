@@ -1,5 +1,8 @@
 # PaperWorm
 
+[![Latest Release](https://img.shields.io/github/v/release/TLzh/paperworm)](https://github.com/TLzh/paperworm/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 > AI-powered paper reading assistant for Zotero
 
 PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, you can ask questions, request summaries, translate passages, and have a conversation — all in context with the paper you are currently reading.
@@ -134,6 +137,13 @@ interface LLMProvider {
   testConnection(): Promise<boolean>;
 }
 ```
+
+## Acknowledgments
+
+- [zotero-plugin-template](https://github.com/windingwind/zotero-plugin-template) by [@windingwind](https://github.com/windingwind) — project scaffold this plugin is based on
+- [zotero-plugin-toolkit](https://github.com/windingwind/zotero-plugin-toolkit) by [@windingwind](https://github.com/windingwind) — Zotero plugin utility library
+- [zotero-plugin-scaffold](https://github.com/northword/zotero-plugin-scaffold) by [@northword](https://github.com/northword) — build toolchain
+- [KaTeX](https://katex.org) — math formula rendering
 
 ## License
 
