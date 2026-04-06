@@ -13,6 +13,10 @@ import { config } from "../package.json";
  */
 function migrateOldPrefs() {
   const p = config.prefsPrefix; // "extensions.zotero.paperworm"
+  const MIGRATION_FLAG = `${p}.prefsMigratedV1`;
+
+  // 只执行一次；第一次完成后写入 flag，之后跳过
+  if (Zotero.Prefs.get(MIGRATION_FLAG, true)) return;
 
   /** 直接通过 Firefox Services.prefs 读取短路径 pref，返回 null 如不存在 */
   function readShort(key: string): string | null {
@@ -25,6 +29,7 @@ function migrateOldPrefs() {
     }
   }
 
+  // 短路径 → 完整路径 映射
   const shortKeys: Array<[string, string]> = [
     ["llm.provider",           `${p}.llm.provider`],
     ["llm.openai.apiKey",      `${p}.llm.openai.apiKey`],
@@ -45,16 +50,16 @@ function migrateOldPrefs() {
   for (const [shortKey, fullKey] of shortKeys) {
     const shortVal = readShort(shortKey);
     if (!shortVal) continue;
-    // 只在新路径未被用户显式设置过时才迁移（类型为 0 = 不存在，或仍是编译默认值）
-    const fullVal = Zotero.Prefs.get(fullKey, true) as string | undefined;
-    const isDefaultOrMissing = !fullVal || fullVal === Zotero.Prefs.get(fullKey, true);
-    if (!fullVal) {
-      Zotero.Prefs.set(fullKey, shortVal, true);
-      migrated++;
-    }
+    // 全量覆盖：短路径的值代表用户历史配置，优先级最高
+    Zotero.Prefs.set(fullKey, shortVal, true);
+    migrated++;
   }
+
+  // 标记迁移完成，之后不再执行
+  Zotero.Prefs.set(MIGRATION_FLAG, "true", true);
+
   if (migrated > 0) {
-    Zotero.log(`PaperWorm: migrated ${migrated} pref(s) from short-path to full-path.`, "warning");
+    Zotero.log(`PaperWorm: migrated ${migrated} pref(s) from old short-path to full-path.`, "warning");
   }
 }
 
