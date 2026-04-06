@@ -4,7 +4,7 @@
  */
 
 import type { LLMProvider, LLMMessage, LLMRequestOptions } from "./provider";
-import { wfetch } from "./provider";
+import { zhttp } from "./provider";
 
 export class OpenAIProvider implements LLMProvider {
   readonly name: string;
@@ -18,18 +18,12 @@ export class OpenAIProvider implements LLMProvider {
   }
 
   async chat(options: LLMRequestOptions): Promise<string> {
-    const res = await wfetch(`${this.baseUrl}/chat/completions`, {
-      method: "POST",
+    const resp = await zhttp("POST", `${this.baseUrl}/chat/completions`, {
       headers: this.headers(),
       body: JSON.stringify(this.buildBody(options, false)),
+      successCodes: [200],
     });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`${this.name} API error ${res.status}: ${err}`);
-    }
-
-    const data = await res.json() as any;
+    const data = JSON.parse(resp.responseText) as any;
     return data.choices?.[0]?.message?.content ?? "";
   }
 
@@ -39,9 +33,10 @@ export class OpenAIProvider implements LLMProvider {
     onDone: () => void,
     onError: (err: Error) => void,
   ): Promise<void> {
+    // 流式输出需要 ReadableStream，Zotero.HTTP.request() 不支持，使用 fetch()
     let res: Response;
     try {
-      res = await wfetch(`${this.baseUrl}/chat/completions`, {
+      res = await fetch(`${this.baseUrl}/chat/completions`, {
         method: "POST",
         headers: this.headers(),
         body: JSON.stringify(this.buildBody(options, true)),
@@ -83,17 +78,18 @@ export class OpenAIProvider implements LLMProvider {
 
   async testConnection(): Promise<boolean> {
     try {
-      const res = await wfetch(`${this.baseUrl}/models`, {
+      await zhttp("GET", `${this.baseUrl}/models`, {
         headers: this.headers(),
+        successCodes: [200],
       });
-      return res.ok;
+      return true;
     } catch (e) {
       Zotero.log(`PaperWorm testConnection (${this.name}) error: ${e}`, "error");
       return false;
     }
   }
 
-  private headers() {
+  private headers(): Record<string, string> {
     return {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${this.apiKey}`,

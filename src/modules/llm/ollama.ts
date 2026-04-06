@@ -5,7 +5,7 @@
  */
 
 import type { LLMProvider, LLMRequestOptions } from "./provider";
-import { wfetch } from "./provider";
+import { zhttp } from "./provider";
 
 export class OllamaProvider implements LLMProvider {
   readonly name = "ollama";
@@ -16,18 +16,12 @@ export class OllamaProvider implements LLMProvider {
   }
 
   async chat(options: LLMRequestOptions): Promise<string> {
-    const res = await wfetch(`${this.baseUrl}/api/chat`, {
-      method: "POST",
+    const resp = await zhttp("POST", `${this.baseUrl}/api/chat`, {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(this.buildBody(options, false)),
+      successCodes: [200],
     });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Ollama error ${res.status}: ${err}`);
-    }
-
-    const data = await res.json() as any;
+    const data = JSON.parse(resp.responseText) as any;
     return data.message?.content ?? "";
   }
 
@@ -37,9 +31,10 @@ export class OllamaProvider implements LLMProvider {
     onDone: () => void,
     onError: (err: Error) => void,
   ): Promise<void> {
+    // 流式输出需要 ReadableStream，Zotero.HTTP.request() 不支持，使用 fetch()
     let res: Response;
     try {
-      res = await wfetch(`${this.baseUrl}/api/chat`, {
+      res = await fetch(`${this.baseUrl}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(this.buildBody(options, true)),
@@ -92,8 +87,10 @@ export class OllamaProvider implements LLMProvider {
   async testConnection(): Promise<boolean> {
     try {
       // GET /api/tags 列出本地模型，无需认证
-      const res = await wfetch(`${this.baseUrl}/api/tags`);
-      return res.ok;
+      await zhttp("GET", `${this.baseUrl}/api/tags`, {
+        successCodes: [200],
+      });
+      return true;
     } catch (e) {
       Zotero.log(`PaperWorm testConnection (ollama) error: ${e}`, "error");
       return false;

@@ -4,7 +4,7 @@
  */
 
 import type { LLMProvider, LLMMessage, LLMRequestOptions } from "./provider";
-import { wfetch } from "./provider";
+import { zhttp } from "./provider";
 
 const BASE_URL = "https://api.anthropic.com";
 const API_VERSION = "2023-06-01";
@@ -18,18 +18,12 @@ export class AnthropicProvider implements LLMProvider {
   }
 
   async chat(options: LLMRequestOptions): Promise<string> {
-    const res = await wfetch(`${BASE_URL}/v1/messages`, {
-      method: "POST",
+    const resp = await zhttp("POST", `${BASE_URL}/v1/messages`, {
       headers: this.headers(),
       body: JSON.stringify(this.buildBody(options, false)),
+      successCodes: [200],
     });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Anthropic API error ${res.status}: ${err}`);
-    }
-
-    const data = await res.json() as any;
+    const data = JSON.parse(resp.responseText) as any;
     return data.content?.[0]?.text ?? "";
   }
 
@@ -39,9 +33,10 @@ export class AnthropicProvider implements LLMProvider {
     onDone: () => void,
     onError: (err: Error) => void,
   ): Promise<void> {
+    // 流式输出需要 ReadableStream，Zotero.HTTP.request() 不支持，使用 fetch()
     let res: Response;
     try {
-      res = await wfetch(`${BASE_URL}/v1/messages`, {
+      res = await fetch(`${BASE_URL}/v1/messages`, {
         method: "POST",
         headers: this.headers(),
         body: JSON.stringify(this.buildBody(options, true)),
@@ -84,23 +79,24 @@ export class AnthropicProvider implements LLMProvider {
   async testConnection(): Promise<boolean> {
     try {
       // 发送极短请求验证 Key，max_tokens=1 几乎不消耗额度
-      const res = await wfetch(`${BASE_URL}/v1/messages`, {
-        method: "POST",
+      // 接受 200（成功）和 400（参数错误但 Key 有效）
+      await zhttp("POST", `${BASE_URL}/v1/messages`, {
         headers: this.headers(),
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
           max_tokens: 1,
           messages: [{ role: "user", content: "hi" }],
         }),
+        successCodes: [200, 400],
       });
-      return res.ok || res.status === 400; // 400 = 参数问题但 Key 有效
+      return true;
     } catch (e) {
       Zotero.log(`PaperWorm testConnection (anthropic) error: ${e}`, "error");
       return false;
     }
   }
 
-  private headers() {
+  private headers(): Record<string, string> {
     return {
       "Content-Type": "application/json",
       "x-api-key": this.apiKey,

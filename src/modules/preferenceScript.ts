@@ -334,11 +334,6 @@ function testConnection(win: Window) {
 
   resultLabel.setAttribute("value", "测试中...");
 
-  // <html:input preference="..."> 的自动绑定在关闭对话框时才写入 prefs，
-  // 点击"测试连接"时 prefs 里可能仍是旧值（空字符串）。
-  // 因此先把当前输入框的值手动写入 prefs，再构建 provider。
-  flushInputsToPrefs(doc);
-
   LLMManager.getInstance()
     .buildProvider(
       LLMManager.getInstance().getActiveProviderName(),
@@ -352,20 +347,3 @@ function testConnection(win: Window) {
     });
 }
 
-/** 将偏好设置 UI 里的输入框当前值立即写入 Zotero prefs。 */
-function flushInputsToPrefs(doc: Document) {
-  const p = `${config.prefsPrefix}`;
-  const read = (id: string) =>
-    (doc.getElementById(id) as HTMLInputElement | null)?.value ?? "";
-
-  Zotero.Prefs.set(`${p}.llm.openai.apiKey`,   read(`${ref}-openai-apikey`),   true);
-  Zotero.Prefs.set(`${p}.llm.openai.model`,    read(`${ref}-openai-model`) || "gpt-4o", true);
-  Zotero.Prefs.set(`${p}.llm.deepseek.apiKey`, read(`${ref}-deepseek-apikey`), true);
-  Zotero.Prefs.set(`${p}.llm.deepseek.model`,  read(`${ref}-deepseek-model`) || "deepseek-chat", true);
-  Zotero.Prefs.set(`${p}.llm.anthropic.apiKey`,read(`${ref}-anthropic-apikey`),true);
-  Zotero.Prefs.set(`${p}.llm.anthropic.model`, read(`${ref}-anthropic-model`) || "claude-sonnet-4-5", true);
-  Zotero.Prefs.set(`${p}.llm.gemini.apiKey`,   read(`${ref}-gemini-apikey`),   true);
-  Zotero.Prefs.set(`${p}.llm.gemini.model`,    read(`${ref}-gemini-model`) || "gemini-2.0-flash", true);
-  Zotero.Prefs.set(`${p}.llm.ollama.baseUrl`,  read(`${ref}-ollama-baseurl`) || "http://localhost:11434", true);
-  Zotero.Prefs.set(`${p}.llm.ollama.model`,    read(`${ref}-ollama-model`) || "llama3.2", true);
-}

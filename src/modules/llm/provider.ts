@@ -2,11 +2,26 @@
 // 所有 LLM 厂商适配器都必须实现此接口
 
 /**
- * 发起网络请求的统一封装。
- * 直接使用 chrome 上下文的全局 fetch（由 loadSubScript 继承自 chrome global）。
+ * 通过 Zotero.HTTP.request() 发起 HTTP 请求。
+ * Zotero.HTTP 使用 XHR + XPCOM 网络层，正确处理 Windows 上的代理、
+ * SSL 证书验证、离线检测等平台差异，是 Zotero 插件的官方网络 API。
+ * （返回 XMLHttpRequest 对象，.status / .responseText）
  */
-export function wfetch(url: string, init?: RequestInit): Promise<Response> {
-  return fetch(url, init);
+export async function zhttp(
+  method: string,
+  url: string,
+  opts: {
+    headers?: Record<string, string>;
+    body?: string;
+    successCodes?: number[];
+  } = {},
+): Promise<{ status: number; responseText: string }> {
+  return (Zotero.HTTP as any).request(method, url, {
+    headers: opts.headers,
+    body: opts.body,
+    successCodes: opts.successCodes ?? [200],
+    errorDelayMax: 0, // 禁止 5xx 自动重试，立即抛出
+  });
 }
 
 export interface LLMMessage {

@@ -5,7 +5,7 @@
  */
 
 import type { LLMProvider, LLMMessage, LLMRequestOptions } from "./provider";
-import { wfetch } from "./provider";
+import { zhttp } from "./provider";
 
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -19,18 +19,12 @@ export class GeminiProvider implements LLMProvider {
 
   async chat(options: LLMRequestOptions): Promise<string> {
     const url = `${BASE_URL}/models/${options.model}:generateContent`;
-    const res = await wfetch(url, {
-      method: "POST",
+    const resp = await zhttp("POST", url, {
       headers: { "Content-Type": "application/json", "x-goog-api-key": this.apiKey },
       body: JSON.stringify(this.buildBody(options)),
+      successCodes: [200],
     });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Gemini API error ${res.status}: ${err}`);
-    }
-
-    const data = await res.json() as any;
+    const data = JSON.parse(resp.responseText) as any;
     return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
   }
 
@@ -40,10 +34,11 @@ export class GeminiProvider implements LLMProvider {
     onDone: () => void,
     onError: (err: Error) => void,
   ): Promise<void> {
+    // 流式输出需要 ReadableStream，Zotero.HTTP.request() 不支持，使用 fetch()
     const url = `${BASE_URL}/models/${options.model}:streamGenerateContent?alt=sse`;
     let res: Response;
     try {
-      res = await wfetch(url, {
+      res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": this.apiKey },
         body: JSON.stringify(this.buildBody(options)),
@@ -85,10 +80,11 @@ export class GeminiProvider implements LLMProvider {
 
   async testConnection(): Promise<boolean> {
     try {
-      const res = await wfetch(`${BASE_URL}/models`, {
+      await zhttp("GET", `${BASE_URL}/models`, {
         headers: { "x-goog-api-key": this.apiKey },
+        successCodes: [200],
       });
-      return res.ok;
+      return true;
     } catch (e) {
       Zotero.log(`PaperWorm testConnection (gemini) error: ${e}`, "error");
       return false;
