@@ -42,7 +42,6 @@ export class LLMManager {
     switch (name) {
       case "openai": {
         const apiKey = Zotero.Prefs.get(`${p}.llm.openai.apiKey`, true) as string ?? "";
-        const model = Zotero.Prefs.get(`${p}.llm.openai.model`, true) as string ?? "gpt-4o";
         return new OpenAIProvider("openai", apiKey, OPENAI_BASE_URL);
       }
       case "deepseek": {

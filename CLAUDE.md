@@ -183,6 +183,63 @@ btn.style.cursor = "pointer";
 将 `<style>` 标签放在面板 wrapper div 内部（随内容一起 innerHTML），
 不要尝试注入到 `doc.head`（XUL 文档的 CSS 作用域可能隔离）。
 
+## ⚠️ Zotero Prefs 开发陷阱 — 每次写设置相关代码必读
+
+### `preference` 属性必须使用完整路径
+
+Zotero 偏好设置面板通过 `preference` 属性绑定 UI 元素与 pref 存储。
+**关键行为**（见 `refs/zotero-main/chrome/content/zotero/preferences/preferences.js`）：
+
+```javascript
+// Zotero 源码：preference 属性值原样使用（global=true）
+let value = Zotero.Prefs.get(preference, true);    // 读取时原样
+Zotero.Prefs.set(preference, value, true);          // 写入时原样
+```
+
+这意味着 `preference="llm.provider"` 会把值写到 Firefox prefs 中的字面路径 `llm.provider`，
+而我们的 TypeScript 代码通过 `Zotero.Prefs.get("extensions.zotero.paperworm.llm.provider", true)`
+读取——**两条路径完全不同**，UI 修改的值永远对代码不可见。
+
+**正确写法**：
+
+```xml
+<!-- ❌ 错误 — 写到 "llm.provider"，代码读不到 -->
+<menulist preference="llm.provider" />
+
+<!-- ✅ 正确 — 与代码读取路径一致 -->
+<menulist preference="extensions.zotero.paperworm.llm.provider" />
+```
+
+**历史教训**（v0.5.3 ~ v0.5.9）：
+- 早期 `preference` 属性使用短路径，导致 UI 修改写到错误位置
+- 代码一直从完整路径读取，始终拿到 prefs.js 的默认值
+- 结果：用户配置的 API Key / Provider 被忽略，连接始终失败
+- v0.5.10 将全部 14 个 `preference` 属性改为完整路径，彻底修复
+
+**规则**：
+- XHTML 中所有 `preference` 属性值必须以 `extensions.zotero.paperworm.` 开头
+- TypeScript 中所有 `Zotero.Prefs.get/set` 调用必须使用 `${config.prefsPrefix}.xxx` 形式（`global=true`）
+- 两者路径必须完全一致，否则 UI 与代码读写的是不同 pref
+
+### LLM 网络请求：非流式用 `Zotero.HTTP.request()`，流式用 `fetch()`
+
+Zotero 插件沙盒中有两种 HTTP 方式，用途不同：
+
+| 场景 | 正确方式 | 原因 |
+|------|---------|------|
+| 非流式请求（testConnection / chat） | `Zotero.HTTP.request()` via `zhttp()` | 正确处理 Windows 代理、SSL、离线检测 |
+| 流式请求（chatStream，SSE/ReadableStream） | `fetch()` | `Zotero.HTTP.request()` 不支持 ReadableStream |
+
+```typescript
+// ❌ 错误 — 非流式用 fetch()，在 Windows 可能失败
+const res = await fetch(url, { headers, body });
+
+// ✅ 正确 — 非流式用 zhttp()（封装 Zotero.HTTP.request）
+const resp = await zhttp("POST", url, { headers, body, successCodes: [200] });
+```
+
+`zhttp()` 封装在 `src/modules/llm/provider.ts`，所有非流式调用均应使用它。
+
 ## 重要约定
 
 - 不要在 hooks.ts 里写业务逻辑，只做分发
