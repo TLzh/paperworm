@@ -127,7 +127,7 @@ function bindEvents(
   panel.addEventListener(
     "mousedown",
     () => {
-      const sel = PaperExtractor.getSelectedText();
+      const sel = PaperExtractor.getSelectedText(item);
       if (sel.length >= 10) capturedSelection = sel;
     },
     true, // capture 阶段，早于任何 click/focus 处理

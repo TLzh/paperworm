@@ -20,22 +20,31 @@ export class PaperExtractor {
   }
 
   /**
-   * 获取 Reader 中当前选中的文字。
-   * 从 Zotero 主窗口出发递归遍历所有 frame（包括 XUL <browser> 元素）。
+   * 获取当前论文 Reader 中选中的文字。
+   *
+   * 必须传入 item，只在该 item 对应的 reader window 里搜索——
+   * 否则全局遍历会捡到其他 tab 中 PDF 的残留选区（多 tab 时的常见 bug）。
    */
-  static getSelectedText(): string {
+  static getSelectedText(item: Zotero.Item): string {
     try {
-      const mainWin = Zotero.getMainWindow() as any;
-      return mainWin
-        ? (PaperExtractor._findInFrames<string>(
-            mainWin,
-            (win) => {
-              const t = (win as any).getSelection?.()?.toString?.()?.trim?.() ?? "";
-              return t || null;
-            },
-            new Set(),
-          ) ?? "")
-        : "";
+      const attachmentID = item.isAttachment()
+        ? item.id
+        : (item.getAttachments()[0] ?? null);
+      if (!attachmentID) return "";
+
+      const readerWin = PaperExtractor._getReaderWindow(attachmentID as number);
+      if (!readerWin) return "";
+
+      return (
+        PaperExtractor._findInFrames<string>(
+          readerWin,
+          (win) => {
+            const t = (win as any).getSelection?.()?.toString?.()?.trim?.() ?? "";
+            return t || null;
+          },
+          new Set(),
+        ) ?? ""
+      );
     } catch {
       return "";
     }
