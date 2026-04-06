@@ -5,6 +5,7 @@
  */
 
 import type { LLMProvider, LLMRequestOptions } from "./provider";
+import { wfetch } from "./provider";
 
 export class OllamaProvider implements LLMProvider {
   readonly name = "ollama";
@@ -15,7 +16,7 @@ export class OllamaProvider implements LLMProvider {
   }
 
   async chat(options: LLMRequestOptions): Promise<string> {
-    const res = await fetch(`${this.baseUrl}/api/chat`, {
+    const res = await wfetch(`${this.baseUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(this.buildBody(options, false)),
@@ -38,7 +39,7 @@ export class OllamaProvider implements LLMProvider {
   ): Promise<void> {
     let res: Response;
     try {
-      res = await fetch(`${this.baseUrl}/api/chat`, {
+      res = await wfetch(`${this.baseUrl}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(this.buildBody(options, true)),
@@ -91,9 +92,10 @@ export class OllamaProvider implements LLMProvider {
   async testConnection(): Promise<boolean> {
     try {
       // GET /api/tags 列出本地模型，无需认证
-      const res = await fetch(`${this.baseUrl}/api/tags`);
+      const res = await wfetch(`${this.baseUrl}/api/tags`);
       return res.ok;
-    } catch {
+    } catch (e) {
+      Zotero.log(`PaperWorm testConnection (ollama) error: ${e}`, "error");
       return false;
     }
   }

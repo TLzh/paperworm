@@ -4,6 +4,7 @@
  */
 
 import type { LLMProvider, LLMMessage, LLMRequestOptions } from "./provider";
+import { wfetch } from "./provider";
 
 export class OpenAIProvider implements LLMProvider {
   readonly name: string;
@@ -17,7 +18,7 @@ export class OpenAIProvider implements LLMProvider {
   }
 
   async chat(options: LLMRequestOptions): Promise<string> {
-    const res = await fetch(`${this.baseUrl}/chat/completions`, {
+    const res = await wfetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify(this.buildBody(options, false)),
@@ -40,7 +41,7 @@ export class OpenAIProvider implements LLMProvider {
   ): Promise<void> {
     let res: Response;
     try {
-      res = await fetch(`${this.baseUrl}/chat/completions`, {
+      res = await wfetch(`${this.baseUrl}/chat/completions`, {
         method: "POST",
         headers: this.headers(),
         body: JSON.stringify(this.buildBody(options, true)),
@@ -82,11 +83,12 @@ export class OpenAIProvider implements LLMProvider {
 
   async testConnection(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.baseUrl}/models`, {
+      const res = await wfetch(`${this.baseUrl}/models`, {
         headers: this.headers(),
       });
       return res.ok;
-    } catch {
+    } catch (e) {
+      Zotero.log(`PaperWorm testConnection (${this.name}) error: ${e}`, "error");
       return false;
     }
   }

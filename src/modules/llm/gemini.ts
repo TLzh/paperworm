@@ -5,6 +5,7 @@
  */
 
 import type { LLMProvider, LLMMessage, LLMRequestOptions } from "./provider";
+import { wfetch } from "./provider";
 
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -18,7 +19,7 @@ export class GeminiProvider implements LLMProvider {
 
   async chat(options: LLMRequestOptions): Promise<string> {
     const url = `${BASE_URL}/models/${options.model}:generateContent`;
-    const res = await fetch(url, {
+    const res = await wfetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": this.apiKey },
       body: JSON.stringify(this.buildBody(options)),
@@ -42,7 +43,7 @@ export class GeminiProvider implements LLMProvider {
     const url = `${BASE_URL}/models/${options.model}:streamGenerateContent?alt=sse`;
     let res: Response;
     try {
-      res = await fetch(url, {
+      res = await wfetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": this.apiKey },
         body: JSON.stringify(this.buildBody(options)),
@@ -84,11 +85,12 @@ export class GeminiProvider implements LLMProvider {
 
   async testConnection(): Promise<boolean> {
     try {
-      const res = await fetch(`${BASE_URL}/models`, {
+      const res = await wfetch(`${BASE_URL}/models`, {
         headers: { "x-goog-api-key": this.apiKey },
       });
       return res.ok;
-    } catch {
+    } catch (e) {
+      Zotero.log(`PaperWorm testConnection (gemini) error: ${e}`, "error");
       return false;
     }
   }

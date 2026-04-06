@@ -4,6 +4,7 @@
  */
 
 import type { LLMProvider, LLMMessage, LLMRequestOptions } from "./provider";
+import { wfetch } from "./provider";
 
 const BASE_URL = "https://api.anthropic.com";
 const API_VERSION = "2023-06-01";
@@ -17,7 +18,7 @@ export class AnthropicProvider implements LLMProvider {
   }
 
   async chat(options: LLMRequestOptions): Promise<string> {
-    const res = await fetch(`${BASE_URL}/v1/messages`, {
+    const res = await wfetch(`${BASE_URL}/v1/messages`, {
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify(this.buildBody(options, false)),
@@ -40,7 +41,7 @@ export class AnthropicProvider implements LLMProvider {
   ): Promise<void> {
     let res: Response;
     try {
-      res = await fetch(`${BASE_URL}/v1/messages`, {
+      res = await wfetch(`${BASE_URL}/v1/messages`, {
         method: "POST",
         headers: this.headers(),
         body: JSON.stringify(this.buildBody(options, true)),
@@ -83,7 +84,7 @@ export class AnthropicProvider implements LLMProvider {
   async testConnection(): Promise<boolean> {
     try {
       // 发送极短请求验证 Key，max_tokens=1 几乎不消耗额度
-      const res = await fetch(`${BASE_URL}/v1/messages`, {
+      const res = await wfetch(`${BASE_URL}/v1/messages`, {
         method: "POST",
         headers: this.headers(),
         body: JSON.stringify({
@@ -93,7 +94,8 @@ export class AnthropicProvider implements LLMProvider {
         }),
       });
       return res.ok || res.status === 400; // 400 = 参数问题但 Key 有效
-    } catch {
+    } catch (e) {
+      Zotero.log(`PaperWorm testConnection (anthropic) error: ${e}`, "error");
       return false;
     }
   }

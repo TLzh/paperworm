@@ -1,6 +1,19 @@
 // LLM Provider 统一接口
 // 所有 LLM 厂商适配器都必须实现此接口
 
+/**
+ * 通过主窗口发起网络请求。
+ * 插件脚本经由 Services.scriptloader.loadSubScript() 加载到自定义沙箱，
+ * 该沙箱的 globalThis 不包含 fetch；必须显式从主窗口取得。
+ */
+export function wfetch(url: string, init?: RequestInit): Promise<Response> {
+  const win = Zotero.getMainWindow() as any;
+  if (typeof win?.fetch !== "function") {
+    throw new Error("fetch is not available in this context");
+  }
+  return win.fetch(url, init) as Promise<Response>;
+}
+
 export interface LLMMessage {
   role: "system" | "user" | "assistant";
   content: string;

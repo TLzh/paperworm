@@ -62,7 +62,7 @@ workspace/
 
 ## 当前开发状态
 
-**阶段**: v0.5.3 — LaTeX 公式定界符渲染修复
+**阶段**: v0.5.4 — Windows 网络请求修复（wfetch）
 
 **已完成**:
 - 创建文档体系（CLAUDE.md / PRD.md / architecture.md / devlog.md）
