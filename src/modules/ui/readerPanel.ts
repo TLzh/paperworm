@@ -410,6 +410,21 @@ function setMarkdown(el: HTMLElement, text: string): void {
       continue;
     }
 
+    // 引用块（连续 > 开头的行收进同一个 <blockquote>）
+    if (/^>\s?/.test(line)) {
+      flushPara();
+      const bq = doc.createElement("blockquote");
+      bq.className = "pw-blockquote";
+      const bqLines: string[] = [];
+      while (i < lines.length && /^>\s?/.test(lines[i])) {
+        bqLines.push(lines[i].replace(/^>\s?/, ""));
+        i++;
+      }
+      appendInline(doc, bq, bqLines.join("\n"));
+      el.appendChild(bq);
+      continue;
+    }
+
     // 标题 (# ~ ######)
     const hm = line.match(/^(#{1,6})\s+(.*)$/);
     if (hm) {
@@ -909,6 +924,9 @@ const CHAT_CSS = `
   line-height: 1.55;
   word-break: break-word;
   font-size: 13px;
+  -moz-user-select: text;
+  user-select: text;
+  cursor: text;
 }
 .pw-msg-user {
   align-self: flex-end;
@@ -1009,6 +1027,13 @@ const CHAT_CSS = `
 .pw-table thead tr {
   background: rgba(128,128,128,0.15);
   font-weight: 600;
+}
+.pw-blockquote {
+  border-left: 3px solid rgba(128,128,128,0.4);
+  margin: 4px 0;
+  padding: 2px 10px;
+  opacity: 0.85;
+  font-style: italic;
 }
 .pw-math-display {
   text-align: center;
