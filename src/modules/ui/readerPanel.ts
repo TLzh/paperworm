@@ -52,6 +52,18 @@ export function registerReaderPanel() {
       l10nID: `${config.addonRef}-reader-panel-sidenav-tooltip`,
       icon: `chrome://${config.addonRef}/content/icons/favicon@0.5x.png`,
     },
+    onItemChange(props: any) {
+      const { body, item } = props as { body: HTMLElement; item: Zotero.Item };
+      // 仅当该论文有活跃会话时才自动导航，否则让用户看到信息/摘要
+      const hasSession =
+        getHistory(item).getAll().length > 0 ||
+        activeNoteIDs.get(getItemKey(item)) != null;
+      if (!hasSession) return;
+      // 等一帧让 Zotero 完成布局重排后再滚动
+      body.ownerDocument?.defaultView?.requestAnimationFrame(() => {
+        body.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    },
     onRender(props: any) {
       const { body, item, tabType } = props as {
         body: HTMLElement;

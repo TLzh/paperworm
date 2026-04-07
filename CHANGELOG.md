@@ -8,6 +8,9 @@
 
 ## [Unreleased]
 
+### Changed
+- 切换到有活跃会话的论文时，面板自动滚动到 PaperWorm 聊天区块，无需手动操作（通过 `onItemChange` hook + `scrollIntoView` 实现）
+
 ### Fixed
 - 修复同一篇论文在 Reader 面板中 `item.id` 键值可能不稳定的问题：`histories` 和 `activeNoteIDs` 现在统一使用 `parentItem.id` 作为 key（通过 `getItemKey()` 归一化），与 `saveSession` / `loadSessions` 的逻辑保持一致，防止同一篇论文在内存中产生两个独立的历史 bucket。
 
