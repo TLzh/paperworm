@@ -21,6 +21,7 @@
         <menuitem value="anthropic" label="Anthropic (Claude)" />
         <menuitem value="gemini"    label="Google Gemini" />
         <menuitem value="ollama"    label="Ollama（本地）" />
+        <menuitem value="kimi"      label="Kimi（月之暗面）" />
       </menupopup>
     </menulist>
   </hbox>
@@ -136,6 +137,29 @@
         id="__addonRef__-ollama-model"
         preference="extensions.zotero.paperworm.llm.ollama.model"
         placeholder="llama3.2"
+        style="flex:1;padding:2px 4px"
+      />
+    </hbox>
+  </vbox>
+
+  <!-- Kimi（月之暗面，OpenAI 兼容格式）-->
+  <vbox id="__addonRef__-section-kimi" style="margin-left:8px" hidden="true">
+    <hbox align="center" style="margin-bottom:4px">
+      <label data-l10n-id="pref-apikey-label" style="width:110px;min-width:110px" />
+      <html:input
+        type="password"
+        id="__addonRef__-kimi-apikey"
+        preference="extensions.zotero.paperworm.llm.kimi.apiKey"
+        style="flex:1;padding:2px 4px"
+      />
+    </hbox>
+    <hbox align="center">
+      <label data-l10n-id="pref-model-label" style="width:110px;min-width:110px" />
+      <html:input
+        type="text"
+        id="__addonRef__-kimi-model"
+        preference="extensions.zotero.paperworm.llm.kimi.model"
+        placeholder="kimi-k2.5"
         style="flex:1;padding:2px 4px"
       />
     </hbox>

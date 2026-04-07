@@ -18,6 +18,8 @@ declare namespace _ZoteroTypes {
       "llm.gemini.model": string;
       "llm.ollama.baseUrl": string;
       "llm.ollama.model": string;
+      "llm.kimi.apiKey": string;
+      "llm.kimi.model": string;
       "llm.temperature": string;
       "llm.maxTokens": string;
       "systemPrompt.content": string;

@@ -62,14 +62,14 @@ workspace/
 
 ## 当前开发状态
 
-**阶段**: v0.5.4 — Windows 网络请求修复（wfetch）
+**阶段**: v0.5.13 — 新增 Kimi（月之暗面）支持
 
 **已完成**:
 - 创建文档体系（CLAUDE.md / PRD.md / architecture.md / devlog.md）
 - 项目代码骨架初始化（基于 zotero-plugin-template）
 - 偏好设置页面（LLM 服务配置 / 高级参数 / 系统提示词）
-- 支持服务商：OpenAI、DeepSeek、Anthropic、Gemini、Ollama
-- LLM Provider 接口 + 五个实现（含流式输出）
+- 支持服务商：OpenAI、DeepSeek、Anthropic、Gemini、Ollama、**Kimi（月之暗面，v0.5.13）**
+- LLM Provider 接口 + 六个实现（含流式输出）
 - LLMManager：从 prefs 读取配置，按需实例化 Provider（每次发送均重新读取，切换服务商/模型/参数即时生效）
 - 偏好设置"测试连接"接入真实 API
 - Reader 侧边聊天面板（注册、UI、流式渲染、快捷操作）
@@ -103,6 +103,11 @@ workspace/
   - 系统提示词新增内置模板：「开锁专家」（批判性论文解读）；新增「自定义（清空）」快捷选项
   - **用户自定义模板**：可将当前提示词以自定义名称保存，持久化到 Zotero prefs，支持加载和删除
   - 所有设置更改即时生效（下一条消息立刻使用新配置，无需重启）
+- **偏好设置 pref 路径全面修复**（v0.5.10）：XHTML 中所有 `preference` 属性改为完整路径（`extensions.zotero.paperworm.*`），修复 Windows 上 API Key / Provider 配置不生效的根本原因
+- **跨 PDF 选区污染修复**（v0.5.11）：`getSelectedText()` 限定到当前 item 的 reader window，多 tab 场景下不再把其他 PDF 的选区带入对话
+- **AI 回复可选中复制**（v0.5.12）：`.pw-msg` 添加 `user-select: text`，用户可直接鼠标选中并复制模型回复
+- **引用块渲染**（v0.5.12）：`setMarkdown()` 支持 `>` 开头的 Markdown 引用块，渲染为带左边框的斜体样式
+- **Kimi（月之暗面）支持**（v0.5.13）：Kimi API 兼容 OpenAI 格式，复用 `OpenAIProvider`，base_url 为 `https://api.moonshot.cn/v1`，推荐模型 `kimi-k2.5`
 
 **已知约束**:
 - `.textLayer` 方案仅抓已渲染页（滚动过的页面）；一次性获取全部页面需先建立 Zotero 全文索引

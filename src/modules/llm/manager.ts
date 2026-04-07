@@ -8,10 +8,11 @@ import { GeminiProvider } from "./gemini";
 import { OllamaProvider } from "./ollama";
 import { config } from "../../../package.json";
 
-export type ProviderName = "openai" | "deepseek" | "anthropic" | "gemini" | "ollama";
+export type ProviderName = "openai" | "deepseek" | "anthropic" | "gemini" | "ollama" | "kimi";
 
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
+const KIMI_BASE_URL = "https://api.moonshot.cn/v1";
 
 export class LLMManager {
   private static instance: LLMManager;
@@ -59,6 +60,10 @@ export class LLMManager {
       case "ollama": {
         const baseUrl = Zotero.Prefs.get(`${p}.llm.ollama.baseUrl`, true) as string ?? "http://localhost:11434";
         return new OllamaProvider(baseUrl);
+      }
+      case "kimi": {
+        const apiKey = Zotero.Prefs.get(`${p}.llm.kimi.apiKey`, true) as string ?? "";
+        return new OpenAIProvider("kimi", apiKey, KIMI_BASE_URL);
       }
       default:
         throw new Error(`Unknown provider: ${name}`);

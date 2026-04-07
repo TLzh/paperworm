@@ -14,7 +14,7 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 - **Contextual chat** — the paper's full text, title, authors, year, and abstract are automatically included in every conversation; no manual indexing required for text-based PDFs
 - **Streaming responses** — AI replies appear word by word in real time
 - **Quick actions** — one-click prompts to summarize the paper, explain a paragraph, or translate text
-- **Multi-provider** — supports OpenAI, DeepSeek, Anthropic (Claude), Google Gemini, and Ollama (local)
+- **Multi-provider** — supports OpenAI, DeepSeek, Anthropic (Claude), Google Gemini, Kimi (Moonshot), and Ollama (local)
 - **Persistent sessions with cross-device sync** — every conversation is automatically saved as a Zotero child note attached to the paper; sessions survive Zotero restarts and sync to other devices via your free Zotero account
 - **Multiple sessions per paper** — start new conversations and switch between them via the **Session List** view
 - **Rich text rendering** — Markdown (headings, bold, lists, code blocks) and LaTeX math (via KaTeX MathML) rendered in AI responses
@@ -47,6 +47,7 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 | DeepSeek | `deepseek-chat` | Requires API key |
 | Anthropic | `claude-sonnet-4-5` | Requires API key |
 | Google Gemini | `gemini-2.0-flash` | Requires API key |
+| Kimi (Moonshot) | `kimi-k2.5` | Requires API key from [platform.moonshot.cn](https://platform.moonshot.cn) |
 | Ollama | any local model | No API key needed; set base URL (default: `http://localhost:11434`) |
 
 ## Switching Providers Mid-Conversation
@@ -145,9 +146,10 @@ PaperWorm/
 
 ### Adding a New LLM Provider
 
-1. Create `src/modules/llm/<name>.ts` implementing the `LLMProvider` interface
-2. Register it in `src/modules/llm/manager.ts`
-3. Add the corresponding preference fields in `addon/prefs.js` and `addon/content/preferences.xhtml`
+1. Create `src/modules/llm/<name>.ts` implementing the `LLMProvider` interface (skip if the provider is OpenAI-compatible — reuse `OpenAIProvider` with a different `baseUrl`)
+2. Register it in `src/modules/llm/manager.ts` — add to `ProviderName` type and `buildProvider()` switch
+3. Add the corresponding preference fields in `addon/prefs.js` and `addon/content/preferences.xhtml` (use full pref paths: `extensions.zotero.paperworm.llm.<name>.*`)
+4. Add the provider name to the `providers` array in `src/modules/preferenceScript.ts` → `showProviderSection()`
 
 The `LLMProvider` interface requires three methods:
 
