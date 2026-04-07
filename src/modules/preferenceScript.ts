@@ -320,7 +320,7 @@ function bindPrefsEvents(win: Window) {
 }
 
 function showProviderSection(doc: Document, provider: string) {
-  const providers = ["openai", "deepseek", "anthropic", "gemini", "ollama", "kimi"];
+  const providers = ["openai", "deepseek", "anthropic", "gemini", "ollama", "kimi", "qwen"];
   for (const p of providers) {
     const el = doc.getElementById(`${ref}-section-${p}`);
     if (el) el.setAttribute("hidden", p !== provider ? "true" : "false");

@@ -8,8 +8,16 @@
 
 ## [Unreleased]
 
+---
+
+## [0.5.14] - 2026-04-07
+
+### Added
+- 新增通义千问（阿里云 DashScope）支持，推荐模型 `qwen3.6-plus`。API 兼容 OpenAI 格式，复用 `OpenAIProvider`，无额外依赖。
+
 ### Changed
-- 切换到有活跃会话的论文时，面板自动滚动到 PaperWorm 聊天区块，无需手动操作（通过 `onItemChange` hook + `scrollIntoView` 实现）
+- 切换到有活跃会话的论文时，面板自动滚动到 PaperWorm 聊天区块底部（最新消息），即时跳转、无动画。
+- 「会话列表」和快捷操作按钮（总结本文 / 解释段落 / 翻译 / 引用选中）改为吸顶显示，长对话时无需翻回顶部即可操作。
 
 ### Fixed
 - 修复同一篇论文在 Reader 面板中 `item.id` 键值可能不稳定的问题：`histories` 和 `activeNoteIDs` 现在统一使用 `parentItem.id` 作为 key（通过 `getItemKey()` 归一化），与 `saveSession` / `loadSessions` 的逻辑保持一致，防止同一篇论文在内存中产生两个独立的历史 bucket。

@@ -22,6 +22,7 @@
         <menuitem value="gemini"    label="Google Gemini" />
         <menuitem value="ollama"    label="Ollama（本地）" />
         <menuitem value="kimi"      label="Kimi（月之暗面）" />
+        <menuitem value="qwen"      label="通义千问（阿里云）" />
       </menupopup>
     </menulist>
   </hbox>
@@ -160,6 +161,29 @@
         id="__addonRef__-kimi-model"
         preference="extensions.zotero.paperworm.llm.kimi.model"
         placeholder="kimi-k2.5"
+        style="flex:1;padding:2px 4px"
+      />
+    </hbox>
+  </vbox>
+
+  <!-- 通义千问（阿里云，OpenAI 兼容格式）-->
+  <vbox id="__addonRef__-section-qwen" style="margin-left:8px" hidden="true">
+    <hbox align="center" style="margin-bottom:4px">
+      <label data-l10n-id="pref-apikey-label" style="width:110px;min-width:110px" />
+      <html:input
+        type="password"
+        id="__addonRef__-qwen-apikey"
+        preference="extensions.zotero.paperworm.llm.qwen.apiKey"
+        style="flex:1;padding:2px 4px"
+      />
+    </hbox>
+    <hbox align="center">
+      <label data-l10n-id="pref-model-label" style="width:110px;min-width:110px" />
+      <html:input
+        type="text"
+        id="__addonRef__-qwen-model"
+        preference="extensions.zotero.paperworm.llm.qwen.model"
+        placeholder="qwen3.6-plus"
         style="flex:1;padding:2px 4px"
       />
     </hbox>

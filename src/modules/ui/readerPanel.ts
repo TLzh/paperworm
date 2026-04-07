@@ -61,7 +61,7 @@ export function registerReaderPanel() {
       if (!hasSession) return;
       // 等一帧让 Zotero 完成布局重排后再滚动
       body.ownerDocument?.defaultView?.requestAnimationFrame(() => {
-        body.scrollIntoView({ behavior: "smooth", block: "start" });
+        body.scrollIntoView({ behavior: "instant", block: "end" });
       });
     },
     onRender(props: any) {
@@ -100,15 +100,17 @@ async function initPanel(body: HTMLElement, item: Zotero.Item) {
 ${CHAT_CSS}
 </style>
 <div class="pw-panel">
-  <div class="pw-header">
-    <span class="pw-model-badge">${providerName} · ${modelName}</span>
-    <div class="pw-sessions-btn" role="button" tabindex="0">会话列表</div>
-  </div>
-  <div class="pw-actions">
-    <div class="pw-action-btn" role="button" tabindex="0" data-action="summarize">总结本文</div>
-    <div class="pw-action-btn" role="button" tabindex="0" data-action="explain">解释段落</div>
-    <div class="pw-action-btn" role="button" tabindex="0" data-action="translate">翻译</div>
-    <div class="pw-action-btn" role="button" tabindex="0" data-action="quote">引用选中</div>
+  <div class="pw-sticky-top">
+    <div class="pw-header">
+      <span class="pw-model-badge">${providerName} · ${modelName}</span>
+      <div class="pw-sessions-btn" role="button" tabindex="0">会话列表</div>
+    </div>
+    <div class="pw-actions">
+      <div class="pw-action-btn" role="button" tabindex="0" data-action="summarize">总结本文</div>
+      <div class="pw-action-btn" role="button" tabindex="0" data-action="explain">解释段落</div>
+      <div class="pw-action-btn" role="button" tabindex="0" data-action="translate">翻译</div>
+      <div class="pw-action-btn" role="button" tabindex="0" data-action="quote">引用选中</div>
+    </div>
   </div>
   <div class="pw-messages"></div>
   <div class="pw-input-area">
@@ -122,7 +124,7 @@ ${CHAT_CSS}
   const messagesEl = panel.querySelector(".pw-messages") as HTMLElement;
 
   if (getHistory(item).getAll().length > 0) {
-    // 内存中有活跃对话，直接渲染
+    // 内存中有活跃对话，直接渲染（滚动位置由 onItemChange 统一处理）
     renderChatHistory(doc, messagesEl, item);
   } else {
     // 内存为空，检查 Zotero 中是否有历史会话
@@ -893,6 +895,12 @@ const CHAT_CSS = `
   font-size: 13px;
   font-family: inherit;
   box-sizing: border-box;
+}
+.pw-sticky-top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: Canvas;
 }
 .pw-header {
   display: flex;
