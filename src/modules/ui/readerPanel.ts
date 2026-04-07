@@ -9,18 +9,34 @@ import { ChatHistory } from "../chat/history";
 import { PaperExtractor } from "../paper/extractor";
 import katex from "katex";
 
-// 每篇论文单独维护一份对话历史（以 item ID 为 key）
+// 每篇论文单独维护一份对话历史（以 parentItem.id 为 key）
 const histories = new Map<number, ChatHistory>();
-
-function getHistory(itemID: number): ChatHistory {
-  if (!histories.has(itemID)) {
-    histories.set(itemID, new ChatHistory());
-  }
-  return histories.get(itemID)!;
-}
 
 // 当前激活的会话 noteID（null = 新会话尚未保存到 Zotero）
 const activeNoteIDs = new Map<number, number | null>();
+
+/**
+ * 将 item 归一化为父条目 ID，作为 histories / activeNoteIDs 的统一 key。
+ *
+ * Zotero 在不同上下文下传入的 item 可能是附件（PDF）或父条目（论文），
+ * 两者 id 不同。若不归一化，同一篇论文可能在 Map 中产生两个独立 bucket，
+ * 导致面板切换时内存历史"消失"。
+ * saveSession / loadSessions 均使用 parentItem，此处保持一致。
+ */
+function getItemKey(item: Zotero.Item): number {
+  if (item.isAttachment()) {
+    return item.parentItem?.id ?? item.id;
+  }
+  return item.id;
+}
+
+function getHistory(item: Zotero.Item): ChatHistory {
+  const key = getItemKey(item);
+  if (!histories.has(key)) {
+    histories.set(key, new ChatHistory());
+  }
+  return histories.get(key)!;
+}
 
 // ── 注册入口 ────────────────────────────────────────────────────────────────
 
@@ -93,7 +109,7 @@ ${CHAT_CSS}
   const panel = wrapper.querySelector(".pw-panel") as HTMLElement;
   const messagesEl = panel.querySelector(".pw-messages") as HTMLElement;
 
-  if (getHistory(item.id).getAll().length > 0) {
+  if (getHistory(item).getAll().length > 0) {
     // 内存中有活跃对话，直接渲染
     renderChatHistory(doc, messagesEl, item);
   } else {
@@ -169,7 +185,7 @@ function bindEvents(
   sessionsBtn.addEventListener("click", () => {
     // 若当前已在会话列表 → 若有活跃会话则返回聊天，否则不响应
     if (messagesEl.querySelector(".pw-session-list")) {
-      if (getHistory(item.id).getAll().length > 0) {
+      if (getHistory(item).getAll().length > 0) {
         renderChatHistory(doc, messagesEl, item);
       }
       return;
@@ -229,7 +245,7 @@ async function send(
   sendBtn: HTMLElement,
 ) {
   sendBtn.classList.add("pw-disabled");
-  const history = getHistory(item.id);
+  const history = getHistory(item);
 
   // 若有选中文字，将其作为引用块前置到用户消息中
   const finalText = selectedText
@@ -698,7 +714,7 @@ async function saveSession(item: Zotero.Item, history: ChatHistory): Promise<voi
     : "未命名会话";
 
   const now = new Date().toISOString();
-  const existingID = activeNoteIDs.get(item.id) ?? null;
+  const existingID = activeNoteIDs.get(getItemKey(item)) ?? null;
 
   let created = now;
   if (existingID != null) {
@@ -722,7 +738,7 @@ async function saveSession(item: Zotero.Item, history: ChatHistory): Promise<voi
     const parentItem = item.isAttachment() ? (item.parentItem ?? item) : item;
     note.parentID = parentItem.id;
     const newID = await note.saveTx();
-    activeNoteIDs.set(item.id, newID as number);
+    activeNoteIDs.set(getItemKey(item), newID as number);
   }
 }
 
@@ -750,7 +766,7 @@ async function loadSessions(
 /** 渲染聊天历史到消息区 */
 function renderChatHistory(doc: Document, messagesEl: HTMLElement, item: Zotero.Item): void {
   messagesEl.textContent = "";
-  for (const msg of getHistory(item.id).getAll()) {
+  for (const msg of getHistory(item).getAll()) {
     if (msg.role !== "system") {
       appendMessage(doc, messagesEl, msg.role as "user" | "assistant", msg.content,
         msg.role === "assistant");
@@ -778,8 +794,8 @@ function showSessionList(
   newBtn.setAttribute("tabindex", "0");
   newBtn.textContent = "+ 新建对话";
   newBtn.addEventListener("click", () => {
-    getHistory(item.id).clear();
-    activeNoteIDs.set(item.id, null);
+    getHistory(item).clear();
+    activeNoteIDs.set(getItemKey(item), null);
     messagesEl.textContent = "";
   });
   list.appendChild(newBtn);
@@ -795,7 +811,7 @@ function showSessionList(
     const row = doc.createElement("div");
     row.className = "pw-session-item";
     // 高亮当前激活会话
-    if (activeNoteIDs.get(item.id) === sess.noteID) {
+    if (activeNoteIDs.get(getItemKey(item)) === sess.noteID) {
       row.classList.add("pw-session-active");
     }
 
@@ -818,12 +834,12 @@ function showSessionList(
 
     // 加载会话
     titleEl.addEventListener("click", () => {
-      const history = getHistory(item.id);
+      const history = getHistory(item);
       history.clear();
       for (const msg of sess.data.messages) {
         history.add(msg as { role: "user" | "assistant" | "system"; content: string });
       }
-      activeNoteIDs.set(item.id, sess.noteID);
+      activeNoteIDs.set(getItemKey(item), sess.noteID);
       renderChatHistory(doc, messagesEl, item);
     });
 
@@ -835,9 +851,9 @@ function showSessionList(
           const noteItem = Zotero.Items.get(sess.noteID);
           await noteItem.eraseTx();
           // 若删的是当前激活会话，清空内存
-          if (activeNoteIDs.get(item.id) === sess.noteID) {
-            getHistory(item.id).clear();
-            activeNoteIDs.set(item.id, null);
+          if (activeNoteIDs.get(getItemKey(item)) === sess.noteID) {
+            getHistory(item).clear();
+            activeNoteIDs.set(getItemKey(item), null);
           }
           const newSessions = await loadSessions(item);
           showSessionList(doc, messagesEl, newSessions, item);

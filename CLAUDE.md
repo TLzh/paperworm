@@ -245,9 +245,54 @@ const resp = await zhttp("POST", url, { headers, body, successCodes: [200] });
 
 `zhttp()` 封装在 `src/modules/llm/provider.ts`，所有非流式调用均应使用它。
 
+## 发版流程规范
+
+### 日常开发（不发版）
+
+1. 正常提交代码（`git commit`）
+2. 将改动记录到 `CHANGELOG.md` 的 `[Unreleased]` 区块
+   - `Added` — 新功能
+   - `Fixed` — Bug 修复
+   - `Changed` — 行为变更 / 重构
+   - `Removed` — 删除功能
+3. **不修改 `package.json` 版本号**，不打 tag
+
+### 发版时机（满足任一条件）
+
+- 有用户可感知的重要新功能或 Bug 修复
+- `[Unreleased]` 积累了足够多的改动（大致 5+ 条有意义的变更）
+- 外部反馈促使需要尽快推送
+
+### 发版步骤
+
+```bash
+# 1. 确认 CHANGELOG.md [Unreleased] 内容完整
+# 2. 将 [Unreleased] 重命名为新版本，加上日期
+#    例：## [0.5.14] - 2026-04-20
+# 3. 在顶部新增空的 [Unreleased] 区块（为下次准备）
+# 4. 更新 package.json 版本号
+# 5. 更新 CLAUDE.md "当前开发状态"中的阶段描述
+# 6. 构建验证
+npm run build
+# 7. 提交（包含 CHANGELOG + package.json）
+git add CHANGELOG.md package.json CLAUDE.md
+git commit -m "release: v0.x.y — <一句话摘要>"
+# 8. 打 tag 并推送（触发 GitHub Actions 自动构建 + 发布）
+git tag v0.x.y
+git push origin main && git push origin v0.x.y
+```
+
+GitHub Actions 会自动：构建 XPI → 上传 Release Assets → 生成 Release Notes（来自 `--generate-notes`，基于两次 tag 之间的 commit）
+
+### 注意
+
+- `prefs.js` 永远不入 Git（已在 `.gitignore`）
+- 发版前检查 `git diff --stat` 确认无敏感文件暂存
+- Release Notes 由 CI 自动生成；如需补充说明，发版后手动编辑 GitHub Release 页面
+
 ## 重要约定
 
 - 不要在 hooks.ts 里写业务逻辑，只做分发
 - LLM Provider 必须支持流式输出（streaming）
 - API Key 只存储在 Zotero prefs，永远不写入代码
-- 每个阶段完成后更新本文件的"当前开发状态"
+- 每个阶段完成后更新本文件的"当前开发状态"和 CHANGELOG.md
