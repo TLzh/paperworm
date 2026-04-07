@@ -245,6 +245,61 @@ const resp = await zhttp("POST", url, { headers, body, successCodes: [200] });
 
 `zhttp()` 封装在 `src/modules/llm/provider.ts`，所有非流式调用均应使用它。
 
+## 本地开发与测试
+
+### 一次性配置（首次使用）
+
+1. 在 `PaperWorm/` 目录创建 `.env` 文件（已在 `.gitignore`，**不会入 git**）：
+
+```
+ZOTERO_PLUGIN_ZOTERO_BIN_PATH = /Applications/Zotero.app/Contents/MacOS/zotero
+ZOTERO_PLUGIN_PROFILE_PATH = /Users/liuzhihong/Library/Application Support/Zotero/Profiles/6z9fegez.default
+```
+
+2. 备份一次真实数据库（`.env` 指向真实 profile，插件 bug 可能影响数据）：
+
+```bash
+cp ~/Zotero/zotero.sqlite ~/Zotero/zotero.sqlite.bak
+```
+
+### 日常开发流程
+
+```bash
+cd PaperWorm
+make start     # 构建 + 启动 Zotero + 热重载（改代码自动生效，无需重启）
+```
+
+`zotero-plugin serve` 会在 Zotero 扩展目录写一个代理文件，指向 `.scaffold/build/`，
+监听源码变化后自动重新构建并触发插件重载。
+
+### 仅验证某次改动（不启动热重载）
+
+```bash
+make build
+# Zotero → 工具 → 附加组件 → 齿轮 → 从文件安装 → 选 .scaffold/build/paper-worm.xpi
+```
+
+### Git 安全规范
+
+每次 commit 前必须确认：
+
+```bash
+git diff --staged   # 扫一眼暂存内容，确认无敏感文件
+git status --short  # 确认无应被忽略的文件出现在列表
+```
+
+**绝对不能进 git 的文件：**
+
+| 文件 | 原因 |
+|------|------|
+| `addon/prefs.js` | 含 API Key 明文 |
+| `.env` | 含本地路径，习惯上不提交 |
+| `*.key`、`.env.*` | 潜在凭证 |
+
+三者均已在 `.gitignore`，但每次操作前仍需肉眼确认。
+
+---
+
 ## 发版流程规范
 
 ### 日常开发（不发版）
