@@ -348,6 +348,21 @@ GitHub Actions 会自动：构建 XPI → 上传 Release Assets → 用 changelo
 - 发版前检查 `git diff --stat` 确认无敏感文件暂存
 - Release Notes 由 CI 自动生成；如需补充说明，发版后手动编辑 GitHub Release 页面
 
+### 待处理：GitHub Actions Node.js 20 弃用（截止 2026-06-02）
+
+GitHub 已宣布 Node.js 20 运行时将于 **2026 年 6 月 2 日**起强制切换至 Node.js 24，
+届时 `.github/workflows/release.yml` 中的 `actions/checkout@v4` 和 `actions/setup-node@v4`
+可能无法正常工作。
+
+**处理时机**：2026 年 5 月，确认 GitHub 已发布兼容 Node.js 24 的新版本后再升级，
+避免现在盲目猜版本号。升级方式：
+
+```yaml
+# 将 release.yml 中的两行改为新版本，例如（版本号需届时确认）：
+- uses: actions/checkout@v5
+- uses: actions/setup-node@v5
+```
+
 ### ⚠️ CI 发版踩坑记录
 
 #### 坑 1：`zotero-plugin release` 在 CI 里不传版本号会失败（v0.5.14）
