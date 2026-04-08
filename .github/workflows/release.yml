@@ -25,7 +25,9 @@ jobs:
       - name: Build & Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run release
+        # 显式传入版本号（去掉 tag 的 v 前缀），scaffold 检测到 new==old 会跳过
+        # bumpp 的 commit/tag/push，避免在 detached HEAD 下 git push 失败
+        run: npm run release -- "${GITHUB_REF_NAME#v}" --yes
 
       - name: Generate release notes
         env:
