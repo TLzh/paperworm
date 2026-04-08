@@ -43,10 +43,10 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 
 | Provider | Recommended Model | Notes |
 |---|---|---|
-| OpenAI | `gpt-4o` | Requires API key |
+| OpenAI | `gpt-5.4` | Requires API key. See [OpenAI Model Guide](#openai-model-guide) below |
 | DeepSeek | `deepseek-chat` | Requires API key |
-| Anthropic | `claude-sonnet-4-5` | Requires API key |
-| Google Gemini | `gemini-2.0-flash` | Requires API key |
+| Anthropic | `claude-sonnet-4-6` | Requires API key. See [Claude Model Guide](#claude-model-guide) below |
+| Google Gemini | `gemini-3-flash-preview` (free) | Recommended for most tasks; free tier available. See [Gemini Model Guide](#gemini-model-guide) below |
 | Kimi (Moonshot) | `kimi-k2.5` | Requires API key from [platform.moonshot.cn](https://platform.moonshot.cn) |
 | Qwen (Alibaba Cloud) | `qwen3.6-plus` | Requires API key from [bailian.console.aliyun.com](https://bailian.console.aliyun.com) |
 | Ollama | any local model | No API key needed; set base URL (default: `http://localhost:11434`) |
@@ -58,6 +58,130 @@ Every setting — provider, model, API key, temperature, max tokens, and system 
 This means you can switch providers or models at any point during a conversation. The next message will be sent to the new provider, while the full conversation history remains intact and is passed along as context.
 
 Each provider's API key and model are stored independently, so switching between providers never overwrites your other configurations.
+
+---
+
+## Gemini Model Guide
+
+Google Gemini offers a wide range of models through the Gemini API. Below is a guide to help you choose the right model for paper reading tasks.
+
+### Current Generation Models (Recommended)
+
+**Gemini 3 Series** (Preview status - latest generation)
+
+| Model | API Identifier | Best For | Free Tier |
+|-------|---------------|----------|-----------|
+| **Gemini 3 Flash** | `gemini-3-flash-preview` | General paper reading, fast responses | ✅ Free |
+| **Gemini 3.1 Pro** | `gemini-3.1-pro-preview` | Complex reasoning, detailed analysis | ❌ Paid only |
+| **Gemini 3.1 Flash-Lite** | `gemini-3.1-flash-lite-preview` | High-volume, cost-effective tasks | ✅ Free |
+
+**Gemini 2.5 Series** (Stable release)
+
+| Model | API Identifier | Best For | Free Tier |
+|-------|---------------|----------|-----------|
+| **Gemini 2.5 Flash** | `gemini-2.5-flash` | Balanced performance and speed | ✅ Free |
+| **Gemini 2.5 Flash-Lite** | `gemini-2.5-flash-lite` | Most cost-effective option | ✅ Free |
+| **Gemini 2.5 Pro** | `gemini-2.5-pro-preview-03-25` | Maximum reasoning capability | ❌ Paid only |
+
+### Model Naming Guide
+
+Gemini model names follow this pattern:
+```
+gemini-{major}.{minor}-{variant}-{status}
+```
+
+Examples:
+- `gemini-3-flash-preview` — Gemini 3 Flash, preview release
+- `gemini-3.1-pro-preview` — Gemini 3.1 Pro, preview release
+- `gemini-2.5-flash` — Gemini 2.5 Flash, stable release
+
+### Recommendations for Paper Reading
+
+1. **For most users**: Use `gemini-3-flash-preview` (free, fast, capable)
+2. **For complex analysis**: Use `gemini-3.1-pro-preview` (best reasoning)
+3. **For high-volume reading**: Use `gemini-3.1-flash-lite-preview` (most economical)
+4. **For stable production**: Use `gemini-2.5-flash` (non-preview, reliable)
+
+### Getting a Gemini API Key
+
+1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Sign in with your Google account
+3. Click "Create API Key"
+4. Copy the key and paste it into PaperWorm settings
+
+**Note**: The free tier includes generous rate limits for Flash and Flash-Lite models. Pro models require a paid plan.
+
+---
+
+## OpenAI Model Guide
+
+OpenAI's GPT models are state-of-the-art large language models capable of understanding and generating natural language.
+
+### Latest Generation Models (GPT-5.4 Series)
+
+| Model | API Identifier | Best For | Cost |
+|-------|---------------|----------|------|
+| **GPT-5.4** | `gpt-5.4` | Complex reasoning, coding, analysis | Standard |
+| **GPT-5.4 Mini** | `gpt-5.4-mini` | Balanced performance and efficiency | Lower |
+| **GPT-5.4 Nano** | `gpt-5.4-nano` | Simple tasks, high-volume processing | Lowest |
+
+### Previous Generation (Still Supported)
+
+| Model | API Identifier | Best For |
+|-------|---------------|----------|
+| **GPT-4o** | `gpt-4o` | Multimodal tasks (text + vision) |
+| **GPT-4o Mini** | `gpt-4o-mini` | Cost-effective general tasks |
+
+### Recommendations for Paper Reading
+
+1. **For most users**: Use `gpt-5.4` (flagship model with best reasoning)
+2. **For cost-conscious users**: Use `gpt-5.4-mini` (good balance of quality and cost)
+3. **For quick summaries**: Use `gpt-5.4-nano` (fastest, most economical)
+
+### Getting an OpenAI API Key
+
+1. Go to [platform.openai.com](https://platform.openai.com)
+2. Sign up or sign in to your account
+3. Navigate to **API Keys** in the left sidebar
+4. Click **Create new secret key**
+5. Copy the key and paste it into PaperWorm settings
+
+**Note**: OpenAI requires a paid account with available credits. New accounts may receive free trial credits.
+
+Anthropic's Claude models are designed for high performance across language, reasoning, analysis, and coding tasks.
+
+### Latest Generation Models
+
+| Model | Best For | Speed | Intelligence |
+|-------|----------|-------|--------------|
+| **Claude Opus 4.6** | Complex analysis, coding, professional work | Standard | Highest |
+| **Claude Sonnet 4.6** | General paper reading, balanced performance | Fast | High |
+| **Claude Haiku 4.5** | Quick summaries, high-volume processing | Fastest | Near-frontier |
+
+### Model Naming
+
+Claude model names follow this pattern:
+```
+claude-{variant}-{version}
+```
+
+- **Opus**: Most intelligent, best for complex reasoning and coding
+- **Sonnet**: Balanced intelligence and speed, good for most tasks  
+- **Haiku**: Fastest, most cost-effective for simple tasks
+
+### Recommendations for Paper Reading
+
+1. **For most users**: Use `claude-sonnet-4-6` (best balance of quality and speed)
+2. **For deep analysis**: Use `claude-opus-4-6` (maximum reasoning capability)
+3. **For quick summaries**: Use `claude-haiku-4-5` (fastest, most economical)
+
+### Getting a Claude API Key
+
+1. Go to [console.anthropic.com](https://console.anthropic.com)
+2. Sign up or sign in to your account
+3. Navigate to **API Keys** section
+4. Click **Create Key** and copy it
+5. Paste the key into PaperWorm settings
 
 ## Full-Text Context
 
