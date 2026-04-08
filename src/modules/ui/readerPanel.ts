@@ -136,6 +136,28 @@ ${CHAT_CSS}
   }
 
   bindEvents(doc, panel, messagesEl, item);
+
+  // 实时刷新模型徽章：每秒从 prefs 读取当前配置，有变化才更新 DOM
+  const win = body.ownerDocument!.defaultView!;
+  const badge = panel.querySelector(".pw-model-badge") as HTMLElement;
+  const badgeTimer = win.setInterval(() => {
+    const pName = LLMManager.getInstance().getActiveProviderName();
+    const mName =
+      (Zotero.Prefs.get(
+        `${config.prefsPrefix}.llm.${pName}.model`,
+        true,
+      ) as string) ?? "unknown";
+    const next = `${pName} · ${mName}`;
+    if (badge.textContent !== next) badge.textContent = next;
+  }, 1000);
+
+  // 面板重建（initPanel 调用 body.textContent=""）时自动清理定时器
+  new win.MutationObserver((_: MutationRecord[], obs: MutationObserver) => {
+    if (!badge.isConnected) {
+      win.clearInterval(badgeTimer);
+      obs.disconnect();
+    }
+  }).observe(body, { childList: true });
 }
 
 // ── 事件绑定 ─────────────────────────────────────────────────────────────────

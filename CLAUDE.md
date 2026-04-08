@@ -62,7 +62,7 @@ workspace/
 
 ## 当前开发状态
 
-**阶段**: v0.5.14 — 新增通义千问支持 + 面板 UX 改进
+**阶段**: v0.5.15 — 模型徽章实时刷新
 
 **已完成**:
 - 创建文档体系（CLAUDE.md / PRD.md / architecture.md / devlog.md）
@@ -111,6 +111,7 @@ workspace/
 - **通义千问（阿里云）支持**（v0.5.14）：DashScope API 兼容 OpenAI 格式，复用 `OpenAIProvider`，base_url 为 `https://dashscope.aliyuncs.com/compatible-mode/v1`，推荐模型 `qwen3.6-plus`
 - **面板 UX 改进**（v0.5.14）：切换有会话的论文时自动滚到底部；会话列表按钮和快捷操作按钮改为吸顶显示
 - **`item.id` key 归一化**（v0.5.14）：`getItemKey()` 统一使用 `parentItem.id`，防止同一论文产生两个历史 bucket
+- **模型徽章实时刷新**（v0.5.15）：`initPanel` 启动 1 秒 setInterval 读取 prefs，有变化才更新 DOM；MutationObserver 监听 body 清空事件自动 clearInterval，防止内存泄漏
 
 **已知约束**:
 - `.textLayer` 方案仅抓已渲染页（滚动过的页面）；一次性获取全部页面需先建立 Zotero 全文索引
