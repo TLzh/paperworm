@@ -340,13 +340,42 @@ git tag v0.x.y
 git push origin main && git push origin v0.x.y
 ```
 
-GitHub Actions 会自动：构建 XPI → 上传 Release Assets → 生成 Release Notes（来自 `--generate-notes`，基于两次 tag 之间的 commit）
+GitHub Actions 会自动：构建 XPI → 上传 Release Assets → 用 changelogen 生成 Release Notes。
 
 ### 注意
 
 - `prefs.js` 永远不入 Git（已在 `.gitignore`）
 - 发版前检查 `git diff --stat` 确认无敏感文件暂存
 - Release Notes 由 CI 自动生成；如需补充说明，发版后手动编辑 GitHub Release 页面
+
+### ⚠️ CI 发版踩坑记录
+
+#### 坑 1：`zotero-plugin release` 在 CI 里不传版本号会失败（v0.5.14）
+
+**现象**：CI `Build & Release` 步骤以 exit code 1 失败，日志无明显错误信息。
+
+**根本原因**：`zotero-plugin release` 内部使用 `bumpp` 做版本管理。不传版本号时，
+bumpp 会尝试交互式询问下一个版本号，或自动 bump 后执行 `git push`。
+而 CI 通过 tag 触发时，`actions/checkout` 检出的是 **detached HEAD** 状态，
+`git push` 必然失败，导致整个 job 退出码为 1。
+
+**修复**：在 CI 的 release 命令中显式传入版本号，scaffold 检测到 `new version == old version` 时会跳过 bumpp 的 commit/tag/push：
+
+```yaml
+run: npm run release -- "${GITHUB_REF_NAME#v}" --yes
+#                        ^^^^^^^^^^^^^^^^^^^^^ 去掉 v 前缀，如 v0.5.14 → 0.5.14
+#                                               ^^^^^ 跳过 bumpp 的交互确认
+```
+
+---
+
+#### 坑 2：`gh release edit` 不支持 `--generate-notes` flag（v0.5.14）
+
+**现象**：CI `Generate release notes` 步骤报 `unknown flag: --generate-notes`。
+
+**根本原因**：`--generate-notes` 只在 `gh release create` 中有效，`gh release edit` 不支持该 flag。
+
+**修复**：直接删除该步骤。`zotero-plugin release` 已通过 changelogen 自动生成 Release Notes，无需额外步骤覆盖。如需手动补充，发版后在 GitHub Release 页面直接编辑即可。
 
 ## 重要约定
 
