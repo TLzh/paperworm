@@ -29,3 +29,10 @@ jobs:
         # bumpp 的 commit/tag/push，避免在 detached HEAD 下 git push 失败
         run: npm run release -- "${GITHUB_REF_NAME#v}" --yes
 
+      - name: Generate Release Notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit "${GITHUB_REF_NAME}" \
+            --notes "$(gh api repos/{owner}/{repo}/releases/generate-notes -f tag_name="${GITHUB_REF_NAME}" -f previous_tag_name=$(git describe --tags --abbrev=0 ${GITHUB_REF_NAME}^) | jq -r .body)"
+
