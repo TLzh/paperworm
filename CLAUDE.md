@@ -115,6 +115,7 @@ workspace/
 **已知约束**:
 - `.textLayer` 方案仅抓已渲染页（滚动过的页面）；一次性获取全部页面需先建立 Zotero 全文索引
 - 会话笔记底部的 Base64 元数据块在 Zotero 笔记 UI 中可见（Zotero 过滤 `style`/`<script>`，`<details>` 不支持折叠），功能不受影响，已在 README 中说明
+- 流式请求（`chatStream`）无法中途取消：用户切换论文后网络连接仍继续，AI 回复完成后会正确保存到原论文的历史记录。这是有意为之的设计——若要支持取消需引入 `AbortController` 并在 `onItemChange` 里调用 `abort()`
 - 无笔记联动（待实现）
 
 **已上线**:
