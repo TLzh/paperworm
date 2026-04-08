@@ -62,14 +62,14 @@ workspace/
 
 ## 当前开发状态
 
-**阶段**: v0.5.15 — 模型徽章实时刷新
+**阶段**: v0.5.16 — 模型快速切换 & 开发流程优化
 
 **已完成**:
 - 创建文档体系（CLAUDE.md / PRD.md / architecture.md / devlog.md）
 - 项目代码骨架初始化（基于 zotero-plugin-template）
 - 偏好设置页面（LLM 服务配置 / 高级参数 / 系统提示词）
-- 支持服务商：OpenAI、DeepSeek、Anthropic、Gemini、Ollama、**Kimi（月之暗面，v0.5.13）**
-- LLM Provider 接口 + 六个实现（含流式输出）
+- 支持服务商：OpenAI、DeepSeek、Anthropic、Gemini、Ollama、**Kimi（月之暗面，v0.5.13）**、**Qwen（通义千问，v0.5.14）**
+- LLM Provider 接口 + 七个实现（含流式输出）
 - LLMManager：从 prefs 读取配置，按需实例化 Provider（每次发送均重新读取，切换服务商/模型/参数即时生效）
 - 偏好设置"测试连接"接入真实 API
 - Reader 侧边聊天面板（注册、UI、流式渲染、快捷操作）
@@ -82,14 +82,11 @@ workspace/
 - 全文注入上下文上限 80000 字符（约 25 页），覆盖主流论文全文
 - **已修复多 tab 全文读取错误**（v0.5.2）：策略 3 通过 `_tabs[i].data.itemID` + `getElementById(tabID).querySelector("browser.reader")` 精确定位目标 PDF 的 reader window，不再依赖私有属性或全局搜索
 - **Markdown 渲染**：流式时纯文本，完成后用纯 DOM API（`createElement`/`createTextNode`）渲染
-  - 支持：标题（H1–H6）、粗体、斜体、无序列表、代码块、行内代码、水平线
+  - 支持：标题（H1–H6）、粗体、斜体、无序列表、代码块、行内代码、水平线、表格、引用块
   - Gecko chrome 上下文限制：innerHTML / createContextualFragment / DOMParser+adoptNode 均被拦截，必须使用纯 DOM API
 - **KaTeX 数学公式渲染**：
   - 块级：`$$...$$`（围栏或同行）和 `\[...\]`（LaTeX 风格，围栏或同行）均支持
   - 行内：`$...$` 和 `\(...\)`（LaTeX 风格）均支持
-  - 使用 KaTeX MathML 输出 + 未挂载元素 innerHTML 技巧注入
-  - Firefox 原生渲染 MathML，无需 KaTeX CSS / 字体文件
-- 消息区自然展开（移除 max-height 限制）
 - **会话持久化与多设备同步**（核心亮点功能）：
   - 每次 AI 响应完成后自动保存会话到 Zotero 子笔记，无需手动操作
   - 会话标题 = 首条用户消息前 25 字，便于识别
@@ -98,20 +95,13 @@ workspace/
   - Zotero 笔记随免费账号同步，多设备无缝接续阅读历史
   - 数据格式：Zotero child note，内嵌 JSON（v2）+ 人可读 HTML transcript
   - 向下兼容 v1 归档格式（旧版笔记可正常加载）
-- **偏好设置体验优化**（v0.5.0）：
-  - 高级参数提示统一三段式（范围·解释·推荐）：Temperature `(0–2，低=精准稳定 高=随机创意，推荐 0.1–0.5)`，最大 Token 数 `(100–32000，影响单次回复长度，推荐 2000–4000)`
-  - 系统提示词新增内置模板：「开锁专家」（批判性论文解读）；新增「自定义（清空）」快捷选项
-  - **用户自定义模板**：可将当前提示词以自定义名称保存，持久化到 Zotero prefs，支持加载和删除
-  - 所有设置更改即时生效（下一条消息立刻使用新配置，无需重启）
-- **偏好设置 pref 路径全面修复**（v0.5.10）：XHTML 中所有 `preference` 属性改为完整路径（`extensions.zotero.paperworm.*`），修复 Windows 上 API Key / Provider 配置不生效的根本原因
-- **跨 PDF 选区污染修复**（v0.5.11）：`getSelectedText()` 限定到当前 item 的 reader window，多 tab 场景下不再把其他 PDF 的选区带入对话
-- **AI 回复可选中复制**（v0.5.12）：`.pw-msg` 添加 `user-select: text`，用户可直接鼠标选中并复制模型回复
-- **引用块渲染**（v0.5.12）：`setMarkdown()` 支持 `>` 开头的 Markdown 引用块，渲染为带左边框的斜体样式
-- **Kimi（月之暗面）支持**（v0.5.13）：Kimi API 兼容 OpenAI 格式，复用 `OpenAIProvider`，base_url 为 `https://api.moonshot.cn/v1`，推荐模型 `kimi-k2.5`
-- **通义千问（阿里云）支持**（v0.5.14）：DashScope API 兼容 OpenAI 格式，复用 `OpenAIProvider`，base_url 为 `https://dashscope.aliyuncs.com/compatible-mode/v1`，推荐模型 `qwen3.6-plus`
-- **面板 UX 改进**（v0.5.14）：切换有会话的论文时自动滚到底部；会话列表按钮和快捷操作按钮改为吸顶显示
-- **`item.id` key 归一化**（v0.5.14）：`getItemKey()` 统一使用 `parentItem.id`，防止同一论文产生两个历史 bucket
-- **模型徽章实时刷新**（v0.5.15）：`initPanel` 启动 1 秒 setInterval 读取 prefs，有变化才更新 DOM；MutationObserver 监听 body 清空事件自动 clearInterval，防止内存泄漏
+- **模型徽章实时刷新**（v0.5.15）：每秒从 prefs 读取当前配置，有变化才更新 DOM
+- **模型快速切换**（v0.5.16）：点击模型徽章弹出下拉菜单，直接切换已配置的提供商和模型，无需进入设置页面
+
+**开发流程优化**（v0.5.16）：
+- 简化开发流程：统一使用 default profile，无需多 profile 切换
+- 端口 23119 锁定，开发前关闭日常 Zotero 即可
+- 热加载正常工作，代码保存后自动重载
 
 **已知约束**:
 - `.textLayer` 方案仅抓已渲染页（滚动过的页面）；一次性获取全部页面需先建立 Zotero 全文索引
@@ -252,37 +242,24 @@ const resp = await zhttp("POST", url, { headers, body, successCodes: [200] });
 
 ## 本地开发与测试
 
-### 一次性配置（首次使用）
+### 配置（已简化）
 
-1. 在 `PaperWorm/` 目录创建 `.env` 文件（已在 `.gitignore`，**不会入 git**）：
+`.env` 已指向 default profile（有所有文献），无需额外配置。
 
-```
-ZOTERO_PLUGIN_ZOTERO_BIN_PATH = /Applications/Zotero.app/Contents/MacOS/zotero
-ZOTERO_PLUGIN_PROFILE_PATH = /Users/liuzhihong/Library/Application Support/Zotero/Profiles/6z9fegez.default
-```
-
-2. 备份一次真实数据库（`.env` 指向真实 profile，插件 bug 可能影响数据）：
-
-```bash
-cp ~/Zotero/zotero.sqlite ~/Zotero/zotero.sqlite.bak
-```
-
-### 日常开发流程
+### 开发流程
 
 ```bash
 cd PaperWorm
-make start     # 构建 + 启动 Zotero + 热重载（改代码自动生效，无需重启）
+make start     # 启动开发（热重载）
 ```
 
-`zotero-plugin serve` 会在 Zotero 扩展目录写一个代理文件，指向 `.scaffold/build/`，
-监听源码变化后自动重新构建并触发插件重载。
+**注意**：开发前确保关闭日常 Zotero（释放 23119 端口）。
 
-### 仅验证某次改动（不启动热重载）
+### 端口说明
 
-```bash
-make build
-# Zotero → 工具 → 附加组件 → 齿轮 → 从文件安装 → 选 .scaffold/build/paper-worm.xpi
-```
+- **端口**：23119（default profile 锁定）
+- **Profile**：始终使用 default（有所有文献）
+- **热加载**：代码保存后自动生效（无需重启）
 
 ### Git 安全规范
 

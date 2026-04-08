@@ -102,7 +102,10 @@ ${CHAT_CSS}
 <div class="pw-panel">
   <div class="pw-sticky-top">
     <div class="pw-header">
-      <span class="pw-model-badge">${providerName} · ${modelName}</span>
+      <div class="pw-model-dropdown-trigger" role="button" tabindex="0">
+        <span class="pw-model-text">${providerName} · ${modelName}</span>
+        <span class="pw-dropdown-arrow">▼</span>
+      </div>
       <div class="pw-sessions-btn" role="button" tabindex="0">会话列表</div>
     </div>
     <div class="pw-actions">
@@ -139,15 +142,20 @@ ${CHAT_CSS}
 
   // 实时刷新模型徽章：每秒从 prefs 读取当前配置，有变化才更新 DOM
   const win = body.ownerDocument!.defaultView!;
-  const badge = panel.querySelector(".pw-model-badge") as HTMLElement;
+  const badge = panel.querySelector(".pw-model-text") as HTMLElement;
+  let dropdownOpen = false;
+  
   const badgeTimer = win.setInterval(() => {
+    if (dropdownOpen) return; // 下拉打开时跳过，避免干扰用户选择
+    
     const pName = LLMManager.getInstance().getActiveProviderName();
     const mName =
       (Zotero.Prefs.get(
         `${config.prefsPrefix}.llm.${pName}.model`,
         true,
       ) as string) ?? "unknown";
-    const next = `${pName} · ${mName}`;
+    const displayName = getProviderDisplayName(pName);
+    const next = `${displayName} · ${mName}`;
     if (badge.textContent !== next) badge.textContent = next;
   }, 1000);
 
@@ -171,6 +179,10 @@ function bindEvents(
   const textarea = panel.querySelector(".pw-input") as HTMLTextAreaElement;
   const sendBtn = panel.querySelector(".pw-send-btn") as HTMLElement;
   const sessionsBtn = panel.querySelector(".pw-sessions-btn") as HTMLElement;
+  const modelTrigger = panel.querySelector(".pw-model-dropdown-trigger") as HTMLElement;
+  
+  // 下拉菜单状态（用于定时器控制）
+  let dropdownState = { open: false };
 
   // 在用户点击面板任何元素之前（mousedown 阶段）捕获 PDF 选区。
   // 此时焦点尚未离开 PDF iframe，选区还在。
@@ -230,6 +242,12 @@ function bindEvents(
     void loadSessions(item).then((sessions) => {
       showSessionList(doc, messagesEl, sessions, item);
     });
+  });
+
+  // 模型选择下拉菜单
+  modelTrigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    showProviderDropdown(doc, panel, modelTrigger, dropdownState);
   });
 }
 
@@ -910,6 +928,149 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
+// 提供商配置接口
+interface ConfiguredProvider {
+  name: string;        // 显示名：OpenAI, Claude, etc.
+  providerId: string;  // id：openai, anthropic, etc.
+  model: string;       // 当前配置的模型名
+}
+
+// 将 provider ID 映射为显示名
+function getProviderDisplayName(providerId: string): string {
+  const displayNames: Record<string, string> = {
+    openai: "OpenAI",
+    deepseek: "DeepSeek", 
+    anthropic: "Claude",
+    gemini: "Gemini",
+    ollama: "Ollama",
+    kimi: "Kimi",
+    qwen: "Qwen"
+  };
+  return displayNames[providerId] || providerId;
+}
+
+// 获取所有已配置的提供商列表
+function getConfiguredProviders(): ConfiguredProvider[] {
+  const p = config.prefsPrefix;
+  const providers: ConfiguredProvider[] = [];
+  
+  const providerConfigs = [
+    { id: "openai", keyPref: "apiKey" },
+    { id: "deepseek", keyPref: "apiKey" },
+    { id: "anthropic", keyPref: "apiKey" },
+    { id: "gemini", keyPref: "apiKey" },
+    { id: "kimi", keyPref: "apiKey" },
+    { id: "qwen", keyPref: "apiKey" },
+    { id: "ollama", keyPref: "baseUrl" }
+  ];
+  
+  for (const cfg of providerConfigs) {
+    const key = Zotero.Prefs.get(`${p}.llm.${cfg.id}.${cfg.keyPref}`, true) as string;
+    const isConfigured = cfg.id === "ollama" 
+      ? !!key
+      : !!key && key.length > 0;
+    
+    if (isConfigured) {
+      const model = Zotero.Prefs.get(`${p}.llm.${cfg.id}.model`, true) as string || "default";
+      providers.push({
+        name: getProviderDisplayName(cfg.id),
+        providerId: cfg.id,
+        model: model
+      });
+    }
+  }
+  
+  return providers;
+}
+
+// 显示提供商下拉菜单
+function showProviderDropdown(
+  doc: Document,
+  panel: HTMLElement,
+  triggerEl: HTMLElement,
+  dropdownState: { open: boolean }
+): void {
+  // 关闭已打开的下拉
+  const existingDropdown = panel.querySelector(".pw-provider-dropdown") as HTMLElement;
+  if (existingDropdown) {
+    existingDropdown.remove();
+    dropdownState.open = false;
+    return;
+  }
+  
+  dropdownState.open = true;
+  
+  const dropdown = doc.createElement("div");
+  dropdown.className = "pw-provider-dropdown";
+  
+  const providers = getConfiguredProviders();
+  const currentProvider = LLMManager.getInstance().getActiveProviderName();
+  
+  if (providers.length === 0) {
+    const emptyMsg = doc.createElement("div");
+    emptyMsg.className = "pw-dropdown-empty";
+    emptyMsg.textContent = "未配置任何服务商";
+    dropdown.appendChild(emptyMsg);
+  } else {
+    for (const provider of providers) {
+      const item = doc.createElement("div");
+      item.className = "pw-dropdown-item";
+      if (provider.providerId === currentProvider) {
+        item.classList.add("pw-dropdown-active");
+      }
+      
+      const nameEl = doc.createElement("span");
+      nameEl.className = "pw-dropdown-provider";
+      nameEl.textContent = provider.name;
+      
+      const modelEl = doc.createElement("span");
+      modelEl.className = "pw-dropdown-model";
+      modelEl.textContent = provider.model;
+      
+      item.appendChild(nameEl);
+      item.appendChild(modelEl);
+      
+      item.addEventListener("click", () => {
+        // 更新配置
+        Zotero.Prefs.set(`${config.prefsPrefix}.llm.provider`, provider.providerId, true);
+        Zotero.Prefs.set(`${config.prefsPrefix}.llm.${provider.providerId}.model`, provider.model, true);
+        
+        // 更新徽章显示
+        const badge = panel.querySelector(".pw-model-text") as HTMLElement;
+        if (badge) {
+          badge.textContent = `${provider.name} · ${provider.model}`;
+        }
+        
+        // 关闭下拉
+        dropdown.remove();
+        dropdownState.open = false;
+      });
+      
+      dropdown.appendChild(item);
+    }
+  }
+  
+  // 添加到面板并定位（强制向下展开）
+  panel.appendChild(dropdown);
+  
+  const rect = triggerEl.getBoundingClientRect();
+  const panelRect = panel.getBoundingClientRect();
+  dropdown.style.top = `${rect.bottom - panelRect.top + 4}px`;
+  dropdown.style.left = `${rect.left - panelRect.left}px`;
+  
+  // 点击外部关闭
+  setTimeout(() => {
+    const closeHandler = (e: MouseEvent) => {
+      if (!dropdown.contains(e.target as Node) && e.target !== triggerEl) {
+        dropdown.remove();
+        dropdownState.open = false;
+        doc.removeEventListener("click", closeHandler);
+      }
+    };
+    doc.addEventListener("click", closeHandler);
+  }, 0);
+}
+
 // ── CSS ──────────────────────────────────────────────────────────────────────
 
 const CHAT_CSS = `
@@ -917,6 +1078,7 @@ const CHAT_CSS = `
   font-size: 13px;
   font-family: inherit;
   box-sizing: border-box;
+  position: relative;
 }
 .pw-sticky-top {
   position: sticky;
@@ -931,12 +1093,81 @@ const CHAT_CSS = `
   padding: 6px 10px;
   border-bottom: 1px solid rgba(128,128,128,0.2);
 }
-.pw-model-badge {
+/* 模型下拉选择器 */
+.pw-model-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
   opacity: 0.6;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: opacity 0.2s, background 0.2s;
+  user-select: none;
+}
+.pw-model-dropdown-trigger:hover {
+  opacity: 0.9;
+  background: rgba(128,128,128,0.1);
+}
+.pw-model-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.pw-dropdown-arrow {
+  font-size: 8px;
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+/* 提供商下拉菜单 */
+.pw-provider-dropdown {
+  position: absolute;
+  background: Canvas;
+  border: 1px solid rgba(128,128,128,0.3);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  min-width: 160px;
+  max-width: 240px;
+  z-index: 100;
+  padding: 4px;
+  font-size: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.pw-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.pw-dropdown-item:hover {
+  background: rgba(26,127,212,0.1);
+}
+.pw-dropdown-active {
+  background: rgba(26,127,212,0.08);
+  font-weight: 500;
+}
+.pw-dropdown-provider {
+  flex-shrink: 0;
+}
+.pw-dropdown-model {
+  font-size: 10px;
+  opacity: 0.6;
+  margin-left: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+.pw-dropdown-empty {
+  padding: 12px;
+  text-align: center;
+  opacity: 0.5;
+  font-size: 11px;
 }
 .pw-sessions-btn {
   font-size: 11px;
