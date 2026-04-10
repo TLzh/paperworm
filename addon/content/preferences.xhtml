@@ -2,7 +2,40 @@
   <html:link rel="localization" href="__addonRef__-preferences.ftl" />
 </linkset>
 
-<!-- ── Section 1: LLM Service ── -->
+<!-- ── Section 1: PDF Extraction ── -->
+<groupbox>
+  <label><html:h2>MinerU 设置</html:h2></label>
+
+  <hbox align="center" style="margin-bottom:6px">
+    <label style="width:110px;min-width:110px">API Token</label>
+    <html:input
+      type="password"
+      id="__addonRef__-mineru-token"
+      preference="extensions.zotero.paperworm.mineru.apiToken"
+      placeholder="在 mineru.net 申请 API Token"
+      style="flex:1;padding:2px 4px"
+    />
+  </hbox>
+  
+  <hbox align="center" style="margin-top:6px">
+    <button
+      id="__addonRef__-mineru-test-btn"
+      label="测试连接"
+    />
+    <label
+      id="__addonRef__-mineru-test-result"
+      style="margin-left:10px"
+    />
+  </hbox>
+
+  <vbox style="margin-left:8px;margin-top:8px">
+    <description style="font-size: 0.9em; color: #666;">
+      填入 MinerU API Token 后，PaperWorm 面板将显示"⚡ 精细提取"按钮，可按需提取结构化文本（表格、公式等），结果缓存为 Zotero 笔记，自动跨设备同步。
+    </description>
+  </vbox>
+</groupbox>
+
+<!-- ── Section 2: LLM Service ── -->
 <!-- onload 必须挂在真实容器元素上，不能挂在自闭合元素上 -->
 <groupbox onload="Zotero.__addonInstance__.hooks.onPrefsEvent('load', { window })">
   <label><html:h2 data-l10n-id="pref-llm-section"></html:h2></label>
@@ -202,7 +235,7 @@
   </hbox>
 </groupbox>
 
-<!-- ── Section 2: Advanced ── -->
+<!-- ── Section 3: Advanced ── -->
 <groupbox>
   <label><html:h2 data-l10n-id="pref-advanced-section"></html:h2></label>
 
@@ -229,7 +262,7 @@
   </hbox>
 </groupbox>
 
-<!-- ── Section 3: System Prompt ── -->
+<!-- ── Section 4: System Prompt ── -->
 <groupbox>
   <label><html:h2 data-l10n-id="pref-prompt-section"></html:h2></label>
 

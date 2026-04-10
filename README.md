@@ -18,6 +18,7 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 - **Persistent sessions with cross-device sync** — every conversation is automatically saved as a Zotero child note attached to the paper; sessions survive Zotero restarts and sync to other devices via your free Zotero account
 - **Multiple sessions per paper** — start new conversations and switch between them via the **Session List** view
 - **Rich text rendering** — Markdown (headings, bold, lists, code blocks) and LaTeX math (via KaTeX MathML) rendered in AI responses
+- **Precise layout extraction (MinerU)** — optional layout-aware text extraction using [MinerU](https://github.com/opendatalab/mineru) to better handle tables, formulas, and structured content
 
 ## Requirements
 
@@ -38,6 +39,21 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 2. Select your LLM provider and enter your API key
 3. Click **Test Connection** to verify
 4. Open any PDF in Zotero's reader — the PaperWorm panel will appear in the right sidebar
+
+### Precise Layout Extraction (Optional)
+
+PaperWorm supports enhanced text extraction using [MinerU](https://github.com/opendatalab/mineru), which analyzes document layout to better extract tables, formulas, and structured content from academic papers.
+
+To enable this feature:
+
+1. Go to [mineru.net](https://mineru.net) and create a free account
+2. Obtain your API token from the dashboard
+3. Open **Edit → Settings → PaperWorm** and enter your MinerU API Token
+4. Click **Test Connection** to verify
+5. When reading a paper in Zotero, click the **⚡ Fine Extraction** button in the PaperWorm panel to extract structured text
+6. The extracted content will be cached as a Zotero note and used for subsequent conversations with this paper
+
+**Note**: The cached content syncs across devices via your Zotero account. Once extracted, the structured text is available on all your devices without re-extraction.
 
 ## Supported Providers
 
@@ -189,18 +205,19 @@ PaperWorm automatically injects the paper's full text into every conversation so
 
 ### How text extraction works
 
-PaperWorm tries three strategies in order, stopping at the first that succeeds:
+PaperWorm uses multiple strategies in order, stopping at the first that succeeds:
 
-1. **Zotero full-text index** — if the paper has already been indexed by Zotero, the cached text is used immediately
-2. **On-demand indexing** — if not yet indexed, PaperWorm triggers Zotero's built-in PDF indexer (`pdftotext`) and reads the result; this is automatic and requires no user action
-3. **Rendered page text** — if indexing fails or is unavailable, PaperWorm reads the text directly from the PDF viewer's rendered pages (`.textLayer` DOM elements)
+1. **MinerU precise cache** — if you have previously performed fine extraction on this paper, the structured text (with proper handling of tables and formulas) is used immediately
+2. **Zotero full-text index** — if the paper has already been indexed by Zotero, the cached text is used immediately
+3. **On-demand indexing** — if not yet indexed, PaperWorm triggers Zotero's built-in PDF indexer (`pdftotext`) and reads the result; this is automatic and requires no user action
+4. **Rendered page text** — if indexing fails or is unavailable, PaperWorm reads the text directly from the PDF viewer's rendered pages (`.textLayer` DOM elements)
 
 **You do not need to manually pre-index papers.** Strategy 2 handles indexing automatically on first use.
 
 ### Limitations
 
-- **Scanned / image-only PDFs** (no OCR text layer): none of the three strategies can extract text. The AI will work from the title, authors, and abstract only.
-- **Strategy 3 coverage**: only pages that have been rendered in the viewer (i.e., pages you have scrolled to) are available. For complete coverage of long papers, strategies 1 and 2 (which read the full file) are preferable — they are attempted first.
+- **Scanned / image-only PDFs** (no OCR text layer): none of the four strategies can extract text. The AI will work from the title, authors, and abstract only.
+- **Strategy 4 coverage**: only pages that have been rendered in the viewer (i.e., pages you have scrolled to) are available. For complete coverage of long papers, strategies 1-3 (which read the full file) are preferable — they are attempted first.
 - **Character limit**: up to 80,000 characters (~25 pages) of full text are injected per message.
 
 ---
@@ -293,6 +310,7 @@ interface LLMProvider {
 - [zotero-plugin-toolkit](https://github.com/windingwind/zotero-plugin-toolkit) by [@windingwind](https://github.com/windingwind) — Zotero plugin utility library
 - [zotero-plugin-scaffold](https://github.com/northword/zotero-plugin-scaffold) by [@northword](https://github.com/northword) — build toolchain
 - [KaTeX](https://katex.org) — math formula rendering
+- [MinerU](https://github.com/opendatalab/mineru) by [OpenDataLab](https://github.com/opendatalab) — free, non-commercial layout-aware PDF text extraction service
 
 ## License
 

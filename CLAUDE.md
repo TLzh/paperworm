@@ -62,61 +62,54 @@ workspace/
 
 ## 当前开发状态
 
-**阶段**: v0.5.16 — 模型快速切换 & 开发流程优化
+**阶段**: v0.6.0 — MinerU 精细提取支持 & 安全加固
 
 **已完成**:
 - 创建文档体系（CLAUDE.md / PRD.md / architecture.md / devlog.md）
 - 项目代码骨架初始化（基于 zotero-plugin-template）
 - 偏好设置页面（LLM 服务配置 / 高级参数 / 系统提示词）
-- 支持服务商：OpenAI、DeepSeek、Anthropic、Gemini、Ollama、**Kimi（月之暗面，v0.5.13）**、**Qwen（通义千问，v0.5.14）**
+- 支持服务商：OpenAI、DeepSeek、Anthropic、Gemini、Ollama、Kimi（月之暗面）、Qwen（通义千问）
 - LLM Provider 接口 + 七个实现（含流式输出）
 - LLMManager：从 prefs 读取配置，按需实例化 Provider（每次发送均重新读取，切换服务商/模型/参数即时生效）
 - 偏好设置"测试连接"接入真实 API
 - Reader 侧边聊天面板（注册、UI、流式渲染、快捷操作）
 - **选中文字注入上下文**：mousedown 捕获阶段获取 PDF 选区，在发送时自动前置引用块
 - **快捷操作按钮**：总结本文 / 解释段落 / 翻译 / 引用选中，均已对接选区捕获
-- **PDF 全文提取**（三级策略，已验证，无需预建索引）：
-  1. Zotero 全文索引（已索引条目直接读取）
-  2. 触发即时索引后重试（`Zotero.Fulltext.indexItems`）
-  3. 读取 Reader 已渲染的 `.textLayer` DOM 文字层（限定到目标 tab 的 reader window）
+- **PDF 全文提取**（四级策略）：
+  1. MinerU 精细缓存（已提取的结构化文本）
+  2. Zotero 全文索引（已索引条目直接读取）
+  3. 触发即时索引后重试（`Zotero.Fulltext.indexItems`）
+  4. 读取 Reader 已渲染的 `.textLayer` DOM 文字层（限定到目标 tab 的 reader window）
+- **MinerU 精细提取**（v0.6.0 重磅功能）：
+  - 集成 MinerU API 进行版面分析，智能识别表格、公式等结构化内容
+  - 面板添加"⚡ 精细提取"按钮，一键提取结构化 Markdown
+  - 提取结果缓存为 Zotero 子笔记，支持免费账号跨设备同步
+  - 实时进度条显示上传、解析、下载各阶段进度
+  - 并发保护防止重复点击，安全机制防范路径遍历攻击
 - 全文注入上下文上限 80000 字符（约 25 页），覆盖主流论文全文
-- **已修复多 tab 全文读取错误**（v0.5.2）：策略 3 通过 `_tabs[i].data.itemID` + `getElementById(tabID).querySelector("browser.reader")` 精确定位目标 PDF 的 reader window，不再依赖私有属性或全局搜索
-- **Markdown 渲染**：流式时纯文本，完成后用纯 DOM API（`createElement`/`createTextNode`）渲染
+- **已修复多 tab 全文读取错误**（v0.5.2）：策略 4 通过 `_tabs[i].data.itemID` + `getElementById(tabID).querySelector("browser.reader")` 精确定位目标 PDF 的 reader window
+- **Markdown 渲染**：流式时纯文本，完成后用纯 DOM API渲染
   - 支持：标题（H1–H6）、粗体、斜体、无序列表、代码块、行内代码、水平线、表格、引用块
-  - Gecko chrome 上下文限制：innerHTML / createContextualFragment / DOMParser+adoptNode 均被拦截，必须使用纯 DOM API
 - **KaTeX 数学公式渲染**：
-  - 块级：`$$...$$`（围栏或同行）和 `\[...\]`（LaTeX 风格，围栏或同行）均支持
-  - 行内：`$...$` 和 `\(...\)`（LaTeX 风格）均支持
+  - 块级：`$$...$$` 和 `\[...\]` 均支持
+  - 行内：`$...$` 和 `\(...\)` 均支持
 - **会话持久化与多设备同步**（核心亮点功能）：
-  - 每次 AI 响应完成后自动保存会话到 Zotero 子笔记，无需手动操作
-  - 会话标题 = 首条用户消息前 25 字，便于识别
+  - 每次 AI 响应完成后自动保存会话到 Zotero 子笔记
+  - 会话标题 = 首条用户消息前 25 字
   - 每篇论文可有多个独立会话，通过「会话列表」按钮随时切换
-  - 加载历史会话后 LLM 可继续看到完整上下文（API 无状态，历史 messages 数组直接传入）
-  - Zotero 笔记随免费账号同步，多设备无缝接续阅读历史
-  - 数据格式：Zotero child note，内嵌 JSON（v2）+ 人可读 HTML transcript
-  - 向下兼容 v1 归档格式（旧版笔记可正常加载）
-- **模型徽章实时刷新**（v0.5.15）：每秒从 prefs 读取当前配置，有变化才更新 DOM
-- **模型快速切换**（v0.5.16）：点击模型徽章弹出下拉菜单，直接切换已配置的提供商和模型，无需进入设置页面
+  - Zotero 笔记随免费账号同步，多设备无缝接续
+- **模型徽章实时刷新**（v0.5.15）
+- **模型快速切换**（v0.5.16）
 
-**开发流程优化**（v0.5.16）：
-- 简化开发流程：统一使用 default profile，无需多 profile 切换
-- 端口 23119 锁定，开发前关闭日常 Zotero 即可
-- 热加载正常工作，代码保存后自动重载
-
-**已知约束**:
-- `.textLayer` 方案仅抓已渲染页（滚动过的页面）；一次性获取全部页面需先建立 Zotero 全文索引
-- 会话笔记底部的 Base64 元数据块在 Zotero 笔记 UI 中可见（Zotero 过滤 `style`/`<script>`，`<details>` 不支持折叠），功能不受影响，已在 README 中说明
-- 流式请求（`chatStream`）无法中途取消：用户切换论文后网络连接仍继续，AI 回复完成后会正确保存到原论文的历史记录。这是有意为之的设计——若要支持取消需引入 `AbortController` 并在 `onItemChange` 里调用 `abort()`
-- 无笔记联动（待实现）
+**安全加固**（v0.6.0）：
+- 修复 ZIP 路径遍历漏洞，防止恶意 PDF 提取攻击
+- 完善 HTML 转义，防范 XSS 注入
+- 添加请求并发锁，防止资源滥用
 
 **已上线**:
 - GitHub 仓库：[github.com/TLzh/paperworm](https://github.com/TLzh/paperworm)
-- GitHub Actions 自动发布：push tag `v*` 即触发构建、生成 `update.json`、创建 Release
-- Zotero 自动更新：已验证 v0.5.0 → v0.5.1 全链路正常
-
-**待迭代**（按需求顺序推进）:
-- 笔记联动（生成 / 追加笔记）
-- 右键菜单快捷入口
+- GitHub Actions 自动发布：push tag `v*` 即触发构建
+- Zotero 自动更新：已验证全链路正常
 
 ## ⚠️ 安全红线 — 每次开发必读
 

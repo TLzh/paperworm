@@ -3,6 +3,7 @@
 
 import { config } from "../../package.json";
 import { LLMManager } from "./llm/manager";
+import { MinerUTestClient } from "./paper/strategies/mineru/testClient";
 
 const ref = config.addonRef;
 
@@ -312,10 +313,16 @@ function bindPrefsEvents(win: Window) {
       if (deleteBtn) deleteBtn.setAttribute("disabled", "true");
     });
 
-  // 测试连接按钮
+  // 测试连接按钮（LLM）
   doc.getElementById(`${ref}-test-btn`)
     ?.addEventListener("command", () => {
       testConnection(win);
+    });
+
+  // 测试连接按钮（MinerU）
+  doc.getElementById(`${ref}-mineru-test-btn`)
+    ?.addEventListener("command", () => {
+      testMinerUConnection(win);
     });
 }
 
@@ -341,6 +348,28 @@ function testConnection(win: Window) {
     .testConnection()
     .then((ok) => {
       resultLabel.setAttribute("value", ok ? "✓ 连接成功" : "✗ 连接失败，请检查 Key 或网络");
+    })
+    .catch((e: Error) => {
+      resultLabel.setAttribute("value", `✗ 错误：${e.message}`);
+    });
+}
+
+function testMinerUConnection(win: Window) {
+  const doc = win.document;
+  const resultLabel = doc.getElementById(`${ref}-mineru-test-result`) as any;
+  if (!resultLabel) return;
+
+  resultLabel.setAttribute("value", "测试中...");
+
+  const token = Zotero.Prefs.get(
+    `${config.prefsPrefix}.mineru.apiToken`, true
+  ) as string;
+
+  MinerUTestClient.testConnection(token)
+    .then((result) => {
+      resultLabel.setAttribute("value",
+        result.success ? `✓ ${result.message}` : `✗ ${result.message}`
+      );
     })
     .catch((e: Error) => {
       resultLabel.setAttribute("value", `✗ 错误：${e.message}`);

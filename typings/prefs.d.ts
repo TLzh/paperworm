@@ -22,6 +22,8 @@ declare namespace _ZoteroTypes {
       "llm.kimi.model": string;
       "llm.qwen.apiKey": string;
       "llm.qwen.model": string;
+      "pdf.extractionMode": string;
+      "mineru.apiToken": string;
       "llm.temperature": string;
       "llm.maxTokens": string;
       "systemPrompt.content": string;

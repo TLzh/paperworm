@@ -1,6 +1,8 @@
 // Paper Extractor — 从 Zotero Reader 中提取论文内容
 // 供 LLM 使用的上下文来源
 
+import { MinerUClient, MinerUCacheManager, ImageHandler } from "./strategies/mineru";
+
 export interface PaperMetadata {
   title: string;
   authors: string[];
@@ -10,7 +12,23 @@ export interface PaperMetadata {
   itemKey: string;
 }
 
+// 扩展 Zotero 类型声明 - PDFWorker 方法
+// 注意：不声明 const PDFWorker，因为它已经在 Zotero 全局对象中
+declare global {
+  namespace Zotero {
+    interface PDFWorkerInstance {
+      getFullText(itemID: number, maxPages: number | null): Promise<{
+        text: string;
+        extractedPages: number;
+        totalPages: number;
+      }>;
+    }
+  }
+}
+
 export class PaperExtractor {
+  /** 跟踪正在提取 MinerU 的条目 ID，防止重复请求 */
+  private static _extractingItems = new Set<number>();
   /** 获取当前 Reader 中打开的条目 */
   static getCurrentItem(): Zotero.Item | null {
     const tabs = (globalThis as any).Zotero_Tabs;
@@ -51,46 +69,183 @@ export class PaperExtractor {
   }
 
   /**
-   * 获取 PDF 全文。三级策略：
-   * 1. Zotero 全文索引（已索引时最快）
-   * 2. 触发 Zotero 对该附件即时索引后再读
-   * 3. 直接读取 Reader 已渲染的 DOM .textLayer 文字层
-   *
-   * ⚠️ strategy 3 必须限定到目标 PDF 的 reader window，
-   *    绝不使用 getMainWindow() 全局搜索 —— 多 tab 时会读到其他 PDF 的内容。
+   * 获取 PDF 全文。
+   * 优先使用 MinerU 精细缓存（已通过"精细提取"按钮提取过），否则使用 Zotero 原生提取。
    */
   static async getFullText(item: Zotero.Item): Promise<string> {
+    // 优先使用 MinerU 精细缓存
+    const cached = await MinerUCacheManager.getCachedContent(item);
+    if (cached) {
+      ztoolkit.log("使用 MinerU 精细文本缓存");
+      return cached;
+    }
+    return this.extractWithZotero(item);
+  }
+
+  /**
+   * 触发 MinerU 精细提取（由用户主动点击"精细提取"按钮调用）。
+   * 提取完成后自动缓存为 Zotero 笔记，后续 getFullText 会直接使用缓存。
+   */
+  static async triggerMinerUExtraction(
+    item: Zotero.Item,
+    onProgress?: (stage: string, message: string, percent: number) => void,
+  ): Promise<string> {
+    // 检查是否已在提取中
+    const itemId = item.id;
+    if (this._extractingItems.has(itemId)) {
+      throw new Error("正在提取中，请稍候...");
+    }
+
+    try {
+      this._extractingItems.add(itemId);
+      return await this.extractWithMinerU(item, onProgress);
+    } finally {
+      this._extractingItems.delete(itemId);
+    }
+  }
+
+  /**
+   * 使用 MinerU 提取 PDF（内部实现）
+   */
+  private static async extractWithMinerU(
+    item: Zotero.Item,
+    onProgress?: (stage: string, message: string, percent: number) => void
+  ): Promise<string> {
+    // 1. 检查缓存
+    const cached = await MinerUCacheManager.getCachedContent(item);
+    if (cached) {
+      ztoolkit.log("使用 MinerU 缓存内容");
+      onProgress?.("cached", "使用缓存内容", 100);
+      return cached;
+    }
+
+    // 2. 获取 MinerU API Token
+    const token = Zotero.Prefs.get(
+      "extensions.zotero.paperworm.mineru.apiToken",
+      true
+    ) as string;
+
+    if (!token) {
+      ztoolkit.log("MinerU API Token 未配置，回退到 Zotero 模式");
+      throw new Error("MinerU API Token 未配置");
+    }
+
+    // 3. 获取 PDF 文件路径
     const attachment = item.isAttachment()
       ? item
       : Zotero.Items.get(item.getAttachments()[0]);
 
-    // 1. 尝试 Zotero 全文索引（已索引时立即返回）
-    if (attachment) {
-      try {
-        const result = await (Zotero.Fulltext as any).getItemContent(attachment);
-        const text =
-          typeof result === "string" ? result : (result?.content ?? "");
-        if (text.trim()) return text;
-      } catch { /* fall through */ }
+    if (!attachment) return "";
+
+    const filePath = await attachment.getFilePathAsync();
+    if (!filePath) {
+      ztoolkit.log("无法获取 PDF 文件路径");
+      throw new Error("无法获取 PDF 文件路径");
     }
 
-    // 2. 触发即时索引后重试（Zotero 内置 pdftotext，不依赖 Reader 是否打开）
-    if (attachment) {
-      try {
-        await (Zotero.Fulltext as any).indexItems([attachment.id], {complete: true});
-        const result = await (Zotero.Fulltext as any).getItemContent(attachment);
-        const text =
-          typeof result === "string" ? result : (result?.content ?? "");
-        if (text.trim()) return text;
-      } catch { /* fall through */ }
-    }
-
-    // 3. 直接读取 Reader 已渲染的 .textLayer DOM 元素
-    // 必须限定到目标 reader 的 window，不可 fallback 到 getMainWindow()。
+    // 4. 调用 MinerU API
+    let zipPath: string | null = null;
     try {
-      const attachmentID = attachment?.id ?? item.id;
+      onProgress?.("uploading", "正在上传 PDF...", 10);
+      ztoolkit.log("开始使用 MinerU 提取 PDF...");
+      
+      const client = new MinerUClient({
+        apiToken: token,
+        enableTable: true,
+        enableFormula: true,
+        language: "ch",
+      });
+
+      // 提取（包括上传、轮询、下载 ZIP）
+      zipPath = await client.extractPDF(filePath, undefined, (stage, current, total) => {
+        const percent = Math.round((current / total) * 100);
+        let message = "正在处理...";
+        switch (stage) {
+          case "uploading":
+            message = "正在上传 PDF...";
+            break;
+          case "processing":
+            message = "MinerU 正在解析...";
+            break;
+          case "downloading":
+            message = "正在下载结果...";
+            break;
+          case "completed":
+            message = "处理完成";
+            break;
+        }
+        onProgress?.(stage, message, percent);
+      });
+      
+      onProgress?.("processing", "正在处理结果...", 95);
+      
+      // 5. 处理 ZIP（解压、图片本地化）
+      const processedResult = await ImageHandler.processZip(zipPath, item);
+
+      // 6. 保存到缓存
+      await MinerUCacheManager.saveCache(processedResult.text, item);
+
+      // 7. 清理 ZIP 文件
+      try {
+        await IOUtils.remove(zipPath);
+      } catch {
+        // 忽略清理错误
+      }
+
+      onProgress?.("completed", "完成", 100);
+      return processedResult.text;
+    } catch (error: any) {
+      ztoolkit.log("MinerU 提取失败:", error);
+      
+      // 清理 ZIP 文件
+      if (zipPath) {
+        try {
+          await IOUtils.remove(zipPath);
+        } catch {
+          // 忽略
+        }
+      }
+      
+      // 抛出错误，让调用者处理
+      throw error;
+    }
+  }
+
+  /**
+   * 使用 Zotero 原生功能提取 PDF
+   */
+  private static async extractWithZotero(item: Zotero.Item): Promise<string> {
+    const attachment = item.isAttachment()
+      ? item
+      : Zotero.Items.get(item.getAttachments()[0]);
+
+    if (!attachment) return "";
+
+    // 策略 1：尝试读取已有索引（最快）
+    try {
+      const result = await (Zotero.Fulltext as any).getItemContent(attachment);
+      const text = typeof result === "string" ? result : (result?.content ?? "");
+      if (text.trim()) return text;
+    } catch { /* continue */ }
+
+    // 策略 2：使用 Zotero PDFWorker 直接提取全文（最可靠）
+    try {
+      ztoolkit.log("Using Zotero PDFWorker to extract full text...");
+      const result = await Zotero.PDFWorker.getFullText(attachment.id, null);
+      if (result?.text) {
+        ztoolkit.log(`PDFWorker extracted ${result.extractedPages}/${result.totalPages} pages`);
+        return result.text;
+      }
+    } catch (e) {
+      ztoolkit.log("PDFWorker extraction failed:", e);
+    }
+
+    // 降级方案：如果 PDFWorker 失败，尝试 .textLayer（只能获取已渲染页面）
+    try {
+      ztoolkit.log("Falling back to .textLayer extraction...");
+      const attachmentID = attachment.id;
       const readerWin = PaperExtractor._getReaderWindow(attachmentID);
-      if (!readerWin) return ""; // 找不到 reader window → 宁可返回空
+      if (!readerWin) return "";
 
       const text = PaperExtractor._findInFrames<string>(
         readerWin,
@@ -110,8 +265,11 @@ export class PaperExtractor {
         },
         new Set(),
       );
-      if (text) return text;
-    } catch { /* fall through */ }
+      if (text) {
+        ztoolkit.log(".textLayer extraction successful (limited to rendered pages)");
+        return text;
+      }
+    } catch { /* ignore */ }
 
     return "";
   }
@@ -233,5 +391,4 @@ export class PaperExtractor {
 
     return null;
   }
-
 }

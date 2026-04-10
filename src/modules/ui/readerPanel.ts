@@ -7,6 +7,7 @@ import { config } from "../../../package.json";
 import { LLMManager } from "../llm/manager";
 import { ChatHistory } from "../chat/history";
 import { PaperExtractor } from "../paper/extractor";
+import { MinerUCacheManager } from "../paper/strategies/mineru";
 import katex from "katex";
 
 // 每篇论文单独维护一份对话历史（以 parentItem.id 为 key）
@@ -86,10 +87,11 @@ async function initPanel(body: HTMLElement, item: Zotero.Item) {
   body.textContent = "";
 
   // 当前激活模型
-  const providerName = LLMManager.getInstance().getActiveProviderName();
+  const providerId = LLMManager.getInstance().getActiveProviderName();
+  const providerName = getProviderDisplayName(providerId);
   const modelName =
     (Zotero.Prefs.get(
-      `${config.prefsPrefix}.llm.${providerName}.model`,
+      `${config.prefsPrefix}.llm.${providerId}.model`,
       true,
     ) as string) ?? "unknown";
 
@@ -102,17 +104,27 @@ ${CHAT_CSS}
 <div class="pw-panel">
   <div class="pw-sticky-top">
     <div class="pw-header">
-      <div class="pw-model-dropdown-trigger" role="button" tabindex="0">
-        <span class="pw-model-text">${providerName} · ${modelName}</span>
-        <span class="pw-dropdown-arrow">▼</span>
+      <div class="pw-header-left">
+        <div class="pw-model-dropdown-trigger" role="button" tabindex="0">
+          <span class="pw-model-text">${providerName} · ${modelName}</span>
+          <span class="pw-dropdown-arrow">▼</span>
+        </div>
       </div>
       <div class="pw-sessions-btn" role="button" tabindex="0">会话列表</div>
+    </div>
+    <!-- MinerU 精细提取进度条 -->
+    <div class="pw-pdf-progress" style="display: none;">
+      <div class="pw-progress-bar">
+        <div class="pw-progress-fill" style="width: 0%"></div>
+      </div>
+      <div class="pw-progress-text">准备解析...</div>
     </div>
     <div class="pw-actions">
       <div class="pw-action-btn" role="button" tabindex="0" data-action="summarize">总结本文</div>
       <div class="pw-action-btn" role="button" tabindex="0" data-action="explain">解释段落</div>
       <div class="pw-action-btn" role="button" tabindex="0" data-action="translate">翻译</div>
       <div class="pw-action-btn" role="button" tabindex="0" data-action="quote">引用选中</div>
+      <div class="pw-action-btn pw-mineru-btn" role="button" tabindex="0" data-action="mineru" style="display:none">⚡ 精细提取</div>
     </div>
   </div>
   <div class="pw-messages"></div>
@@ -139,6 +151,9 @@ ${CHAT_CSS}
   }
 
   bindEvents(doc, panel, messagesEl, item);
+
+  // 异步初始化 MinerU 按钮状态（检查 token 配置和缓存）
+  void initMinerUButton(panel, item);
 
   // 实时刷新模型徽章：每秒从 prefs 读取当前配置，有变化才更新 DOM
   const win = body.ownerDocument!.defaultView!;
@@ -180,7 +195,7 @@ function bindEvents(
   const sendBtn = panel.querySelector(".pw-send-btn") as HTMLElement;
   const sessionsBtn = panel.querySelector(".pw-sessions-btn") as HTMLElement;
   const modelTrigger = panel.querySelector(".pw-model-dropdown-trigger") as HTMLElement;
-  
+
   // 下拉菜单状态（用于定时器控制）
   let dropdownState = { open: false };
 
@@ -225,6 +240,10 @@ function bindEvents(
   panel.querySelectorAll(".pw-action-btn").forEach((btn: Element) => {
     btn.addEventListener("click", () => {
       const action = (btn as HTMLElement).dataset.action ?? "";
+      if (action === "mineru") {
+        void handleMinerUExtraction(panel, item);
+        return;
+      }
       // 快捷操作按钮点击时 capturedSelection 已在 mousedown 中更新
       handleAction(action, textarea, item, capturedSelection);
     });
@@ -306,22 +325,49 @@ async function send(
     ? `「${selectedText}」\n\n${userText}`
     : userText;
 
+  // 提前检查：提供商是否已配置（快速失败，避免无效提取）
+  const manager = LLMManager.getInstance();
+  const providerName = manager.getActiveProviderName();
+  const configuredProviders = getConfiguredProviders();
+  const isConfigured = configuredProviders.some(p => p.providerId === providerName);
+
   appendMessage(doc, messagesEl, "user", finalText);
-  history.add({ role: "user", content: finalText });
   scrollToBottom(messagesEl);
 
   const aiEl = appendMessage(doc, messagesEl, "assistant", "");
   aiEl.classList.add("pw-msg-loading");
   scrollToBottom(messagesEl);
 
+  if (!isConfigured) {
+    aiEl.classList.remove("pw-msg-loading");
+    aiEl.classList.add("pw-msg-error");
+    aiEl.textContent = `错误：${getProviderDisplayName(providerName)} 未配置。请在 PaperWorm 设置中添加 API Key。`;
+    sendBtn.classList.remove("pw-disabled");
+    return;
+    // 注意：未入库历史，避免留下无 AI 响应的悬空消息
+  }
+
   // 构建 messages：system（含论文上下文 + 全文）+ 对话历史
+  let systemContent: string;
+  try {
+    systemContent = await buildSystemContent(item);
+  } catch (error: any) {
+    aiEl.classList.remove("pw-msg-loading");
+    aiEl.classList.add("pw-msg-error");
+    aiEl.textContent = `PDF 提取失败：${error.message}`;
+    sendBtn.classList.remove("pw-disabled");
+    return;
+    // 注意：未入库历史，避免留下无 AI 响应的悬空消息
+  }
+
+  // 提取成功后才将用户消息入库，防止异常时留下悬空历史
+  history.add({ role: "user", content: finalText });
+
   const messages = [
-    { role: "system" as const, content: await buildSystemContent(item) },
+    { role: "system" as const, content: systemContent },
     ...history.getAll(),
   ];
-
-  const manager = LLMManager.getInstance();
-  const providerName = manager.getActiveProviderName();
+  
   const model =
     (Zotero.Prefs.get(
       `${config.prefsPrefix}.llm.${providerName}.model`,
@@ -361,6 +407,79 @@ async function send(
       sendBtn.classList.remove("pw-disabled");
     },
   );
+}
+
+// ── MinerU 精细提取 ───────────────────────────────────────────────────────────
+
+/**
+ * 初始化 MinerU 按钮状态（异步）：
+ * - 无 Token → 隐藏
+ * - 有 Token 且已缓存 → "✓ 精细文本"
+ * - 有 Token 未缓存 → "⚡ 精细提取"
+ */
+async function initMinerUButton(panel: HTMLElement, item: Zotero.Item): Promise<void> {
+  const btn = panel.querySelector(".pw-mineru-btn") as HTMLElement | null;
+  if (!btn) return;
+
+  const token = Zotero.Prefs.get(`${config.prefsPrefix}.mineru.apiToken`, true) as string;
+  if (!token) return; // 无 Token，保持隐藏
+
+  btn.style.display = "inline-block";
+  const hasCache = await MinerUCacheManager.hasCache(item);
+  setMinerUBtnState(btn, hasCache ? "cached" : "ready");
+}
+
+function setMinerUBtnState(btn: HTMLElement, state: "ready" | "cached" | "busy"): void {
+  btn.classList.remove("pw-mineru-cached", "pw-disabled");
+  switch (state) {
+    case "ready":
+      btn.textContent = "⚡ 精细提取";
+      btn.title = "使用 MinerU 提取结构化文本（表格/公式）";
+      break;
+    case "cached":
+      btn.textContent = "✓ 精细文本";
+      btn.title = "已提取精细文本，当前对话使用此内容";
+      btn.classList.add("pw-mineru-cached", "pw-disabled");
+      break;
+    case "busy":
+      btn.textContent = "提取中...";
+      btn.title = "";
+      btn.classList.add("pw-disabled");
+      break;
+  }
+}
+
+async function handleMinerUExtraction(panel: HTMLElement, item: Zotero.Item): Promise<void> {
+  const btn = panel.querySelector(".pw-mineru-btn") as HTMLElement | null;
+  if (!btn || btn.classList.contains("pw-disabled")) return;
+
+  const progressEl = panel.querySelector(".pw-pdf-progress") as HTMLElement | null;
+  const progressFill = panel.querySelector(".pw-progress-fill") as HTMLElement | null;
+  const progressText = panel.querySelector(".pw-progress-text") as HTMLElement | null;
+
+  setMinerUBtnState(btn, "busy");
+  if (progressEl) {
+    progressEl.style.display = "";
+    if (progressFill) progressFill.style.width = "0%";
+    if (progressText) progressText.textContent = "准备上传...";
+  }
+
+  try {
+    await PaperExtractor.triggerMinerUExtraction(item, (stage, message, percent) => {
+      if (progressFill) progressFill.style.width = `${percent}%`;
+      if (progressText) progressText.textContent = message;
+    });
+    // 成功：立即隐藏进度条，按钮变为已缓存状态
+    if (progressEl) progressEl.style.display = "none";
+    setMinerUBtnState(btn, "cached");
+  } catch (error: any) {
+    ztoolkit.log("MinerU 精细提取失败:", error);
+    // 失败：显示错误信息 2 秒后隐藏，按钮复原
+    setMinerUBtnState(btn, "ready");
+    if (progressText) progressText.textContent = `提取失败：${error.message}`;
+    const win = panel.ownerDocument?.defaultView;
+    if (win) win.setTimeout(() => { if (progressEl) progressEl.style.display = "none"; }, 2000);
+  }
 }
 
 // ── 工具函数 ─────────────────────────────────────────────────────────────────
@@ -686,11 +805,11 @@ async function buildSystemContent(item: Zotero.Item): Promise<string> {
   if (meta.year) ctx += `\nYear: ${meta.year}`;
   if (meta.abstract) ctx += `\nAbstract: ${meta.abstract}`;
 
-  // 全文注入（最多 80000 字符，约 25 页；Gemini/DeepSeek/OpenAI 上下文均可容纳）
+  // 全文注入（最多 400000 字符，约 120 页；现代大模型上下文均可容纳）
   const fullText = await PaperExtractor.getFullText(item);
   if (fullText) {
-    ctx += `\n\nFull text (excerpt):\n${fullText.slice(0, 80000)}`;
-    if (fullText.length > 80000) ctx += "\n[truncated…]";
+    ctx += `\n\nFull text (excerpt):\n${fullText.slice(0, 400000)}`;
+    if (fullText.length > 400000) ctx += "\n[truncated…]";
   }
 
   return ctx;
@@ -925,7 +1044,9 @@ function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 // 提供商配置接口
@@ -1093,6 +1214,11 @@ const CHAT_CSS = `
   padding: 6px 10px;
   border-bottom: 1px solid rgba(128,128,128,0.2);
 }
+.pw-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 /* 模型下拉选择器 */
 .pw-model-dropdown-trigger {
   display: flex;
@@ -1110,6 +1236,36 @@ const CHAT_CSS = `
   opacity: 0.9;
   background: rgba(128,128,128,0.1);
 }
+/* MinerU 精细提取进度条 */
+.pw-pdf-progress {
+  padding: 8px 10px;
+  background: rgba(26,127,212,0.05);
+  border-bottom: 1px solid rgba(128,128,128,0.2);
+}
+.pw-progress-bar {
+  height: 4px;
+  background: rgba(128,128,128,0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.pw-progress-fill {
+  height: 100%;
+  background: #1a7fd4;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.pw-progress-text {
+  font-size: 11px;
+  color: #1a7fd4;
+  margin-top: 4px;
+  text-align: center;
+}
+/* MinerU 按钮已缓存状态 */
+.pw-mineru-cached {
+  border-color: #27ae60 !important;
+  color: #27ae60 !important;
+}
+.pw-mineru-cached:hover { background: rgba(39,174,96,0.1) !important; }
 .pw-model-text {
   overflow: hidden;
   text-overflow: ellipsis;
