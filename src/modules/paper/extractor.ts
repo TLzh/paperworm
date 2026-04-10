@@ -164,6 +164,9 @@ export class PaperExtractor {
           case "uploading":
             message = "正在上传 PDF...";
             break;
+          case "waiting":
+            message = "排队等待中（VLM 模型通常需要 2–5 分钟）...";
+            break;
           case "processing":
             message = "MinerU 正在解析...";
             break;

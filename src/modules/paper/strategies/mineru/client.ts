@@ -6,7 +6,7 @@ import { MinerUConfig, UploadUrlResponse, TaskStatusResponse } from "./types";
 
 const DEFAULT_BASE_URL = "https://mineru.net";
 const POLL_INTERVAL = 3000; // 3秒轮询一次
-const MAX_POLL_TIME = 300000; // 5分钟超时
+const MAX_POLL_TIME = 600000; // 10分钟超时（VLM 模式 + 排队等待可能需要较长时间）
 
 export class MinerUClient {
   private config: MinerUConfig;
@@ -227,17 +227,24 @@ export class MinerUClient {
               return;
 
             case "waiting-file":
-            case "pending":
+            case "pending": {
+              // 排队等待服务器资源
+              onProgress?.("waiting", 50, 100);
+              ztoolkit.log(`MinerU 排队中: ${result.state}`);
+              this.pollTimer = setTimeout(poll, POLL_INTERVAL) as unknown as number;
+              break;
+            }
+
             case "running":
             case "converting": {
-              // 继续轮询
+              // 正在处理
               const progress = result.extract_progress;
               if (progress && progress.total_pages > 0) {
                 const percent = Math.round((progress.extracted_pages / progress.total_pages) * 40) + 50;
                 onProgress?.("processing", percent, 100);
                 ztoolkit.log(`解析进度: ${progress.extracted_pages}/${progress.total_pages} 页`);
               } else {
-                onProgress?.("processing", 50, 100);
+                onProgress?.("processing", 55, 100);
               }
               this.pollTimer = setTimeout(poll, POLL_INTERVAL) as unknown as number;
               break;
