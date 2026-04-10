@@ -20,8 +20,5 @@ addon/prefs.js
 # Environment
 .env
 
-# Claude Code project instructions (internal dev config, not for public)
-CLAUDE.md
-
 # Internal release process doc (internal workflow, not for contributors)
 docs/release.md
