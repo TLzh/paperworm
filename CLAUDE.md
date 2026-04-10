@@ -62,7 +62,7 @@ workspace/
 
 ## 当前开发状态
 
-**阶段**: v0.6.0 — MinerU 精细提取支持 & 安全加固
+**阶段**: v0.6.x — 已发布 MinerU 精细提取，进入功能完善迭代
 
 **已完成**:
 - 创建文档体系（CLAUDE.md / PRD.md / architecture.md / devlog.md）
@@ -86,7 +86,7 @@ workspace/
   - 提取结果缓存为 Zotero 子笔记，支持免费账号跨设备同步
   - 实时进度条显示上传、解析、下载各阶段进度
   - 并发保护防止重复点击，安全机制防范路径遍历攻击
-- 全文注入上下文上限 80000 字符（约 25 页），覆盖主流论文全文
+- 全文注入上下文上限 400000 字符（约 120 页），覆盖绝大多数论文全文
 - **已修复多 tab 全文读取错误**（v0.5.2）：策略 4 通过 `_tabs[i].data.itemID` + `getElementById(tabID).querySelector("browser.reader")` 精确定位目标 PDF 的 reader window
 - **Markdown 渲染**：流式时纯文本，完成后用纯 DOM API渲染
   - 支持：标题（H1–H6）、粗体、斜体、无序列表、代码块、行内代码、水平线、表格、引用块

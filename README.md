@@ -164,6 +164,10 @@ OpenAI's GPT models are state-of-the-art large language models capable of unders
 
 **Note**: OpenAI requires a paid account with available credits. New accounts may receive free trial credits.
 
+---
+
+## Claude Model Guide
+
 Anthropic's Claude models are designed for high performance across language, reasoning, analysis, and coding tasks.
 
 ### Latest Generation Models
@@ -218,7 +222,7 @@ PaperWorm uses multiple strategies in order, stopping at the first that succeeds
 
 - **Scanned / image-only PDFs** (no OCR text layer): none of the four strategies can extract text. The AI will work from the title, authors, and abstract only.
 - **Strategy 4 coverage**: only pages that have been rendered in the viewer (i.e., pages you have scrolled to) are available. For complete coverage of long papers, strategies 1-3 (which read the full file) are preferable — they are attempted first.
-- **Character limit**: up to 80,000 characters (~25 pages) of full text are injected per message.
+- **Character limit**: up to 400,000 characters (~120 pages) of full text are injected per message.
 
 ---
 
