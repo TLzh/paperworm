@@ -109,27 +109,32 @@ git tag v{VERSION}
 git push origin main --tags
 ```
 
-### 四、Release Notes（自动生成）
+### 四、Release Notes（由 Claude 通过 gh CLI 更新）
 
-GitHub Actions 已配置为**自动生成 Release Notes**。只要 commit message 符合规范，发布后会自动生成分类的更新说明。
+GitHub Actions 创建 Release 时不含描述文字（CI 自动生成的 commit 列表格式对用户不友好）。
+**标准做法：CI 完成后，由 Claude 根据 CHANGELOG.md 生成用户友好的 Release Notes，通过 `gh release edit` 直接写入。**
 
-**发布流程**：
-1. 推送 tag 后，GitHub Actions 自动创建 Release
-2. Release Notes 根据 commit message 自动生成
-3. 如有需要，可手动微调 Release 页面的描述
+**流程（无需手动复制粘贴）**：
+1. 推送 tag → GitHub Actions 自动构建 `.xpi` 并创建空 Release
+2. 等 Actions 绿灯（约 2 分钟）
+3. 告诉 Claude："CI 完成了，帮我写 v0.X.Y 的 Release Notes"
+4. Claude 从 CHANGELOG.md 提取本版本条目，生成中英文说明，执行：
+   ```bash
+   gh release edit vX.Y.Z --repo TLzh/paperworm --notes "..."
+   ```
+5. 打开 Releases 页面确认内容正确
 
-**生成规则**：
-- GitHub 会分析本次 tag 与上次 tag 之间的所有 commit
-- 根据 type 前缀自动分类到 Features / Bug Fixes / Documentation 等
-- 包含提交者信息和 commit 链接
-
-> **注意**：如果 commit message 不规范（如缺少 type 前缀），该 commit 会被归类到 "Other Changes" 或无法正确显示。请务必遵守规范！
+**Release Notes 内容规范**：
+- 用 `## What's New` 开头，重点功能用 `###` 分节
+- 核心功能附使用步骤（How to use）
+- 底部附 CHANGELOG.md 链接
+- 语言：英文为主（面向开源用户）
 
 ### 五、发布验证
 
 - [ ] [GitHub Actions](https://github.com/TLzh/paperworm/actions) 中 workflow 执行成功（绿色）
 - [ ] [Releases 页面](https://github.com/TLzh/paperworm/releases) 出现新 Release，`.xpi` 附件正常
-- [ ] **Release Notes 已自动生成**（检查分类是否正确）
+- [ ] **Release Notes 已填写**（通过 Claude + gh CLI 更新）
 - [ ] （可选）在 Zotero 中触发「检查更新」，确认自动更新提示出现
 
 > **README 徽章说明**：`[![Latest Release](...)]` 是动态徽章，从 GitHub Release 自动读取，
@@ -154,4 +159,4 @@ Zotero 定期拉取此文件，与本地版本比对，有新版本时提示用�
 - 不要先推 tag 再补提交 — 确保 `main` 分支已包含所有改动后再打 tag
 - `addon/prefs.js` 含 API Key，已在 `.gitignore` 中排除，不会进入 Release source code
 - GitHub Actions 所需的 `GITHUB_TOKEN` 由 GitHub 自动提供，无需手动配置
-- **Commit message 规范是 Release Notes 自动生成的关键**，请务必遵守
+- Commit message 规范仍建议遵守（方便 git log 可读），但不再是 Release Notes 的生成依据
