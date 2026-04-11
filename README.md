@@ -5,7 +5,7 @@
 
 > AI-powered paper reading assistant for Zotero
 
-PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, you can ask questions, request summaries, translate passages, and have a conversation — all in context with the paper you are currently reading.
+PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, you can ask questions, request summaries, quote selected passages as context, and have a conversation — all in context with the paper you are currently reading.
 
 ---
 
@@ -13,7 +13,7 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 
 - **Contextual chat** — the paper's full text, title, authors, year, and abstract are automatically included in every conversation; no manual indexing required for text-based PDFs
 - **Streaming responses** — AI replies appear word by word in real time
-- **Quick actions** — one-click prompts to summarize the paper, explain a paragraph, or translate text
+- **Quick actions** — one-click to summarize the paper, or select text from the PDF as context for your questions
 - **Multi-provider** — supports OpenAI, DeepSeek, Anthropic (Claude), Google Gemini, Kimi (Moonshot), Qwen (Alibaba Cloud), and Ollama (local). See [Model Guide](docs/models.md) for details
 - **Persistent sessions with cross-device sync** — every conversation is automatically saved as a Zotero child note attached to the paper; sessions survive Zotero restarts and sync to other devices via your free Zotero account
 - **Multiple sessions per paper** — start new conversations and switch between them via the **Session List** view

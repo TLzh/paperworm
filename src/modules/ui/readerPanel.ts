@@ -121,14 +121,18 @@ ${CHAT_CSS}
     </div>
     <div class="pw-actions">
       <div class="pw-action-btn" role="button" tabindex="0" data-action="summarize">总结本文</div>
-      <div class="pw-action-btn" role="button" tabindex="0" data-action="explain">解释段落</div>
-      <div class="pw-action-btn" role="button" tabindex="0" data-action="translate">翻译</div>
-      <div class="pw-action-btn" role="button" tabindex="0" data-action="quote">引用选中</div>
+      <div class="pw-action-btn" role="button" tabindex="0" data-action="quote">选择文本</div>
+      <div class="pw-action-btn pw-action-btn--disabled" role="button" tabindex="0" data-action="screenshot" title="多模态截图（即将支持）">画框</div>
       <div class="pw-action-btn pw-mineru-btn" role="button" tabindex="0" data-action="mineru" style="display:none">⚡ 精细提取</div>
     </div>
   </div>
   <div class="pw-messages"></div>
   <div class="pw-input-area">
+    <div class="pw-selection-chip pw-hidden">
+      <span class="pw-chip-label">引用</span>
+      <span class="pw-chip-text"></span>
+      <div class="pw-chip-close" role="button" tabindex="0">×</div>
+    </div>
     <textarea class="pw-input" rows="3" placeholder="输入问题… Enter 发送，Shift+Enter 换行"></textarea>
     <div class="pw-send-btn" role="button" tabindex="0">发送 ↑</div>
   </div>
@@ -199,9 +203,32 @@ function bindEvents(
   // 下拉菜单状态（用于定时器控制）
   let dropdownState = { open: false };
 
-  // 在用户点击面板任何元素之前（mousedown 阶段）捕获 PDF 选区。
-  // 此时焦点尚未离开 PDF iframe，选区还在。
+  // capturedSelection：短暂变量，在 mousedown 阶段捕获 PDF 选区，
+  // "选择文本"按钮读取后立即清空，避免残留到下次操作。
   let capturedSelection = "";
+
+  // pendingSelection：用户明确附加的上下文（通过"选择文本"按钮设置），
+  // 显示为 chip，发送后或用户手动关闭后清空。
+  let pendingSelection = "";
+
+  // Chip DOM 引用
+  const chip = panel.querySelector(".pw-selection-chip") as HTMLElement;
+  const chipTextEl = panel.querySelector(".pw-chip-text") as HTMLElement;
+  const chipClose = panel.querySelector(".pw-chip-close") as HTMLElement;
+
+  function showChip(text: string) {
+    pendingSelection = text;
+    chipTextEl.textContent = text.length > 80 ? text.slice(0, 80) + "…" : text;
+    chip.classList.remove("pw-hidden");
+  }
+
+  function clearChip() {
+    pendingSelection = "";
+    chip.classList.add("pw-hidden");
+    chipTextEl.textContent = "";
+  }
+
+  chipClose.addEventListener("click", clearChip);
 
   panel.addEventListener(
     "mousedown",
@@ -217,8 +244,8 @@ function bindEvents(
     const text = textarea.value.trim();
     if (!text) return;
     textarea.value = "";
-    const sel = capturedSelection;
-    capturedSelection = ""; // 用完即清，避免下一条消息重复注入
+    const sel = pendingSelection; // 使用 chip 中明确附加的上下文
+    clearChip();                  // 发送后清空 chip
     void send(doc, messagesEl, item, text, sel, sendBtn);
   }
 
@@ -240,12 +267,36 @@ function bindEvents(
   panel.querySelectorAll(".pw-action-btn").forEach((btn: Element) => {
     btn.addEventListener("click", () => {
       const action = (btn as HTMLElement).dataset.action ?? "";
+
       if (action === "mineru") {
         void handleMinerUExtraction(panel, item);
         return;
       }
-      // 快捷操作按钮点击时 capturedSelection 已在 mousedown 中更新
-      handleAction(action, textarea, item, capturedSelection);
+
+      if (action === "screenshot") {
+        // 占位：多模态画框功能，等待实现
+        return;
+      }
+
+      if (action === "quote") {
+        // mousedown 阶段已更新 capturedSelection；若为空则降级实时读取
+        const sel = capturedSelection.length >= 10
+          ? capturedSelection
+          : PaperExtractor.getSelectedText(item);
+        capturedSelection = ""; // 读取后立即清空，避免残留
+        if (sel.length >= 10) {
+          showChip(sel);
+          textarea.focus();
+        } else {
+          // 临时提示，2 秒后自动隐藏
+          chipTextEl.textContent = "请先在 PDF 中选中一段文字";
+          chip.classList.remove("pw-hidden");
+          setTimeout(() => { if (!pendingSelection) chip.classList.add("pw-hidden"); }, 2000);
+        }
+        return;
+      }
+
+      handleAction(action, textarea, item);
     });
   });
 
@@ -276,7 +327,6 @@ function handleAction(
   action: string,
   textarea: HTMLTextAreaElement,
   item: Zotero.Item,
-  capturedSel: string,
 ) {
   const meta = PaperExtractor.getItemMetadata(item);
   switch (action) {
@@ -284,23 +334,6 @@ function handleAction(
       textarea.value =
         "请对这篇论文做一个结构化总结，包括：研究问题、方法、主要发现、贡献和局限性。" +
         (meta.title ? `\n\n论文标题：${meta.title}` : "");
-      break;
-    case "explain":
-      textarea.value = capturedSel
-        ? `请解释以下段落：\n\n「${capturedSel}」`
-        : "请解释以下段落（请粘贴要解释的内容）：\n\n";
-      break;
-    case "translate":
-      textarea.value = capturedSel
-        ? `请将以下内容翻译为中文：\n\n「${capturedSel}」`
-        : "请将以下内容翻译为中文（请粘贴要翻译的内容）：\n\n";
-      break;
-    case "quote":
-      if (capturedSel) {
-        textarea.value = `「${capturedSel}」\n\n`;
-      } else {
-        textarea.placeholder = "请先在 PDF 中选中一段文字，再点击引用选中";
-      }
       break;
   }
   textarea.focus();
@@ -1354,6 +1387,46 @@ const CHAT_CSS = `
   white-space: nowrap;
 }
 .pw-action-btn:hover { background: rgba(26,127,212,0.1); }
+.pw-action-btn--disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+/* 文本选择上下文 chip */
+.pw-selection-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(26,127,212,0.08);
+  border: 1px solid rgba(26,127,212,0.3);
+  border-radius: 6px;
+  font-size: 11px;
+  color: #1a7fd4;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.pw-selection-chip.pw-hidden { display: none; }
+.pw-chip-label {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.pw-chip-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+.pw-chip-close {
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.6;
+  padding: 0 2px;
+}
+.pw-chip-close:hover { opacity: 1; }
 .pw-messages {
   overflow-y: auto;
   padding: 8px 10px;
