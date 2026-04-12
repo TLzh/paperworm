@@ -80,15 +80,25 @@ export class GeminiProvider implements LLMProvider {
 
   async testConnection(): Promise<boolean> {
     try {
-      await zhttp("GET", `${BASE_URL}/models`, {
-        headers: { "x-goog-api-key": this.apiKey },
-        successCodes: [200],
-      });
+      await this.getModels();
       return true;
     } catch (e) {
       Zotero.log(`PaperWorm testConnection (gemini) error: ${e}`, "error");
       return false;
     }
+  }
+
+  async getModels(): Promise<string[]> {
+    const resp = await zhttp("GET", `${BASE_URL}/models`, {
+      headers: { "x-goog-api-key": this.apiKey },
+      successCodes: [200],
+    });
+    const data = JSON.parse(resp.responseText) as any;
+    const models = (data.models as any[] ?? [])
+      .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
+      .map((m) => (m.name as string).replace(/^models\//, ""))
+      .filter((id) => !id.includes("embedding") && !id.includes("aqa"));
+    return models.sort();
   }
 
   private buildBody(options: LLMRequestOptions) {

@@ -1082,13 +1082,6 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-// 提供商配置接口
-interface ConfiguredProvider {
-  name: string;        // 显示名：OpenAI, Claude, etc.
-  providerId: string;  // id：openai, anthropic, etc.
-  model: string;       // 当前配置的模型名
-}
-
 // 将 provider ID 映射为显示名
 function getProviderDisplayName(providerId: string): string {
   const displayNames: Record<string, string> = {
@@ -1103,7 +1096,15 @@ function getProviderDisplayName(providerId: string): string {
   return displayNames[providerId] || providerId;
 }
 
-// 获取所有已配置的提供商列表
+// 提供商配置接口
+interface ConfiguredProvider {
+  name: string;        // 显示名：OpenAI, Claude, etc.
+  providerId: string;  // id：openai, anthropic, etc.
+  model: string;       // 当前激活的模型名 (llm.<id>.model)
+  modelsList: string[]; // 可选模型列表 (llm.<id>.models)
+}
+
+// 获取所有已配置且有可用模型的提供商列表
 function getConfiguredProviders(): ConfiguredProvider[] {
   const p = config.prefsPrefix;
   const providers: ConfiguredProvider[] = [];
@@ -1120,17 +1121,23 @@ function getConfiguredProviders(): ConfiguredProvider[] {
   
   for (const cfg of providerConfigs) {
     const key = Zotero.Prefs.get(`${p}.llm.${cfg.id}.${cfg.keyPref}`, true) as string;
-    const isConfigured = cfg.id === "ollama" 
-      ? !!key
-      : !!key && key.length > 0;
+    const isConfigured = cfg.id === "ollama" ? !!key : !!key && key.length > 0;
     
     if (isConfigured) {
-      const model = Zotero.Prefs.get(`${p}.llm.${cfg.id}.model`, true) as string || "default";
-      providers.push({
-        name: getProviderDisplayName(cfg.id),
-        providerId: cfg.id,
-        model: model
-      });
+      // 从模型列表配置读取（逗号分隔）
+      const modelsStr = Zotero.Prefs.get(`${p}.llm.${cfg.id}.models`, true) as string || "";
+      const modelsList = modelsStr.split(",").map(s => s.trim()).filter(Boolean);
+      
+      if (modelsList.length > 0) {
+        // 当前激活模型；若未配置则默认为列表第一个
+        const activeModel = Zotero.Prefs.get(`${p}.llm.${cfg.id}.model`, true) as string || modelsList[0];
+        providers.push({
+          name: getProviderDisplayName(cfg.id),
+          providerId: cfg.id,
+          model: activeModel,
+          modelsList
+        });
+      }
     }
   }
   
@@ -1158,18 +1165,22 @@ function showProviderDropdown(
   dropdown.className = "pw-provider-dropdown";
   
   const providers = getConfiguredProviders();
-  const currentProvider = LLMManager.getInstance().getActiveProviderName();
+  const currentProviderId = LLMManager.getInstance().getActiveProviderName();
   
-  if (providers.length === 0) {
-    const emptyMsg = doc.createElement("div");
-    emptyMsg.className = "pw-dropdown-empty";
-    emptyMsg.textContent = "未配置任何服务商";
-    dropdown.appendChild(emptyMsg);
-  } else {
-    for (const provider of providers) {
+  function renderProviders() {
+    dropdown.textContent = "";
+    if (providers.length === 0) {
+      const emptyMsg = doc.createElement("div");
+      emptyMsg.className = "pw-dropdown-empty";
+      emptyMsg.textContent = "未配置服务商或模型列表为空，请前往设置";
+      dropdown.appendChild(emptyMsg);
+      return;
+    }
+
+    providers.forEach(provider => {
       const item = doc.createElement("div");
       item.className = "pw-dropdown-item";
-      if (provider.providerId === currentProvider) {
+      if (provider.providerId === currentProviderId) {
         item.classList.add("pw-dropdown-active");
       }
       
@@ -1184,27 +1195,55 @@ function showProviderDropdown(
       item.appendChild(nameEl);
       item.appendChild(modelEl);
       
-      item.addEventListener("click", () => {
-        // 更新配置
-        Zotero.Prefs.set(`${config.prefsPrefix}.llm.provider`, provider.providerId, true);
-        Zotero.Prefs.set(`${config.prefsPrefix}.llm.${provider.providerId}.model`, provider.model, true);
-        
-        // 更新徽章显示
-        const badge = panel.querySelector(".pw-model-text") as HTMLElement;
-        if (badge) {
-          badge.textContent = `${provider.name} · ${provider.model}`;
-        }
-        
-        // 关闭下拉
-        dropdown.remove();
-        dropdownState.open = false;
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
+        renderModels(provider);
       });
       
       dropdown.appendChild(item);
-    }
+    });
   }
+
+  function renderModels(provider: ConfiguredProvider) {
+    dropdown.textContent = "";
+    
+    // 返回按钮
+    const backBtn = doc.createElement("div");
+    backBtn.className = "pw-dropdown-back";
+    backBtn.textContent = `← 返回选择服务商`;
+    backBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      renderProviders();
+    });
+    dropdown.appendChild(backBtn);
+
+    provider.modelsList.forEach(modelId => {
+      const item = doc.createElement("div");
+      item.className = "pw-dropdown-item pw-model-item";
+      if (provider.providerId === currentProviderId && modelId === provider.model) {
+        item.classList.add("pw-dropdown-active");
+      }
+      item.textContent = modelId;
+      item.addEventListener("click", () => {
+        // 更新配置：llm.provider 记录厂商，llm.<id>.model 记录该厂商激活的模型
+        const p = config.prefsPrefix;
+        Zotero.Prefs.set(`${p}.llm.provider`, provider.providerId, true);
+        Zotero.Prefs.set(`${p}.llm.${provider.providerId}.model`, modelId, true);
+        
+        // 更新 UI 徽章
+        const badge = panel.querySelector(".pw-model-text") as HTMLElement;
+        if (badge) badge.textContent = `${provider.name} · ${modelId}`;
+        
+        dropdown.remove();
+        dropdownState.open = false;
+      });
+      dropdown.appendChild(item);
+    });
+  }
+
+  renderProviders();
   
-  // 添加到面板并定位（强制向下展开）
+  // 添加到面板并定位
   panel.appendChild(dropdown);
   
   const rect = triggerEl.getBoundingClientRect();
@@ -1335,6 +1374,25 @@ const CHAT_CSS = `
 }
 .pw-dropdown-item:hover {
   background: rgba(26,127,212,0.1);
+}
+.pw-dropdown-back {
+  padding: 8px 10px;
+  background: rgba(128,128,128,0.05);
+  border-bottom: 1px solid rgba(128,128,128,0.15);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 11px;
+  color: #1a7fd4;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.pw-dropdown-back:hover {
+  background: rgba(128,128,128,0.1);
+}
+.pw-model-item {
+  font-size: 11px;
+  padding: 5px 10px;
 }
 .pw-dropdown-active {
   background: rgba(26,127,212,0.08);

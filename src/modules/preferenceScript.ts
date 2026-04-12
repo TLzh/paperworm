@@ -324,6 +324,48 @@ function bindPrefsEvents(win: Window) {
     ?.addEventListener("command", () => {
       testMinerUConnection(win);
     });
+
+  // 获取模型按钮（LLM）
+  doc.querySelectorAll(".pw-fetch-models-btn").forEach((btn: any) => {
+    btn.addEventListener("command", (e: Event) => {
+      const provider = btn.getAttribute("data-provider");
+      fetchModels(win, provider, btn);
+    });
+  });
+}
+
+function fetchModels(win: Window, providerName: string, btn: HTMLElement) {
+  const doc = win.document;
+  const input = doc.getElementById(`${ref}-${providerName}-models`) as HTMLInputElement;
+  if (!input) return;
+
+  const originalLabel = btn.getAttribute("label");
+  btn.setAttribute("label", "...");
+  btn.setAttribute("disabled", "true");
+
+  const manager = LLMManager.getInstance();
+  const provider = manager.buildProvider(providerName as any);
+
+  provider.getModels()
+    .then((models) => {
+      if (models.length === 0) {
+        throw new Error("未找到可用模型");
+      }
+
+      // 将模型列表以逗号分隔填入输入框，由 Zotero preference 自动持久化
+      input.value = models.join(", ");
+      input.dispatchEvent(new win.Event("change"));
+    })
+    .catch((err) => {
+      const resultLabel = doc.getElementById(`${ref}-test-result`) as any;
+      if (resultLabel) {
+        resultLabel.setAttribute("value", `✗ 获取模型失败：${err.message}`);
+      }
+    })
+    .finally(() => {
+      btn.setAttribute("label", originalLabel || "");
+      btn.removeAttribute("disabled");
+    });
 }
 
 function showProviderSection(doc: Document, provider: string) {

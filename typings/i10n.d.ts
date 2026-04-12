@@ -7,6 +7,7 @@ export type FluentMessageId =
   | 'pref-apikey-label'
   | 'pref-apply-template'
   | 'pref-baseurl-label'
+  | 'pref-fetch-models-btn'
   | 'pref-help'
   | 'pref-llm-section'
   | 'pref-maxtokens-label'

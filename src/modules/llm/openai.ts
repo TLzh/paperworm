@@ -78,15 +78,28 @@ export class OpenAIProvider implements LLMProvider {
 
   async testConnection(): Promise<boolean> {
     try {
-      await zhttp("GET", `${this.baseUrl}/models`, {
-        headers: this.headers(),
-        successCodes: [200],
-      });
+      await this.getModels();
       return true;
     } catch (e) {
       Zotero.log(`PaperWorm testConnection (${this.name}) error: ${e}`, "error");
       return false;
     }
+  }
+
+  async getModels(): Promise<string[]> {
+    const resp = await zhttp("GET", `${this.baseUrl}/models`, {
+      headers: this.headers(),
+      successCodes: [200],
+    });
+    const data = JSON.parse(resp.responseText) as any;
+    const models = (data.data as any[] ?? [])
+      .map((m) => m.id as string)
+      .filter((id) => {
+        // 过滤掉明显的非对话模型（如 whisper, dall-e, embedding 等）
+        const blackList = ["whisper", "dall-e", "embedding", "tts", "moderation", "edit"];
+        return !blackList.some((b) => id.toLowerCase().includes(b));
+      });
+    return models.sort();
   }
 
   private headers(): Record<string, string> {

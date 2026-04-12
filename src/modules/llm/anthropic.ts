@@ -78,21 +78,25 @@ export class AnthropicProvider implements LLMProvider {
 
   async testConnection(): Promise<boolean> {
     try {
-      // 发送极短请求验证 Key，max_tokens=1 几乎不消耗额度
-      // 接受 200（成功）和 400（参数错误但 Key 有效）
-      await zhttp("POST", `${BASE_URL}/v1/messages`, {
-        headers: this.headers(),
-        body: JSON.stringify({
-          model: "claude-haiku-4-5",
-          max_tokens: 1,
-          messages: [{ role: "user", content: "hi" }],
-        }),
-        successCodes: [200, 400],
-      });
+      await this.getModels();
       return true;
     } catch (e) {
       Zotero.log(`PaperWorm testConnection (anthropic) error: ${e}`, "error");
       return false;
+    }
+  }
+
+  async getModels(): Promise<string[]> {
+    try {
+      const resp = await zhttp("GET", `${BASE_URL}/v1/models`, {
+        headers: this.headers(),
+        successCodes: [200],
+      });
+      const data = JSON.parse(resp.responseText) as any;
+      return (data.data as any[] ?? []).map((m) => m.id as string).sort();
+    } catch (e) {
+      Zotero.log(`PaperWorm: failed to get Anthropic models: ${e}`, "error");
+      return [];
     }
   }
 

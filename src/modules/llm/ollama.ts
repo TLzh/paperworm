@@ -86,15 +86,20 @@ export class OllamaProvider implements LLMProvider {
 
   async testConnection(): Promise<boolean> {
     try {
-      // GET /api/tags 列出本地模型，无需认证
-      await zhttp("GET", `${this.baseUrl}/api/tags`, {
-        successCodes: [200],
-      });
+      await this.getModels();
       return true;
     } catch (e) {
       Zotero.log(`PaperWorm testConnection (ollama) error: ${e}`, "error");
       return false;
     }
+  }
+
+  async getModels(): Promise<string[]> {
+    const resp = await zhttp("GET", `${this.baseUrl}/api/tags`, {
+      successCodes: [200],
+    });
+    const data = JSON.parse(resp.responseText) as any;
+    return (data.models as any[] ?? []).map((m) => m.name as string).sort();
   }
 
   private buildBody(options: LLMRequestOptions, stream: boolean) {

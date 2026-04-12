@@ -139,11 +139,16 @@ let value = Zotero.Prefs.get(preference, true);    // 读取时原样
 Zotero.Prefs.set(preference, value, true);          // 写入时原样
 ```
 
-这意味着 `preference="llm.provider"` 会把值写到 Firefox prefs 中的字面路径 `llm.provider`，
+这意味着 `preference="llm.provider"` 会把值 write 到 Firefox prefs 中的字面路径 `llm.provider`，
 而 TypeScript 代码通过 `Zotero.Prefs.get("extensions.zotero.paperworm.llm.provider", true)`
 读取——**两条路径完全不同**，UI 修改的值永远对代码不可见。
 
-**正确写法**：
+**模型管理的特殊偏好设计**：
+为了实现配置与使用的解耦，我们使用了两套偏好：
+- `llm.<provider>.models`：存储该厂商的**模型列表**（逗号分隔的字符串），由设置页通过“获取模型”按钮维护。
+- `llm.<provider>.model`：存储该厂商当前**激活的模型**，由主面板下拉菜单切换时更新。
+
+**正确写法示例**：
 
 ```xml
 <!-- ❌ 错误 — 写到 "llm.provider"，代码读不到 -->

@@ -38,7 +38,8 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 1. Open **Edit → Settings → PaperWorm** (or **Zotero → Settings** on macOS)
 2. Select your LLM provider and enter your API key
 3. Click **Test Connection** to verify
-4. Open any PDF in Zotero's reader — the PaperWorm panel will appear in the right sidebar
+4. Click **Fetch Models** to automatically populate the available models for this provider
+5. Open any PDF in Zotero's reader — the PaperWorm panel will appear in the right sidebar. You can now switch between the fetched models directly in the panel.
 
 ### Precise Layout Extraction (Optional)
 

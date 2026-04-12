@@ -51,4 +51,6 @@ export interface LLMProvider {
   ): Promise<void>;
   /** 测试 API Key 是否有效 */
   testConnection(): Promise<boolean>;
+  /** 获取当前服务商支持的模型列表 */
+  getModels(): Promise<string[]>;
 }
