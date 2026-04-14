@@ -880,9 +880,9 @@ function base64ToSession(b64: string): SessionData {
 
 /**
  * 构建 Zotero 笔记 HTML。
- * 数据存储在 <details> 内的 <code class="pw-archive-data"> 中（base64 编码）。
- * - <details> 是标准 HTML，Zotero 笔记视图（web 引擎）默认折叠，用户不会看到 base64 字符串
- * - <code> 是普通标签，Zotero 不会过滤（<script> 会被过滤，style="display:none" 会被过滤）
+ * 数据存储在 <code class="pw-archive-data"> 中（base64 编码）。
+ * 注意：Zotero 存储时会剥离 <code> 上的 class 属性，<details> 也会被转换为 <p>，
+ * 因此 parseNoteHtml 不依赖 class 属性来识别数据块，只需匹配足够长的 base64 内容。
  */
 function buildNoteHtml(title: string, visibleMsgs: Array<{ role: string; content: string }>, data: SessionData): string {
   const rows = visibleMsgs
@@ -892,16 +892,20 @@ function buildNoteHtml(title: string, visibleMsgs: Array<{ role: string; content
   return (
     `<h2>PaperWorm · ${escapeHtml(title)}</h2>\n` +
     `<div>${rows}</div>\n` +
-    `<details><summary>会话元数据</summary><code class="pw-archive-data">${b64}</code></details>`
+    `<p>会话元数据</p><code class="pw-archive-data">${b64}</code>`
   );
 }
 
 /** 从笔记 HTML 中提取 SessionData，返回 null 表示非 PaperWorm 笔记或解析失败 */
 function parseNoteHtml(html: string): SessionData | null {
-  const codeMatch = html.match(/<code[^>]*class="pw-archive-data"[^>]*>([A-Za-z0-9+/=\s]+)<\/code>/);
-  if (codeMatch) {
+  if (!html.includes("PaperWorm")) return null;
+  // 优先匹配带 class 属性的（刚保存、尚未经 Zotero 同步处理的笔记）
+  let m = html.match(/<code[^>]*class=["']pw-archive-data["'][^>]*>([A-Za-z0-9+/=\s]+)<\/code>/);
+  // 回退：Zotero 同步/导出后会剥离 class，匹配任意足够长的 base64 <code> 块
+  if (!m) m = html.match(/<code[^>]*>([A-Za-z0-9+/=\s]{100,})<\/code>/);
+  if (m) {
     try {
-      return base64ToSession(codeMatch[1].trim());
+      return base64ToSession(m[1].trim());
     } catch { /* fall through */ }
   }
   return null;

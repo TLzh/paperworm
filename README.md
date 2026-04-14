@@ -240,7 +240,7 @@ Each session note contains:
 - A human-readable transcript (`用户` / `AI` turns)
 - A machine-readable metadata block used by PaperWorm to restore the session
 
-The metadata block appears at the bottom of the note as a collapsed `▶ 会话元数据` section containing a Base64-encoded JSON string. **This is intentional and expected** — it is how PaperWorm stores the conversation data for reloading.
+The metadata block appears at the bottom of the note under a `会话元数据` label as a Base64-encoded JSON string. **This is intentional and expected** — it is how PaperWorm stores the conversation data for reloading.
 
 > If you open a PaperWorm session note directly in Zotero's note editor, you will see this Base64 text at the bottom. You can ignore it. Do not edit or delete it manually, as doing so will prevent PaperWorm from loading that session.
 

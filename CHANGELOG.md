@@ -10,6 +10,15 @@
 
 ---
 
+## [0.6.4] - 2026-04-14
+
+### Fixed
+- 修复历史会话无法被识别/加载的 bug：根因是 Zotero 在存储和同步笔记时会剥除 `<code>` 标签上的 class 属性，导致旧版正则 `class="pw-archive-data"` 匹配失败
+  - `parseNoteHtml` 改为双重匹配策略：优先匹配带 class 的 `<code>`（新保存的笔记），回退匹配任意足够长（≥100 字符）的 base64 `<code>` 块（经 Zotero 同步/净化后的笔记）
+  - `buildNoteHtml` 移除 `<details>` 包裹（Zotero 会将其转换为 `<p>`，包裹本身无实际效果），写入格式与 Zotero 实际存储的结果对齐
+
+---
+
 ## [0.6.3] - 2026-04-12
 
 ### Added
