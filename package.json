@@ -1,7 +1,7 @@
 {
   "name": "paperworm",
   "type": "module",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "description": "AI-powered paper reading assistant for Zotero",
   "config": {
     "addonName": "PaperWorm",

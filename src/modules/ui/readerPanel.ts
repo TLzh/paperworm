@@ -109,6 +109,10 @@ ${CHAT_CSS}
           <span class="pw-model-text">${providerName} · ${modelName}</span>
           <span class="pw-dropdown-arrow">▼</span>
         </div>
+        <div class="pw-temp-trigger" role="button" tabindex="0" title="Temperature">
+          <span class="pw-temp-text">T: ${(parseFloat((Zotero.Prefs.get(`${config.prefsPrefix}.llm.temperature`, true) as string) ?? "0.7")).toFixed(1)}</span>
+          <span class="pw-dropdown-arrow">▼</span>
+        </div>
       </div>
       <div class="pw-sessions-btn" role="button" tabindex="0">会话列表</div>
     </div>
@@ -159,14 +163,15 @@ ${CHAT_CSS}
   // 异步初始化 MinerU 按钮状态（检查 token 配置和缓存）
   void initMinerUButton(panel, item);
 
-  // 实时刷新模型徽章：每秒从 prefs 读取当前配置，有变化才更新 DOM
+  // 实时刷新模型徽章和温度徽章：每秒从 prefs 读取当前配置，有变化才更新 DOM
   const win = body.ownerDocument!.defaultView!;
   const badge = panel.querySelector(".pw-model-text") as HTMLElement;
+  const tempBadge = panel.querySelector(".pw-temp-text") as HTMLElement;
   let dropdownOpen = false;
-  
+
   const badgeTimer = win.setInterval(() => {
     if (dropdownOpen) return; // 下拉打开时跳过，避免干扰用户选择
-    
+
     const pName = LLMManager.getInstance().getActiveProviderName();
     const mName =
       (Zotero.Prefs.get(
@@ -176,6 +181,12 @@ ${CHAT_CSS}
     const displayName = getProviderDisplayName(pName);
     const next = `${displayName} · ${mName}`;
     if (badge.textContent !== next) badge.textContent = next;
+
+    const tVal = parseFloat(
+      (Zotero.Prefs.get(`${config.prefsPrefix}.llm.temperature`, true) as string) ?? "0.7",
+    ).toFixed(1);
+    const tNext = `T: ${tVal}`;
+    if (tempBadge.textContent !== tNext) tempBadge.textContent = tNext;
   }, 1000);
 
   // 面板重建（initPanel 调用 body.textContent=""）时自动清理定时器
@@ -318,6 +329,14 @@ function bindEvents(
   modelTrigger.addEventListener("click", (e) => {
     e.stopPropagation();
     showProviderDropdown(doc, panel, modelTrigger, dropdownState);
+  });
+
+  // 温度选择 popover
+  const tempTrigger = panel.querySelector(".pw-temp-trigger") as HTMLElement;
+  const tempText = panel.querySelector(".pw-temp-text") as HTMLElement;
+  tempTrigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    showTempPopover(doc, panel, tempTrigger, tempText);
   });
 }
 
@@ -1148,6 +1167,97 @@ function getConfiguredProviders(): ConfiguredProvider[] {
   return providers;
 }
 
+// 显示温度调节 popover
+function showTempPopover(
+  doc: Document,
+  panel: HTMLElement,
+  trigger: HTMLElement,
+  badge: HTMLElement,
+): void {
+  // 已有 popover 则关闭（切换行为）
+  const existing = panel.querySelector(".pw-temp-popover");
+  if (existing) {
+    existing.remove();
+    return;
+  }
+
+  const current = parseFloat(
+    (Zotero.Prefs.get(`${config.prefsPrefix}.llm.temperature`, true) as string) ?? "0.7",
+  );
+
+  const popover = doc.createElement("div");
+  popover.className = "pw-temp-popover";
+
+  // 标题
+  const title = doc.createElement("div");
+  title.className = "pw-temp-title";
+  title.textContent = "Temperature";
+  popover.appendChild(title);
+
+  // 滑块 + 数值输入行
+  const row = doc.createElement("div");
+  row.className = "pw-temp-row";
+
+  const slider = doc.createElement("input") as HTMLInputElement;
+  slider.type = "range";
+  slider.className = "pw-temp-slider";
+  slider.min = "0";
+  slider.max = "2";
+  slider.step = "0.1";
+  slider.value = String(current);
+
+  const numInput = doc.createElement("input") as HTMLInputElement;
+  numInput.type = "number";
+  numInput.className = "pw-temp-input";
+  numInput.min = "0";
+  numInput.max = "2";
+  numInput.step = "0.1";
+  numInput.value = current.toFixed(1);
+
+  row.appendChild(slider);
+  row.appendChild(numInput);
+  popover.appendChild(row);
+
+  // 提示文字
+  const hint = doc.createElement("div");
+  hint.className = "pw-temp-hint";
+  hint.textContent = "0 = 精准稳定   2 = 随机创意   推荐 0.1–0.7";
+  popover.appendChild(hint);
+
+  // 定位：触发器正下方（panel 相对坐标，与 model dropdown 保持一致）
+  panel.appendChild(popover);
+  const rect = trigger.getBoundingClientRect();
+  const panelRect = panel.getBoundingClientRect();
+  popover.style.top = `${rect.bottom - panelRect.top + 4}px`;
+  popover.style.left = `${rect.left - panelRect.left}px`;
+
+  // 联动逻辑
+  function applyValue(v: number) {
+    const clamped = Math.min(2, Math.max(0, v));
+    const str = clamped.toFixed(1);
+    slider.value = str;
+    numInput.value = str;
+    Zotero.Prefs.set(`${config.prefsPrefix}.llm.temperature`, str, true);
+    badge.textContent = `T: ${str}`;
+  }
+
+  slider.addEventListener("input", () => {
+    applyValue(parseFloat(slider.value));
+  });
+  numInput.addEventListener("change", () => {
+    applyValue(parseFloat(numInput.value) || 0);
+  });
+
+  // 点击外部关闭
+  const closeHandler = (ev: MouseEvent) => {
+    if (!popover.contains(ev.target as Node) && ev.target !== trigger) {
+      popover.remove();
+      doc.removeEventListener("click", closeHandler, true);
+    }
+  };
+  doc.addEventListener("click", closeHandler, true);
+}
+
 // 显示提供商下拉菜单
 function showProviderDropdown(
   doc: Document,
@@ -1351,6 +1461,63 @@ const CHAT_CSS = `
   font-size: 8px;
   margin-left: 2px;
   flex-shrink: 0;
+}
+/* 温度徽章 */
+.pw-temp-trigger {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  opacity: 0.6;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: opacity 0.2s, background 0.2s;
+  user-select: none;
+  white-space: nowrap;
+}
+.pw-temp-trigger:hover {
+  opacity: 0.9;
+  background: rgba(128,128,128,0.1);
+}
+/* 温度 popover */
+.pw-temp-popover {
+  position: absolute;
+  background: Canvas;
+  border: 1px solid rgba(128,128,128,0.3);
+  border-radius: 8px;
+  padding: 12px;
+  width: 220px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 100;
+  font-size: 12px;
+}
+.pw-temp-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: inherit;
+}
+.pw-temp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pw-temp-slider { flex: 1; cursor: pointer; }
+.pw-temp-input {
+  width: 48px;
+  padding: 2px 4px;
+  text-align: center;
+  border: 1px solid rgba(128,128,128,0.3);
+  border-radius: 4px;
+  font-size: 12px;
+  background: Canvas;
+  color: inherit;
+}
+.pw-temp-hint {
+  margin-top: 6px;
+  opacity: 0.55;
+  font-size: 10px;
+  line-height: 1.4;
 }
 /* 提供商下拉菜单 */
 .pw-provider-dropdown {
