@@ -20,13 +20,11 @@ pref-test-ok =
 pref-test-fail =
     .value = ✗ Failed
 
-pref-advanced-section = Advanced
-pref-temperature-label =
-    .value = Temperature
-pref-maxtokens-label =
-    .value = Max Tokens
-
-pref-prompt-section = System Prompt
+pref-prompt-section = Prompt Settings
+pref-system-prompt-sublabel =
+    .value = System Prompt
+pref-summarize-prompt-sublabel =
+    .value = Summarize Prompt
 pref-template-label =
     .value = Quick Templates
 pref-apply-template =

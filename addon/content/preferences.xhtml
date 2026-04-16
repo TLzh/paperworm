@@ -277,25 +277,12 @@
   </hbox>
 </groupbox>
 
-<!-- ── Section 3: Advanced ── -->
-<groupbox>
-  <label><html:h2 data-l10n-id="pref-advanced-section"></html:h2></label>
-
-  <hbox align="center">
-    <label data-l10n-id="pref-maxtokens-label" style="width:110px;min-width:110px" />
-    <html:input
-      type="number"
-      preference="extensions.zotero.paperworm.llm.maxTokens"
-      min="100" max="32000" step="100"
-      style="width:80px;padding:2px 4px"
-    />
-    <label value="(100–32000，影响单次回复长度，推荐 2000–4000)" style="margin-left:6px;opacity:0.6;font-size:0.9em" />
-  </hbox>
-</groupbox>
-
-<!-- ── Section 4: System Prompt ── -->
+<!-- ── Section 3: Prompts ── -->
 <groupbox>
   <label><html:h2 data-l10n-id="pref-prompt-section"></html:h2></label>
+
+  <!-- 系统提示词 -->
+  <label data-l10n-id="pref-system-prompt-sublabel" style="font-weight:600;margin-bottom:6px;opacity:0.7;font-size:0.9em" />
 
   <hbox align="center" style="margin-bottom:8px">
     <label data-l10n-id="pref-template-label" style="width:110px;min-width:110px" />
@@ -335,6 +322,20 @@
     rows="8"
     style="width:100%;padding:6px;font-family:monospace;font-size:0.9em;resize:vertical"
   ></html:textarea>
+
+  <!-- 分隔线 -->
+  <separator style="margin-top:12px;margin-bottom:8px;border-top:1px solid rgba(128,128,128,0.2)" />
+
+  <!-- 总结全文提示词 -->
+  <label data-l10n-id="pref-summarize-prompt-sublabel" style="font-weight:600;margin-bottom:6px;opacity:0.7;font-size:0.9em" />
+
+  <html:textarea
+    preference="extensions.zotero.paperworm.action.summarizePrompt"
+    rows="3"
+    placeholder="请对这篇论文做一个结构化总结，包括：研究问题、方法、主要发现、贡献和局限性。&#10;&#10;论文标题：{title}"
+    style="width:100%;padding:4px 6px;font-size:0.9em;resize:vertical;font-family:inherit"
+  ></html:textarea>
+  <label value="可用变量：{title}  {authors}  {year}  {abstract}  {doi}" style="margin-top:3px;opacity:0.5;font-size:0.85em" />
 </groupbox>
 
 <!-- ── Footer ── -->

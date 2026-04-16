@@ -109,8 +109,8 @@ ${CHAT_CSS}
           <span class="pw-model-text">${providerName} · ${modelName}</span>
           <span class="pw-dropdown-arrow">▼</span>
         </div>
-        <div class="pw-temp-trigger" role="button" tabindex="0" title="Temperature">
-          <span class="pw-temp-text">T: ${(parseFloat((Zotero.Prefs.get(`${config.prefsPrefix}.llm.temperature`, true) as string) ?? "0.7")).toFixed(1)}</span>
+        <div class="pw-temp-trigger" role="button" tabindex="0" title="Temperature &amp; Max Tokens">
+          <span class="pw-temp-text">${(() => { const t = parseFloat((Zotero.Prefs.get(`${config.prefsPrefix}.llm.temperature`, true) as string) ?? "0.7").toFixed(1); const m = parseInt((Zotero.Prefs.get(`${config.prefsPrefix}.llm.maxTokens`, true) as string) ?? "2000"); const mk = m >= 1000 ? Math.round(m / 1000) + "k" : String(m); return `T: ${t} · ${mk}`; })()}</span>
           <span class="pw-dropdown-arrow">▼</span>
         </div>
       </div>
@@ -124,7 +124,7 @@ ${CHAT_CSS}
       <div class="pw-progress-text">准备解析...</div>
     </div>
     <div class="pw-actions">
-      <div class="pw-action-btn" role="button" tabindex="0" data-action="summarize">总结本文</div>
+      <div class="pw-action-btn" role="button" tabindex="0" data-action="summarize">总结全文</div>
       <div class="pw-action-btn" role="button" tabindex="0" data-action="quote">选择文本</div>
       <div class="pw-action-btn pw-action-btn--disabled" role="button" tabindex="0" data-action="screenshot" title="多模态截图（即将支持）">画框</div>
       <div class="pw-action-btn pw-mineru-btn" role="button" tabindex="0" data-action="mineru" style="display:none">⚡ 精细提取</div>
@@ -185,7 +185,11 @@ ${CHAT_CSS}
     const tVal = parseFloat(
       (Zotero.Prefs.get(`${config.prefsPrefix}.llm.temperature`, true) as string) ?? "0.7",
     ).toFixed(1);
-    const tNext = `T: ${tVal}`;
+    const mVal = parseInt(
+      (Zotero.Prefs.get(`${config.prefsPrefix}.llm.maxTokens`, true) as string) ?? "2000",
+    );
+    const mStr = mVal >= 1000 ? Math.round(mVal / 1000) + "k" : String(mVal);
+    const tNext = `T: ${tVal} · ${mStr}`;
     if (tempBadge.textContent !== tNext) tempBadge.textContent = tNext;
   }, 1000);
 
@@ -331,12 +335,12 @@ function bindEvents(
     showProviderDropdown(doc, panel, modelTrigger, dropdownState);
   });
 
-  // 温度选择 popover
+  // 请求参数 popover（Temperature + Max Tokens）
   const tempTrigger = panel.querySelector(".pw-temp-trigger") as HTMLElement;
   const tempText = panel.querySelector(".pw-temp-text") as HTMLElement;
   tempTrigger.addEventListener("click", (e) => {
     e.stopPropagation();
-    showTempPopover(doc, panel, tempTrigger, tempText);
+    showParamsPopover(doc, panel, tempTrigger, tempText);
   });
 }
 
@@ -349,11 +353,21 @@ function handleAction(
 ) {
   const meta = PaperExtractor.getItemMetadata(item);
   switch (action) {
-    case "summarize":
-      textarea.value =
-        "请对这篇论文做一个结构化总结，包括：研究问题、方法、主要发现、贡献和局限性。" +
-        (meta.title ? `\n\n论文标题：${meta.title}` : "");
+    case "summarize": {
+      const summarizePrompt =
+        (Zotero.Prefs.get(
+          `${config.prefsPrefix}.action.summarizePrompt`,
+          true,
+        ) as string) ||
+        "请对这篇论文做一个结构化总结，包括：研究问题、方法、主要发现、贡献和局限性。\n\n论文标题：{title}";
+      textarea.value = summarizePrompt
+        .replaceAll("{title}", meta.title)
+        .replaceAll("{authors}", meta.authors.join(", "))
+        .replaceAll("{year}", meta.year)
+        .replaceAll("{abstract}", meta.abstract)
+        .replaceAll("{doi}", meta.doi);
       break;
+    }
   }
   textarea.focus();
   textarea.setSelectionRange(textarea.value.length, textarea.value.length);
@@ -1167,8 +1181,8 @@ function getConfiguredProviders(): ConfiguredProvider[] {
   return providers;
 }
 
-// 显示温度调节 popover
-function showTempPopover(
+// 显示请求参数 popover（Temperature + Max Tokens）
+function showParamsPopover(
   doc: Document,
   panel: HTMLElement,
   trigger: HTMLElement,
@@ -1181,22 +1195,35 @@ function showTempPopover(
     return;
   }
 
-  const current = parseFloat(
+  const curTemp = parseFloat(
     (Zotero.Prefs.get(`${config.prefsPrefix}.llm.temperature`, true) as string) ?? "0.7",
+  );
+  const curTokens = parseInt(
+    (Zotero.Prefs.get(`${config.prefsPrefix}.llm.maxTokens`, true) as string) ?? "2000",
   );
 
   const popover = doc.createElement("div");
   popover.className = "pw-temp-popover";
 
-  // 标题
-  const title = doc.createElement("div");
-  title.className = "pw-temp-title";
-  title.textContent = "Temperature";
-  popover.appendChild(title);
+  function makeSectionTitle(text: string) {
+    const el = doc.createElement("div");
+    el.className = "pw-temp-title";
+    el.textContent = text;
+    return el;
+  }
 
-  // 滑块 + 数值输入行
-  const row = doc.createElement("div");
-  row.className = "pw-temp-row";
+  function makeHint(text: string) {
+    const el = doc.createElement("div");
+    el.className = "pw-temp-hint";
+    el.textContent = text;
+    return el;
+  }
+
+  // ── Temperature ──
+  popover.appendChild(makeSectionTitle("Temperature"));
+
+  const tempRow = doc.createElement("div");
+  tempRow.className = "pw-temp-row";
 
   const slider = doc.createElement("input") as HTMLInputElement;
   slider.type = "range";
@@ -1204,51 +1231,79 @@ function showTempPopover(
   slider.min = "0";
   slider.max = "2";
   slider.step = "0.1";
-  slider.value = String(current);
+  slider.value = String(curTemp);
 
-  const numInput = doc.createElement("input") as HTMLInputElement;
-  numInput.type = "number";
-  numInput.className = "pw-temp-input";
-  numInput.min = "0";
-  numInput.max = "2";
-  numInput.step = "0.1";
-  numInput.value = current.toFixed(1);
+  const tempInput = doc.createElement("input") as HTMLInputElement;
+  tempInput.type = "number";
+  tempInput.className = "pw-temp-input";
+  tempInput.min = "0";
+  tempInput.max = "2";
+  tempInput.step = "0.1";
+  tempInput.value = curTemp.toFixed(1);
 
-  row.appendChild(slider);
-  row.appendChild(numInput);
-  popover.appendChild(row);
+  tempRow.appendChild(slider);
+  tempRow.appendChild(tempInput);
+  popover.appendChild(tempRow);
+  popover.appendChild(makeHint("0 = 精准稳定   2 = 随机创意   推荐 0.1–0.7"));
 
-  // 提示文字
-  const hint = doc.createElement("div");
-  hint.className = "pw-temp-hint";
-  hint.textContent = "0 = 精准稳定   2 = 随机创意   推荐 0.1–0.7";
-  popover.appendChild(hint);
+  // ── 分隔线 ──
+  const divider = doc.createElement("div");
+  divider.className = "pw-params-divider";
+  popover.appendChild(divider);
 
-  // 定位：触发器正下方（panel 相对坐标，与 model dropdown 保持一致）
+  // ── Max Tokens ──
+  popover.appendChild(makeSectionTitle("Max Tokens"));
+
+  const tokensRow = doc.createElement("div");
+  tokensRow.className = "pw-temp-row";
+
+  const tokensInput = doc.createElement("input") as HTMLInputElement;
+  tokensInput.type = "number";
+  tokensInput.className = "pw-tokens-input";
+  tokensInput.min = "100";
+  tokensInput.max = "32000";
+  tokensInput.step = "100";
+  tokensInput.value = String(curTokens);
+
+  tokensRow.appendChild(tokensInput);
+  popover.appendChild(tokensRow);
+  popover.appendChild(makeHint("100–32000   推荐 2000–4000"));
+
+  // ── 定位 ──
   panel.appendChild(popover);
   const rect = trigger.getBoundingClientRect();
   const panelRect = panel.getBoundingClientRect();
   popover.style.top = `${rect.bottom - panelRect.top + 4}px`;
   popover.style.left = `${rect.left - panelRect.left}px`;
 
-  // 联动逻辑
-  function applyValue(v: number) {
+  // ── 更新徽章文字 ──
+  function updateBadge(t: string, m: number) {
+    const mStr = m >= 1000 ? Math.round(m / 1000) + "k" : String(m);
+    badge.textContent = `T: ${t} · ${mStr}`;
+  }
+
+  // Temperature 联动
+  function applyTemp(v: number) {
     const clamped = Math.min(2, Math.max(0, v));
     const str = clamped.toFixed(1);
     slider.value = str;
-    numInput.value = str;
+    tempInput.value = str;
     Zotero.Prefs.set(`${config.prefsPrefix}.llm.temperature`, str, true);
-    badge.textContent = `T: ${str}`;
+    updateBadge(str, parseInt(tokensInput.value) || curTokens);
   }
+  slider.addEventListener("input", () => applyTemp(parseFloat(slider.value)));
+  tempInput.addEventListener("change", () => applyTemp(parseFloat(tempInput.value) || 0));
 
-  slider.addEventListener("input", () => {
-    applyValue(parseFloat(slider.value));
-  });
-  numInput.addEventListener("change", () => {
-    applyValue(parseFloat(numInput.value) || 0);
-  });
+  // Max Tokens 联动
+  function applyTokens(v: number) {
+    const clamped = Math.min(32000, Math.max(100, v));
+    tokensInput.value = String(clamped);
+    Zotero.Prefs.set(`${config.prefsPrefix}.llm.maxTokens`, String(clamped), true);
+    updateBadge(tempInput.value, clamped);
+  }
+  tokensInput.addEventListener("change", () => applyTokens(parseInt(tokensInput.value) || 2000));
 
-  // 点击外部关闭
+  // ── 点击外部关闭 ──
   const closeHandler = (ev: MouseEvent) => {
     if (!popover.contains(ev.target as Node) && ev.target !== trigger) {
       popover.remove();
@@ -1518,6 +1573,20 @@ const CHAT_CSS = `
   opacity: 0.55;
   font-size: 10px;
   line-height: 1.4;
+}
+.pw-params-divider {
+  border-top: 1px solid rgba(128,128,128,0.2);
+  margin: 10px 0;
+}
+.pw-tokens-input {
+  width: 72px;
+  padding: 2px 4px;
+  text-align: center;
+  border: 1px solid rgba(128,128,128,0.3);
+  border-radius: 4px;
+  font-size: 12px;
+  background: Canvas;
+  color: inherit;
 }
 /* 提供商下拉菜单 */
 .pw-provider-dropdown {

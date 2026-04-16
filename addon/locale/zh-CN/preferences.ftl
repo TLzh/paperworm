@@ -20,13 +20,11 @@ pref-test-ok =
 pref-test-fail =
     .value = ✗ 连接失败
 
-pref-advanced-section = 高级参数
-pref-temperature-label =
-    .value = Temperature
-pref-maxtokens-label =
-    .value = 最大 Token 数
-
-pref-prompt-section = 系统提示词
+pref-prompt-section = 提示词配置
+pref-system-prompt-sublabel =
+    .value = 系统提示词
+pref-summarize-prompt-sublabel =
+    .value = 总结全文提示词
 pref-template-label =
     .value = 快速模板
 pref-apply-template =
