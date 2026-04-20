@@ -10,6 +10,16 @@
 
 ---
 
+## [0.6.7] - 2026-04-20
+
+### Added
+- **OpenRouter 支持** — 新增 [OpenRouter](https://openrouter.ai) 服务商，可通过单一 API Key 接入数百个模型（GPT-4o、Claude、Llama、Gemini 等）。API 兼容 OpenAI 格式，复用 `OpenAIProvider`，无额外依赖
+  - 设置页服务商下拉新增 "OpenRouter" 选项
+  - 支持 "获取模型" 按钮自动拉取 OpenRouter 全量模型列表
+  - 主面板模型切换徽章支持显示 OpenRouter 名称
+
+---
+
 ## [0.6.6] - 2026-04-16
 
 ### Added

@@ -157,12 +157,38 @@
 
 ---
 
+### OpenRouter
+
+**概述**：[OpenRouter](https://openrouter.ai) 是模型聚合平台，通过**单一 API Key** 接入数百个模型，包括 OpenAI、Anthropic、Google、Meta、Mistral 等厂商的模型。
+
+| 模型 | API ID | 上下文 | 特点 |
+|------|--------|--------|------|
+| GPT-4.1 | `openai/gpt-4.1` | 1M tokens | OpenAI 旗舰 |
+| Claude Sonnet 4.6 | `anthropic/claude-sonnet-4-6` | 200K tokens | Anthropic 旗舰 |
+| Gemini 2.5 Flash | `google/gemini-2.5-flash-preview` | 1M tokens | 高速低价 |
+| Llama 4 Maverick | `meta-llama/llama-4-maverick` | 1M tokens | 开源旗舰 |
+| DeepSeek R2 | `deepseek/deepseek-r2` | 128K tokens | 推理增强 |
+
+**特点**：
+- 单一 API Key 管理所有模型，无需多个账号
+- 支持"获取模型"按钮自动拉取完整模型列表
+- 部分模型有免费额度
+- 统一账单，方便成本控制
+
+**配置方式**：
+1. 注册 [openrouter.ai](https://openrouter.ai) 并获取 API Key
+2. PaperWorm 设置中选择 "OpenRouter"，填入 API Key
+3. 点击"获取模型"自动加载可用模型列表
+
+---
+
 ## 模型选择建议
 
 ### 预算优先
 - **免费**：Gemini 3 Flash（Google）
 - **低价**：Ollama 本地部署
 - **性价比**：DeepSeek V3、Kimi k2.5
+- **多模型统一管理**：OpenRouter（单一账号接入全部厂商）
 
 ### 质量优先
 - **最强智能**：Claude Opus 4.6、GPT-5.4
@@ -188,6 +214,7 @@
 | 2026-04-08 | 修正 Anthropic 测试模型为 Haiku 4.5（原 3-haiku 已弃用） |
 | 2026-04-08 | 更新 GPT-5.4 系列模型信息 |
 | 2026-04-08 | 更新 Gemini 3 系列模型信息 |
+| 2026-04-20 | 新增 OpenRouter 服务商支持和文档 |
 
 ---
 

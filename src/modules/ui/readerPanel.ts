@@ -106,7 +106,7 @@ ${CHAT_CSS}
     <div class="pw-header">
       <div class="pw-header-left">
         <div class="pw-model-dropdown-trigger" role="button" tabindex="0">
-          <span class="pw-model-text">${providerName} · ${modelName}</span>
+          <span class="pw-model-text">${escapeHtml(providerName)} · ${escapeHtml(modelName)}</span>
           <span class="pw-dropdown-arrow">▼</span>
         </div>
         <div class="pw-temp-trigger" role="button" tabindex="0" title="Temperature &amp; Max Tokens">
@@ -1128,7 +1128,8 @@ function getProviderDisplayName(providerId: string): string {
     gemini: "Gemini",
     ollama: "Ollama",
     kimi: "Kimi",
-    qwen: "Qwen"
+    qwen: "Qwen",
+    openrouter: "OpenRouter"
   };
   return displayNames[providerId] || providerId;
 }
@@ -1153,6 +1154,7 @@ function getConfiguredProviders(): ConfiguredProvider[] {
     { id: "gemini", keyPref: "apiKey" },
     { id: "kimi", keyPref: "apiKey" },
     { id: "qwen", keyPref: "apiKey" },
+    { id: "openrouter", keyPref: "apiKey" },
     { id: "ollama", keyPref: "baseUrl" }
   ];
   

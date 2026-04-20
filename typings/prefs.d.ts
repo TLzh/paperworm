@@ -28,6 +28,7 @@ declare namespace _ZoteroTypes {
       "llm.maxTokens": string;
       "systemPrompt.content": string;
       "systemPrompt.userTemplates": string;
+      "action.summarizePrompt": string;
     };
   }
 }

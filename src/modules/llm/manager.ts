@@ -8,12 +8,13 @@ import { GeminiProvider } from "./gemini";
 import { OllamaProvider } from "./ollama";
 import { config } from "../../../package.json";
 
-export type ProviderName = "openai" | "deepseek" | "anthropic" | "gemini" | "ollama" | "kimi" | "qwen";
+export type ProviderName = "openai" | "deepseek" | "anthropic" | "gemini" | "ollama" | "kimi" | "qwen" | "openrouter";
 
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
 const KIMI_BASE_URL = "https://api.moonshot.cn/v1";
 const QWEN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 export class LLMManager {
   private static instance: LLMManager;
@@ -69,6 +70,10 @@ export class LLMManager {
       case "qwen": {
         const apiKey = Zotero.Prefs.get(`${p}.llm.qwen.apiKey`, true) as string ?? "";
         return new OpenAIProvider("qwen", apiKey, QWEN_BASE_URL);
+      }
+      case "openrouter": {
+        const apiKey = Zotero.Prefs.get(`${p}.llm.openrouter.apiKey`, true) as string ?? "";
+        return new OpenAIProvider("openrouter", apiKey, OPENROUTER_BASE_URL);
       }
       default:
         throw new Error(`Unknown provider: ${name}`);

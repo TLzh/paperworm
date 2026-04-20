@@ -14,7 +14,7 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 - **Contextual chat** — the paper's full text, title, authors, year, and abstract are automatically included in every conversation; no manual indexing required for text-based PDFs
 - **Streaming responses** — AI replies appear word by word in real time
 - **Quick actions** — one-click to summarize the paper, or select text from the PDF as context for your questions
-- **Multi-provider** — supports OpenAI, DeepSeek, Anthropic (Claude), Google Gemini, Kimi (Moonshot), Qwen (Alibaba Cloud), and Ollama (local). See [Model Guide](docs/models.md) for details
+- **Multi-provider** — supports OpenAI, DeepSeek, Anthropic (Claude), Google Gemini, Kimi (Moonshot), Qwen (Alibaba Cloud), OpenRouter, and Ollama (local). See [Model Guide](docs/models.md) for details
 - **Persistent sessions with cross-device sync** — every conversation is automatically saved as a Zotero child note attached to the paper; sessions survive Zotero restarts and sync to other devices via your free Zotero account
 - **Multiple sessions per paper** — start new conversations and switch between them via the **Session List** view
 - **Rich text rendering** — Markdown (headings, bold, lists, code blocks) and LaTeX math (via KaTeX MathML) rendered in AI responses
@@ -66,6 +66,7 @@ To enable this feature:
 | Google Gemini | `gemini-3-flash-preview` (free) | Recommended for most tasks; free tier available. See [Gemini Model Guide](#gemini-model-guide) below |
 | Kimi (Moonshot) | `kimi-k2.5` | Requires API key from [platform.moonshot.cn](https://platform.moonshot.cn) |
 | Qwen (Alibaba Cloud) | `qwen3.6-plus` | Requires API key from [bailian.console.aliyun.com](https://bailian.console.aliyun.com) |
+| OpenRouter | any model (e.g. `openai/gpt-4.1`) | Access hundreds of models via a single API key from [openrouter.ai](https://openrouter.ai) |
 | Ollama | any local model | No API key needed; set base URL (default: `http://localhost:11434`) |
 
 ## Switching Providers Mid-Conversation

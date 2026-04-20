@@ -369,7 +369,7 @@ function fetchModels(win: Window, providerName: string, btn: HTMLElement) {
 }
 
 function showProviderSection(doc: Document, provider: string) {
-  const providers = ["openai", "deepseek", "anthropic", "gemini", "ollama", "kimi", "qwen"];
+  const providers = ["openai", "deepseek", "anthropic", "gemini", "ollama", "kimi", "qwen", "openrouter"];
   for (const p of providers) {
     const el = doc.getElementById(`${ref}-section-${p}`);
     if (el) el.setAttribute("hidden", p !== provider ? "true" : "false");
