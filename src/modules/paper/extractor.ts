@@ -1,7 +1,11 @@
 // Paper Extractor — 从 Zotero Reader 中提取论文内容
 // 供 LLM 使用的上下文来源
 
-import { MinerUClient, MinerUCacheManager, ImageHandler } from "./strategies/mineru";
+import {
+  MinerUClient,
+  MinerUCacheManager,
+  ImageHandler,
+} from "./strategies/mineru";
 
 export interface PaperMetadata {
   title: string;
@@ -17,7 +21,10 @@ export interface PaperMetadata {
 declare global {
   namespace Zotero {
     interface PDFWorkerInstance {
-      getFullText(itemID: number, maxPages: number | null): Promise<{
+      getFullText(
+        itemID: number,
+        maxPages: number | null,
+      ): Promise<{
         text: string;
         extractedPages: number;
         totalPages: number;
@@ -57,7 +64,8 @@ export class PaperExtractor {
         PaperExtractor._findInFrames<string>(
           readerWin,
           (win) => {
-            const t = (win as any).getSelection?.()?.toString?.()?.trim?.() ?? "";
+            const t =
+              (win as any).getSelection?.()?.toString?.()?.trim?.() ?? "";
             return t || null;
           },
           new Set(),
@@ -109,7 +117,7 @@ export class PaperExtractor {
    */
   private static async extractWithMinerU(
     item: Zotero.Item,
-    onProgress?: (stage: string, message: string, percent: number) => void
+    onProgress?: (stage: string, message: string, percent: number) => void,
   ): Promise<string> {
     // 1. 检查缓存
     const cached = await MinerUCacheManager.getCachedContent(item);
@@ -122,7 +130,7 @@ export class PaperExtractor {
     // 2. 获取 MinerU API Token
     const token = Zotero.Prefs.get(
       "extensions.zotero.paperworm.mineru.apiToken",
-      true
+      true,
     ) as string;
 
     if (!token) {
@@ -148,7 +156,7 @@ export class PaperExtractor {
     try {
       onProgress?.("uploading", "正在上传 PDF...", 10);
       ztoolkit.log("开始使用 MinerU 提取 PDF...");
-      
+
       const client = new MinerUClient({
         apiToken: token,
         enableTable: true,
@@ -157,31 +165,35 @@ export class PaperExtractor {
       });
 
       // 提取（包括上传、轮询、下载 ZIP）
-      zipPath = await client.extractPDF(filePath, undefined, (stage, current, total) => {
-        const percent = Math.round((current / total) * 100);
-        let message = "正在处理...";
-        switch (stage) {
-          case "uploading":
-            message = "正在上传 PDF...";
-            break;
-          case "waiting":
-            message = "排队等待中（VLM 模型通常需要 2–5 分钟）...";
-            break;
-          case "processing":
-            message = "MinerU 正在解析...";
-            break;
-          case "downloading":
-            message = "正在下载结果...";
-            break;
-          case "completed":
-            message = "处理完成";
-            break;
-        }
-        onProgress?.(stage, message, percent);
-      });
-      
+      zipPath = await client.extractPDF(
+        filePath,
+        undefined,
+        (stage, current, total) => {
+          const percent = Math.round((current / total) * 100);
+          let message = "正在处理...";
+          switch (stage) {
+            case "uploading":
+              message = "正在上传 PDF...";
+              break;
+            case "waiting":
+              message = "排队等待中（VLM 模型通常需要 2–5 分钟）...";
+              break;
+            case "processing":
+              message = "MinerU 正在解析...";
+              break;
+            case "downloading":
+              message = "正在下载结果...";
+              break;
+            case "completed":
+              message = "处理完成";
+              break;
+          }
+          onProgress?.(stage, message, percent);
+        },
+      );
+
       onProgress?.("processing", "正在处理结果...", 95);
-      
+
       // 5. 处理 ZIP（解压、图片本地化）
       const processedResult = await ImageHandler.processZip(zipPath, item);
 
@@ -199,7 +211,7 @@ export class PaperExtractor {
       return processedResult.text;
     } catch (error: any) {
       ztoolkit.log("MinerU 提取失败:", error);
-      
+
       // 清理 ZIP 文件
       if (zipPath) {
         try {
@@ -208,7 +220,7 @@ export class PaperExtractor {
           // 忽略
         }
       }
-      
+
       // 抛出错误，让调用者处理
       throw error;
     }
@@ -227,16 +239,21 @@ export class PaperExtractor {
     // 策略 1：尝试读取已有索引（最快）
     try {
       const result = await (Zotero.Fulltext as any).getItemContent(attachment);
-      const text = typeof result === "string" ? result : (result?.content ?? "");
+      const text =
+        typeof result === "string" ? result : (result?.content ?? "");
       if (text.trim()) return text;
-    } catch { /* continue */ }
+    } catch {
+      /* continue */
+    }
 
     // 策略 2：使用 Zotero PDFWorker 直接提取全文（最可靠）
     try {
       ztoolkit.log("Using Zotero PDFWorker to extract full text...");
       const result = await Zotero.PDFWorker.getFullText(attachment.id, null);
       if (result?.text) {
-        ztoolkit.log(`PDFWorker extracted ${result.extractedPages}/${result.totalPages} pages`);
+        ztoolkit.log(
+          `PDFWorker extracted ${result.extractedPages}/${result.totalPages} pages`,
+        );
         return result.text;
       }
     } catch (e) {
@@ -269,10 +286,14 @@ export class PaperExtractor {
         new Set(),
       );
       if (text) {
-        ztoolkit.log(".textLayer extraction successful (limited to rendered pages)");
+        ztoolkit.log(
+          ".textLayer extraction successful (limited to rendered pages)",
+        );
         return text;
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     return "";
   }
@@ -328,7 +349,9 @@ export class PaperExtractor {
           tabCont.querySelector?.("browser.reader") ??
           tabCont.querySelector?.("browser");
         if (browser?.contentWindow) return browser.contentWindow as Window;
-      } catch { /* skip */ }
+      } catch {
+        /* skip */
+      }
     }
 
     // ── 降级：直接访问 Zotero.Reader._readers 数组（reader.js line 2450）──────
@@ -337,13 +360,12 @@ export class PaperExtractor {
       for (const r of readers) {
         if (r?.itemID !== attachmentID) continue;
         // _iframeWindow = _iframe.contentWindow（reader.js line 1883）
-        const win =
-          r._iframeWindow ??
-          r._iframe?.contentWindow ??
-          null;
+        const win = r._iframeWindow ?? r._iframe?.contentWindow ?? null;
         if (win) return win as Window;
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     return null;
   }
@@ -364,17 +386,27 @@ export class PaperExtractor {
     try {
       const result = finder(win);
       if (result != null) return result;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     // 通过 frames[] 遍历
     try {
       for (let i = 0; i < (win.frames?.length ?? 0); i++) {
         try {
-          const r = PaperExtractor._findInFrames(win.frames[i], finder, visited);
+          const r = PaperExtractor._findInFrames(
+            win.frames[i],
+            finder,
+            visited,
+          );
           if (r != null) return r;
-        } catch { /* cross-origin */ }
+        } catch {
+          /* cross-origin */
+        }
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     // 通过 DOM 元素遍历（补充 XUL <browser>）
     try {
@@ -388,9 +420,13 @@ export class PaperExtractor {
             const r = PaperExtractor._findInFrames(cw, finder, visited);
             if (r != null) return r;
           }
-        } catch { /* cross-origin */ }
+        } catch {
+          /* cross-origin */
+        }
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     return null;
   }

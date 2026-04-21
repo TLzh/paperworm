@@ -35,4 +35,3 @@ jobs:
         run: |
           gh release edit "${GITHUB_REF_NAME}" \
             --notes "$(gh api repos/{owner}/{repo}/releases/generate-notes -f tag_name="${GITHUB_REF_NAME}" -f previous_tag_name=$(git describe --tags --abbrev=0 ${GITHUB_REF_NAME}^) | jq -r .body)"
-

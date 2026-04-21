@@ -8,13 +8,23 @@ import { GeminiProvider } from "./gemini";
 import { OllamaProvider } from "./ollama";
 import { config } from "../../../package.json";
 
-export type ProviderName = "openai" | "deepseek" | "anthropic" | "gemini" | "ollama" | "kimi" | "qwen" | "openrouter";
+export type ProviderName =
+  | "openai"
+  | "deepseek"
+  | "anthropic"
+  | "gemini"
+  | "ollama"
+  | "kimi"
+  | "qwen"
+  | "openrouter"
+  | "mimo";
 
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
 const KIMI_BASE_URL = "https://api.moonshot.cn/v1";
 const QWEN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+const MIMO_BASE_URL = "https://api.xiaomimimo.com/v1";
 
 export class LLMManager {
   private static instance: LLMManager;
@@ -34,8 +44,11 @@ export class LLMManager {
 
   getActiveProviderName(): ProviderName {
     return (
-      Zotero.Prefs.get(`${config.prefsPrefix}.llm.provider`, true) as ProviderName
-    ) ?? "openai";
+      (Zotero.Prefs.get(
+        `${config.prefsPrefix}.llm.provider`,
+        true,
+      ) as ProviderName) ?? "openai"
+    );
   }
 
   /** 根据 provider 名称从 prefs 读取配置并实例化 */
@@ -44,36 +57,51 @@ export class LLMManager {
 
     switch (name) {
       case "openai": {
-        const apiKey = Zotero.Prefs.get(`${p}.llm.openai.apiKey`, true) as string ?? "";
+        const apiKey =
+          (Zotero.Prefs.get(`${p}.llm.openai.apiKey`, true) as string) ?? "";
         return new OpenAIProvider("openai", apiKey, OPENAI_BASE_URL);
       }
       case "deepseek": {
-        const apiKey = Zotero.Prefs.get(`${p}.llm.deepseek.apiKey`, true) as string ?? "";
+        const apiKey =
+          (Zotero.Prefs.get(`${p}.llm.deepseek.apiKey`, true) as string) ?? "";
         return new OpenAIProvider("deepseek", apiKey, DEEPSEEK_BASE_URL);
       }
       case "anthropic": {
-        const apiKey = Zotero.Prefs.get(`${p}.llm.anthropic.apiKey`, true) as string ?? "";
+        const apiKey =
+          (Zotero.Prefs.get(`${p}.llm.anthropic.apiKey`, true) as string) ?? "";
         return new AnthropicProvider(apiKey);
       }
       case "gemini": {
-        const apiKey = Zotero.Prefs.get(`${p}.llm.gemini.apiKey`, true) as string ?? "";
+        const apiKey =
+          (Zotero.Prefs.get(`${p}.llm.gemini.apiKey`, true) as string) ?? "";
         return new GeminiProvider(apiKey);
       }
       case "ollama": {
-        const baseUrl = Zotero.Prefs.get(`${p}.llm.ollama.baseUrl`, true) as string ?? "http://localhost:11434";
+        const baseUrl =
+          (Zotero.Prefs.get(`${p}.llm.ollama.baseUrl`, true) as string) ??
+          "http://localhost:11434";
         return new OllamaProvider(baseUrl);
       }
       case "kimi": {
-        const apiKey = Zotero.Prefs.get(`${p}.llm.kimi.apiKey`, true) as string ?? "";
+        const apiKey =
+          (Zotero.Prefs.get(`${p}.llm.kimi.apiKey`, true) as string) ?? "";
         return new OpenAIProvider("kimi", apiKey, KIMI_BASE_URL);
       }
       case "qwen": {
-        const apiKey = Zotero.Prefs.get(`${p}.llm.qwen.apiKey`, true) as string ?? "";
+        const apiKey =
+          (Zotero.Prefs.get(`${p}.llm.qwen.apiKey`, true) as string) ?? "";
         return new OpenAIProvider("qwen", apiKey, QWEN_BASE_URL);
       }
       case "openrouter": {
-        const apiKey = Zotero.Prefs.get(`${p}.llm.openrouter.apiKey`, true) as string ?? "";
+        const apiKey =
+          (Zotero.Prefs.get(`${p}.llm.openrouter.apiKey`, true) as string) ??
+          "";
         return new OpenAIProvider("openrouter", apiKey, OPENROUTER_BASE_URL);
+      }
+      case "mimo": {
+        const apiKey =
+          (Zotero.Prefs.get(`${p}.llm.mimo.apiKey`, true) as string) ?? "";
+        return new OpenAIProvider("mimo", apiKey, MIMO_BASE_URL, "api-key");
       }
       default:
         throw new Error(`Unknown provider: ${name}`);

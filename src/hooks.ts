@@ -31,19 +31,19 @@ function migrateOldPrefs() {
 
   // 短路径 → 完整路径 映射
   const shortKeys: Array<[string, string]> = [
-    ["llm.provider",           `${p}.llm.provider`],
-    ["llm.openai.apiKey",      `${p}.llm.openai.apiKey`],
-    ["llm.openai.model",       `${p}.llm.openai.model`],
-    ["llm.deepseek.apiKey",    `${p}.llm.deepseek.apiKey`],
-    ["llm.deepseek.model",     `${p}.llm.deepseek.model`],
-    ["llm.anthropic.apiKey",   `${p}.llm.anthropic.apiKey`],
-    ["llm.anthropic.model",    `${p}.llm.anthropic.model`],
-    ["llm.gemini.apiKey",      `${p}.llm.gemini.apiKey`],
-    ["llm.gemini.model",       `${p}.llm.gemini.model`],
-    ["llm.ollama.baseUrl",     `${p}.llm.ollama.baseUrl`],
-    ["llm.ollama.model",       `${p}.llm.ollama.model`],
-    ["llm.temperature",        `${p}.llm.temperature`],
-    ["llm.maxTokens",          `${p}.llm.maxTokens`],
+    ["llm.provider", `${p}.llm.provider`],
+    ["llm.openai.apiKey", `${p}.llm.openai.apiKey`],
+    ["llm.openai.model", `${p}.llm.openai.model`],
+    ["llm.deepseek.apiKey", `${p}.llm.deepseek.apiKey`],
+    ["llm.deepseek.model", `${p}.llm.deepseek.model`],
+    ["llm.anthropic.apiKey", `${p}.llm.anthropic.apiKey`],
+    ["llm.anthropic.model", `${p}.llm.anthropic.model`],
+    ["llm.gemini.apiKey", `${p}.llm.gemini.apiKey`],
+    ["llm.gemini.model", `${p}.llm.gemini.model`],
+    ["llm.ollama.baseUrl", `${p}.llm.ollama.baseUrl`],
+    ["llm.ollama.model", `${p}.llm.ollama.model`],
+    ["llm.temperature", `${p}.llm.temperature`],
+    ["llm.maxTokens", `${p}.llm.maxTokens`],
   ];
 
   let migrated = 0;
@@ -59,7 +59,10 @@ function migrateOldPrefs() {
   Zotero.Prefs.set(MIGRATION_FLAG, "true", true);
 
   if (migrated > 0) {
-    Zotero.log(`PaperWorm: migrated ${migrated} pref(s) from old short-path to full-path.`, "warning");
+    Zotero.log(
+      `PaperWorm: migrated ${migrated} pref(s) from old short-path to full-path.`,
+      "warning",
+    );
   }
 }
 
@@ -86,7 +89,9 @@ async function onStartup() {
     image: `chrome://${addon.data.config.addonRef}/content/icons/favicon.png`,
   });
 
-  await Promise.all(Zotero.getMainWindows().map((win) => onMainWindowLoad(win)));
+  await Promise.all(
+    Zotero.getMainWindows().map((win) => onMainWindowLoad(win)),
+  );
 
   addon.data.initialized = true;
 }

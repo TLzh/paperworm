@@ -50,7 +50,9 @@ export class OllamaProvider implements LLMProvider {
       return;
     }
 
-    const reader = (res.body as any).getReader() as ReadableStreamDefaultReader<Uint8Array>;
+    const reader = (
+      res.body as any
+    ).getReader() as ReadableStreamDefaultReader<Uint8Array>;
     const decoder = new TextDecoder();
     let buffer = "";
 
@@ -99,7 +101,7 @@ export class OllamaProvider implements LLMProvider {
       successCodes: [200],
     });
     const data = JSON.parse(resp.responseText) as any;
-    return (data.models as any[] ?? []).map((m) => m.name as string).sort();
+    return ((data.models as any[]) ?? []).map((m) => m.name as string).sort();
   }
 
   private buildBody(options: LLMRequestOptions, stream: boolean) {

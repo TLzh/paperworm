@@ -96,7 +96,10 @@ interface UserTemplate {
 
 function loadUserTemplates(): UserTemplate[] {
   try {
-    const raw = Zotero.Prefs.get(`${config.prefsPrefix}.systemPrompt.userTemplates`, true) as string;
+    const raw = Zotero.Prefs.get(
+      `${config.prefsPrefix}.systemPrompt.userTemplates`,
+      true,
+    ) as string;
     const parsed = JSON.parse(raw || "[]");
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -120,7 +123,9 @@ function rebuildUserMenuItems(doc: Document): void {
   if (!menupopup || !sep) return;
 
   // 移除旧的用户模板 menuitem
-  const toRemove = Array.from(menupopup.querySelectorAll("[data-user-template]"));
+  const toRemove = Array.from(
+    menupopup.querySelectorAll("[data-user-template]"),
+  );
   for (const el of toRemove) (el as Element).remove();
 
   const templates = loadUserTemplates();
@@ -158,10 +163,9 @@ function initPrefsUI(win: Window) {
   const doc = win.document;
 
   // 根据当前保存的 provider，显示对应的配置区域
-  const provider = Zotero.Prefs.get(
-    `${config.prefsPrefix}.llm.provider`,
-    true,
-  ) as string ?? "openai";
+  const provider =
+    (Zotero.Prefs.get(`${config.prefsPrefix}.llm.provider`, true) as string) ??
+    "openai";
   showProviderSection(doc, provider);
 
   // 同步 provider menulist 到当前值（XUL 有时不会自动更新）
@@ -176,14 +180,16 @@ function bindPrefsEvents(win: Window) {
   const doc = win.document;
 
   // Provider 切换 → 显示对应配置区域
-  doc.getElementById(`${ref}-provider`)
+  doc
+    .getElementById(`${ref}-provider`)
     ?.addEventListener("command", (e: Event) => {
       const value = (e.target as any).value as string;
       showProviderSection(doc, value);
     });
 
   // 模板下拉框切换 → 控制删除按钮 enabled/disabled
-  doc.getElementById(`${ref}-prompt-template`)
+  doc
+    .getElementById(`${ref}-prompt-template`)
     ?.addEventListener("command", (e: Event) => {
       const value = (e.target as any).value as string;
       const deleteBtn = doc.getElementById(`${ref}-delete-template`);
@@ -197,10 +203,13 @@ function bindPrefsEvents(win: Window) {
     });
 
   // 应用模板按钮
-  doc.getElementById(`${ref}-apply-template`)
+  doc
+    .getElementById(`${ref}-apply-template`)
     ?.addEventListener("command", () => {
       const templateList = doc.getElementById(`${ref}-prompt-template`) as any;
-      const textarea = doc.getElementById(`${ref}-system-prompt`) as HTMLTextAreaElement;
+      const textarea = doc.getElementById(
+        `${ref}-system-prompt`,
+      ) as HTMLTextAreaElement;
       if (!templateList || !textarea) return;
 
       const value = templateList.value as string;
@@ -222,10 +231,13 @@ function bindPrefsEvents(win: Window) {
     });
 
   // 另存为按钮 → 展开/收起保存行
-  doc.getElementById(`${ref}-saveas-template`)
+  doc
+    .getElementById(`${ref}-saveas-template`)
     ?.addEventListener("command", () => {
       const saveRow = doc.getElementById(`${ref}-save-row`);
-      const nameInput = doc.getElementById(`${ref}-template-name-input`) as HTMLInputElement;
+      const nameInput = doc.getElementById(
+        `${ref}-template-name-input`,
+      ) as HTMLInputElement;
       const errLabel = doc.getElementById(`${ref}-save-error`) as any;
       if (!saveRow) return;
 
@@ -239,61 +251,66 @@ function bindPrefsEvents(win: Window) {
     });
 
   // 确认保存按钮
-  doc.getElementById(`${ref}-confirm-save`)
-    ?.addEventListener("command", () => {
-      const nameInput = doc.getElementById(`${ref}-template-name-input`) as HTMLInputElement;
-      const textarea = doc.getElementById(`${ref}-system-prompt`) as HTMLTextAreaElement;
-      const errLabel = doc.getElementById(`${ref}-save-error`) as any;
-      const saveRow = doc.getElementById(`${ref}-save-row`);
-      const templateList = doc.getElementById(`${ref}-prompt-template`) as any;
-      if (!nameInput || !textarea || !errLabel) return;
+  doc.getElementById(`${ref}-confirm-save`)?.addEventListener("command", () => {
+    const nameInput = doc.getElementById(
+      `${ref}-template-name-input`,
+    ) as HTMLInputElement;
+    const textarea = doc.getElementById(
+      `${ref}-system-prompt`,
+    ) as HTMLTextAreaElement;
+    const errLabel = doc.getElementById(`${ref}-save-error`) as any;
+    const saveRow = doc.getElementById(`${ref}-save-row`);
+    const templateList = doc.getElementById(`${ref}-prompt-template`) as any;
+    if (!nameInput || !textarea || !errLabel) return;
 
-      const name = nameInput.value.trim();
+    const name = nameInput.value.trim();
 
-      if (!name) {
-        errLabel.setAttribute("value", "请输入模板名称");
-        errLabel.setAttribute("hidden", "false");
-        return;
-      }
+    if (!name) {
+      errLabel.setAttribute("value", "请输入模板名称");
+      errLabel.setAttribute("hidden", "false");
+      return;
+    }
 
-      const templates = loadUserTemplates();
-      if (templates.some((t) => t.name === name)) {
-        errLabel.setAttribute("value", `名称"${name}"已存在，请使用其他名称`);
-        errLabel.setAttribute("hidden", "false");
-        return;
-      }
+    const templates = loadUserTemplates();
+    if (templates.some((t) => t.name === name)) {
+      errLabel.setAttribute("value", `名称"${name}"已存在，请使用其他名称`);
+      errLabel.setAttribute("hidden", "false");
+      return;
+    }
 
-      templates.push({ name, content: textarea.value });
-      saveUserTemplates(templates);
-      rebuildUserMenuItems(doc);
+    templates.push({ name, content: textarea.value });
+    saveUserTemplates(templates);
+    rebuildUserMenuItems(doc);
 
-      // 选中新保存的模板
-      const newIdx = templates.length - 1;
-      if (templateList) templateList.value = `user::${newIdx}`;
+    // 选中新保存的模板
+    const newIdx = templates.length - 1;
+    if (templateList) templateList.value = `user::${newIdx}`;
 
-      // 启用删除按钮
-      const deleteBtn = doc.getElementById(`${ref}-delete-template`);
-      if (deleteBtn) deleteBtn.removeAttribute("disabled");
+    // 启用删除按钮
+    const deleteBtn = doc.getElementById(`${ref}-delete-template`);
+    if (deleteBtn) deleteBtn.removeAttribute("disabled");
 
-      // 收起保存行
-      if (saveRow) saveRow.setAttribute("hidden", "true");
-      errLabel.setAttribute("hidden", "true");
-      nameInput.value = "";
-    });
+    // 收起保存行
+    if (saveRow) saveRow.setAttribute("hidden", "true");
+    errLabel.setAttribute("hidden", "true");
+    nameInput.value = "";
+  });
 
   // 取消按钮
-  doc.getElementById(`${ref}-cancel-save`)
-    ?.addEventListener("command", () => {
-      const saveRow = doc.getElementById(`${ref}-save-row`);
-      const nameInput = doc.getElementById(`${ref}-template-name-input`) as HTMLInputElement;
-      const errLabel = doc.getElementById(`${ref}-save-error`) as any;
-      if (saveRow) saveRow.setAttribute("hidden", "true");
-      if (nameInput) nameInput.value = "";
-      if (errLabel) errLabel.setAttribute("hidden", "true");
-    });
+  doc.getElementById(`${ref}-cancel-save`)?.addEventListener("command", () => {
+    const saveRow = doc.getElementById(`${ref}-save-row`);
+    const nameInput = doc.getElementById(
+      `${ref}-template-name-input`,
+    ) as HTMLInputElement;
+    const errLabel = doc.getElementById(`${ref}-save-error`) as any;
+    if (saveRow) saveRow.setAttribute("hidden", "true");
+    if (nameInput) nameInput.value = "";
+    if (errLabel) errLabel.setAttribute("hidden", "true");
+  });
 
   // 删除按钮
-  doc.getElementById(`${ref}-delete-template`)
+  doc
+    .getElementById(`${ref}-delete-template`)
     ?.addEventListener("command", () => {
       const templateList = doc.getElementById(`${ref}-prompt-template`) as any;
       const deleteBtn = doc.getElementById(`${ref}-delete-template`);
@@ -314,13 +331,13 @@ function bindPrefsEvents(win: Window) {
     });
 
   // 测试连接按钮（LLM）
-  doc.getElementById(`${ref}-test-btn`)
-    ?.addEventListener("command", () => {
-      testConnection(win);
-    });
+  doc.getElementById(`${ref}-test-btn`)?.addEventListener("command", () => {
+    testConnection(win);
+  });
 
   // 测试连接按钮（MinerU）
-  doc.getElementById(`${ref}-mineru-test-btn`)
+  doc
+    .getElementById(`${ref}-mineru-test-btn`)
     ?.addEventListener("command", () => {
       testMinerUConnection(win);
     });
@@ -336,7 +353,9 @@ function bindPrefsEvents(win: Window) {
 
 function fetchModels(win: Window, providerName: string, btn: HTMLElement) {
   const doc = win.document;
-  const input = doc.getElementById(`${ref}-${providerName}-models`) as HTMLInputElement;
+  const input = doc.getElementById(
+    `${ref}-${providerName}-models`,
+  ) as HTMLInputElement;
   if (!input) return;
 
   const originalLabel = btn.getAttribute("label");
@@ -346,7 +365,8 @@ function fetchModels(win: Window, providerName: string, btn: HTMLElement) {
   const manager = LLMManager.getInstance();
   const provider = manager.buildProvider(providerName as any);
 
-  provider.getModels()
+  provider
+    .getModels()
     .then((models) => {
       if (models.length === 0) {
         throw new Error("未找到可用模型");
@@ -369,7 +389,17 @@ function fetchModels(win: Window, providerName: string, btn: HTMLElement) {
 }
 
 function showProviderSection(doc: Document, provider: string) {
-  const providers = ["openai", "deepseek", "anthropic", "gemini", "ollama", "kimi", "qwen", "openrouter"];
+  const providers = [
+    "openai",
+    "deepseek",
+    "anthropic",
+    "gemini",
+    "ollama",
+    "kimi",
+    "qwen",
+    "openrouter",
+    "mimo",
+  ];
   for (const p of providers) {
     const el = doc.getElementById(`${ref}-section-${p}`);
     if (el) el.setAttribute("hidden", p !== provider ? "true" : "false");
@@ -384,12 +414,13 @@ function testConnection(win: Window) {
   resultLabel.setAttribute("value", "测试中...");
 
   LLMManager.getInstance()
-    .buildProvider(
-      LLMManager.getInstance().getActiveProviderName(),
-    )
+    .buildProvider(LLMManager.getInstance().getActiveProviderName())
     .testConnection()
     .then((ok) => {
-      resultLabel.setAttribute("value", ok ? "✓ 连接成功" : "✗ 连接失败，请检查 Key 或网络");
+      resultLabel.setAttribute(
+        "value",
+        ok ? "✓ 连接成功" : "✗ 连接失败，请检查 Key 或网络",
+      );
     })
     .catch((e: Error) => {
       resultLabel.setAttribute("value", `✗ 错误：${e.message}`);
@@ -404,17 +435,18 @@ function testMinerUConnection(win: Window) {
   resultLabel.setAttribute("value", "测试中...");
 
   const token = Zotero.Prefs.get(
-    `${config.prefsPrefix}.mineru.apiToken`, true
+    `${config.prefsPrefix}.mineru.apiToken`,
+    true,
   ) as string;
 
   MinerUTestClient.testConnection(token)
     .then((result) => {
-      resultLabel.setAttribute("value",
-        result.success ? `✓ ${result.message}` : `✗ ${result.message}`
+      resultLabel.setAttribute(
+        "value",
+        result.success ? `✓ ${result.message}` : `✗ ${result.message}`,
       );
     })
     .catch((e: Error) => {
       resultLabel.setAttribute("value", `✗ 错误：${e.message}`);
     });
 }
-

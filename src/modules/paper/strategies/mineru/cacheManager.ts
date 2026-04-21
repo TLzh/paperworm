@@ -19,7 +19,9 @@ export class MinerUCacheManager {
     if (!note) return null;
 
     const html = note.getNote();
-    const match = html.match(/<code[^>]*class="pw-mineru-data"[^>]*>([A-Za-z0-9+/=\s]+)<\/code>/);
+    const match = html.match(
+      /<code[^>]*class="pw-mineru-data"[^>]*>([A-Za-z0-9+/=\s]+)<\/code>/,
+    );
     if (!match) return null;
 
     try {
@@ -37,14 +39,18 @@ export class MinerUCacheManager {
    * 保存精细提取结果到 Zotero 笔记
    * Base64 编码避免 HTML 转义问题，与聊天记录存储方式一致
    */
-  static async saveCache(mdContent: string, parentItem: Zotero.Item): Promise<void> {
+  static async saveCache(
+    mdContent: string,
+    parentItem: Zotero.Item,
+  ): Promise<void> {
     // 清理旧缓存
     await this.cleanupOldCache(parentItem);
 
     // Base64 编码
     const bytes = new TextEncoder().encode(mdContent);
     let binary = "";
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    for (let i = 0; i < bytes.length; i++)
+      binary += String.fromCharCode(bytes[i]);
     const b64 = btoa(binary);
 
     const noteHtml =
@@ -81,7 +87,9 @@ export class MinerUCacheManager {
   /**
    * 查找缓存笔记（通过标签识别）
    */
-  private static async _findCacheNote(item: Zotero.Item): Promise<Zotero.Item | null> {
+  private static async _findCacheNote(
+    item: Zotero.Item,
+  ): Promise<Zotero.Item | null> {
     const parent = item.isAttachment() ? (item.parentItem ?? item) : item;
     const noteIDs: number[] = (parent as any).getNotes() as number[];
 
@@ -89,10 +97,12 @@ export class MinerUCacheManager {
       try {
         const note = Zotero.Items.get(nid);
         const tags = note.getTags();
-        if (tags.some(t => t.tag === CACHE_NOTE_TAG)) {
+        if (tags.some((t) => t.tag === CACHE_NOTE_TAG)) {
           return note;
         }
-      } catch { /* skip */ }
+      } catch {
+        /* skip */
+      }
     }
     return null;
   }

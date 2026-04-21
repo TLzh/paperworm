@@ -34,7 +34,7 @@ export class MinerUClient {
   async extractPDF(
     filePath: string,
     signal?: { addEventListener: (type: string, handler: () => void) => void },
-    onProgress?: (stage: string, current: number, total: number) => void
+    onProgress?: (stage: string, current: number, total: number) => void,
   ): Promise<string> {
     this.aborted = false;
     this.activeXhrs = [];
@@ -95,14 +95,19 @@ export class MinerUClient {
   /**
    * 申请批量上传 URL
    */
-  private async requestUploadUrl(filePath: string): Promise<{ batchId: string; uploadUrl: string }> {
-    const fileName = filePath.split("/").pop() || filePath.split("\\").pop() || "document.pdf";
+  private async requestUploadUrl(
+    filePath: string,
+  ): Promise<{ batchId: string; uploadUrl: string }> {
+    const fileName =
+      filePath.split("/").pop() || filePath.split("\\").pop() || "document.pdf";
 
     const data = {
-      files: [{
-        name: fileName,
-        is_ocr: false,
-      }],
+      files: [
+        {
+          name: fileName,
+          is_ocr: false,
+        },
+      ],
       model_version: "vlm",
       enable_table: this.config.enableTable,
       enable_formula: this.config.enableFormula,
@@ -115,8 +120,8 @@ export class MinerUClient {
       JSON.stringify(data),
       {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${this.config.apiToken}`,
-      }
+        Authorization: `Bearer ${this.config.apiToken}`,
+      },
     );
 
     if (response.code !== 0) {
@@ -153,8 +158,14 @@ export class MinerUClient {
         }
       };
 
-      xhr.onerror = () => { this.removeXhr(xhr); reject(new Error("上传网络错误")); };
-      xhr.onabort = () => { this.removeXhr(xhr); reject(new Error("上传已取消")); };
+      xhr.onerror = () => {
+        this.removeXhr(xhr);
+        reject(new Error("上传网络错误"));
+      };
+      xhr.onabort = () => {
+        this.removeXhr(xhr);
+        reject(new Error("上传已取消"));
+      };
 
       xhr.send(fileData);
     });
@@ -168,10 +179,11 @@ export class MinerUClient {
   private async pollForResult(
     batchId: string,
     filePath: string,
-    onProgress?: (stage: string, current: number, total: number) => void
+    onProgress?: (stage: string, current: number, total: number) => void,
   ): Promise<string> {
     const startTime = Date.now();
-    const fileName = filePath.split("/").pop() || filePath.split("\\").pop() || "document.pdf";
+    const fileName =
+      filePath.split("/").pop() || filePath.split("\\").pop() || "document.pdf";
 
     return new Promise((resolve, reject) => {
       const poll = async () => {
@@ -193,8 +205,8 @@ export class MinerUClient {
             "GET",
             null,
             {
-              "Authorization": `Bearer ${this.config.apiToken}`,
-            }
+              Authorization: `Bearer ${this.config.apiToken}`,
+            },
           );
 
           if (response.code !== 0) {
@@ -203,7 +215,7 @@ export class MinerUClient {
           }
 
           const result = response.data.extract_result.find(
-            r => r.file_name === fileName
+            (r) => r.file_name === fileName,
           );
 
           if (!result) {
@@ -231,7 +243,10 @@ export class MinerUClient {
               // 排队等待服务器资源
               onProgress?.("waiting", 50, 100);
               ztoolkit.log(`MinerU 排队中: ${result.state}`);
-              this.pollTimer = setTimeout(poll, POLL_INTERVAL) as unknown as number;
+              this.pollTimer = setTimeout(
+                poll,
+                POLL_INTERVAL,
+              ) as unknown as number;
               break;
             }
 
@@ -240,13 +255,21 @@ export class MinerUClient {
               // 正在处理
               const progress = result.extract_progress;
               if (progress && progress.total_pages > 0) {
-                const percent = Math.round((progress.extracted_pages / progress.total_pages) * 40) + 50;
+                const percent =
+                  Math.round(
+                    (progress.extracted_pages / progress.total_pages) * 40,
+                  ) + 50;
                 onProgress?.("processing", percent, 100);
-                ztoolkit.log(`解析进度: ${progress.extracted_pages}/${progress.total_pages} 页`);
+                ztoolkit.log(
+                  `解析进度: ${progress.extracted_pages}/${progress.total_pages} 页`,
+                );
               } else {
                 onProgress?.("processing", 55, 100);
               }
-              this.pollTimer = setTimeout(poll, POLL_INTERVAL) as unknown as number;
+              this.pollTimer = setTimeout(
+                poll,
+                POLL_INTERVAL,
+              ) as unknown as number;
               break;
             }
 
@@ -279,7 +302,6 @@ export class MinerUClient {
 
     await IOUtils.write(tempZipPath.path, zipData);
 
-    ztoolkit.log(`ZIP 已下载到: ${tempZipPath.path}`);
     return tempZipPath.path;
   }
 
@@ -303,8 +325,14 @@ export class MinerUClient {
         }
       };
 
-      xhr.onerror = () => { this.removeXhr(xhr); reject(new Error("下载网络错误")); };
-      xhr.onabort = () => { this.removeXhr(xhr); reject(new Error("下载已取消")); };
+      xhr.onerror = () => {
+        this.removeXhr(xhr);
+        reject(new Error("下载网络错误"));
+      };
+      xhr.onabort = () => {
+        this.removeXhr(xhr);
+        reject(new Error("下载已取消"));
+      };
 
       xhr.send();
     });
@@ -317,7 +345,7 @@ export class MinerUClient {
     path: string,
     method: string,
     body: string | null,
-    headers: Record<string, string>
+    headers: Record<string, string>,
   ): Promise<T> {
     const url = `${this.config.baseUrl}${path}`;
 
@@ -336,7 +364,7 @@ export class MinerUClient {
         this.removeXhr(xhr);
         if (xhr.status >= 200 && xhr.status < 300) {
           try {
-            const responseText = xhr.responseText || '{}';
+            const responseText = xhr.responseText || "{}";
             const data = JSON.parse(responseText);
             resolve(data);
           } catch {
@@ -347,8 +375,14 @@ export class MinerUClient {
         }
       };
 
-      xhr.onerror = () => { this.removeXhr(xhr); reject(new Error("网络请求错误")); };
-      xhr.onabort = () => { this.removeXhr(xhr); reject(new Error("请求已取消")); };
+      xhr.onerror = () => {
+        this.removeXhr(xhr);
+        reject(new Error("网络请求错误"));
+      };
+      xhr.onabort = () => {
+        this.removeXhr(xhr);
+        reject(new Error("请求已取消"));
+      };
 
       xhr.send(body);
     });
@@ -373,7 +407,11 @@ export class MinerUClient {
     }
     // 中止所有活跃的 XHR 请求
     for (const xhr of this.activeXhrs) {
-      try { xhr.abort(); } catch { /* ignore */ }
+      try {
+        xhr.abort();
+      } catch {
+        /* ignore */
+      }
     }
     this.activeXhrs = [];
   }

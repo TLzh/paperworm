@@ -52,7 +52,9 @@ export class AnthropicProvider implements LLMProvider {
       return;
     }
 
-    const reader = (res.body as any).getReader() as ReadableStreamDefaultReader<Uint8Array>;
+    const reader = (
+      res.body as any
+    ).getReader() as ReadableStreamDefaultReader<Uint8Array>;
     const decoder = new TextDecoder();
     let buffer = "";
 
@@ -93,7 +95,7 @@ export class AnthropicProvider implements LLMProvider {
         successCodes: [200],
       });
       const data = JSON.parse(resp.responseText) as any;
-      return (data.data as any[] ?? []).map((m) => m.id as string).sort();
+      return ((data.data as any[]) ?? []).map((m) => m.id as string).sort();
     } catch (e) {
       Zotero.log(`PaperWorm: failed to get Anthropic models: ${e}`, "error");
       return [];
@@ -119,7 +121,8 @@ export class AnthropicProvider implements LLMProvider {
       max_tokens: options.maxTokens ?? 2000,
       stream,
     };
-    if (options.temperature !== undefined) body.temperature = options.temperature;
+    if (options.temperature !== undefined)
+      body.temperature = options.temperature;
     if (systemMsg) body.system = systemMsg.content;
     return body;
   }
@@ -129,7 +132,10 @@ export class AnthropicProvider implements LLMProvider {
     try {
       const json = JSON.parse(line.slice(6)) as any;
       // 只处理 content_block_delta 事件中的 text_delta
-      if (json.type === "content_block_delta" && json.delta?.type === "text_delta") {
+      if (
+        json.type === "content_block_delta" &&
+        json.delta?.type === "text_delta"
+      ) {
         return json.delta.text ?? null;
       }
     } catch {

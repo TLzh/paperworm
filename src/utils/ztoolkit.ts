@@ -30,4 +30,3 @@ function initZToolkit(_ztoolkit: ReturnType<typeof createZToolkit>) {
     `chrome://${config.addonRef}/content/icons/favicon.png`,
   );
 }
-

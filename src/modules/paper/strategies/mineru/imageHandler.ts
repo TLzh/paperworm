@@ -9,7 +9,7 @@ export class ImageHandler {
    */
   static async processZip(
     zipPath: string,
-    _parentItem: Zotero.Item
+    _parentItem: Zotero.Item,
   ): Promise<ExtractionResult> {
     const tempDir = Zotero.getTempDirectory();
     const extractDir = tempDir.clone();
@@ -54,14 +54,18 @@ export class ImageHandler {
   /**
    * 解压 ZIP 文件 — 使用 Gecko 内置 nsIZipReader，无需外部命令
    */
-  private static async unzipFile(zipPath: string, destDir: string): Promise<void> {
+  private static async unzipFile(
+    zipPath: string,
+    destDir: string,
+  ): Promise<void> {
     if (!(await IOUtils.exists(destDir))) {
       await IOUtils.makeDirectory(destDir);
     }
 
     const zipFile = Zotero.File.pathToFile(zipPath);
-    const zipReader = (Components.classes as any)["@mozilla.org/libjar/zip-reader;1"]
-      .createInstance((Components.interfaces as any).nsIZipReader);
+    const zipReader = (Components.classes as any)[
+      "@mozilla.org/libjar/zip-reader;1"
+    ].createInstance((Components.interfaces as any).nsIZipReader);
 
     zipReader.open(zipFile);
     try {
@@ -71,13 +75,17 @@ export class ImageHandler {
         if (entryName.endsWith("/")) continue;
 
         // 安全检查：防止路径遍历攻击
-        if (entryName.includes('..') || entryName.startsWith('/') || entryName.includes('\\')) {
+        if (
+          entryName.includes("..") ||
+          entryName.startsWith("/") ||
+          entryName.includes("\\")
+        ) {
           ztoolkit.log(`跳过可疑路径: ${entryName}`);
           continue;
         }
 
         const parts = entryName.split("/").filter((p: string) => p.length > 0);
-        let currentDir = Zotero.File.pathToFile(destDir);
+        const currentDir = Zotero.File.pathToFile(destDir);
         for (let i = 0; i < parts.length - 1; i++) {
           currentDir.append(parts[i]);
           if (!currentDir.exists()) {

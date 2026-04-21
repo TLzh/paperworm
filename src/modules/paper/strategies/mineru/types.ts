@@ -24,7 +24,13 @@ export interface TaskStatusResponse {
     batch_id: string;
     extract_result: Array<{
       file_name: string;
-      state: 'waiting-file' | 'pending' | 'running' | 'done' | 'failed' | 'converting';
+      state:
+        | "waiting-file"
+        | "pending"
+        | "running"
+        | "done"
+        | "failed"
+        | "converting";
       full_zip_url?: string;
       err_msg?: string;
       data_id?: string;
@@ -43,7 +49,7 @@ export interface ExtractionResult {
   text: string;
   markdownUrl?: string;
   images?: Map<string, Uint8Array>; // filename -> image data (optional)
-  source: 'mineru';
+  source: "mineru";
   hasStructure: true;
 }
 

@@ -110,7 +110,22 @@ ${CHAT_CSS}
           <span class="pw-dropdown-arrow">▼</span>
         </div>
         <div class="pw-temp-trigger" role="button" tabindex="0" title="Temperature &amp; Max Tokens">
-          <span class="pw-temp-text">${(() => { const t = parseFloat((Zotero.Prefs.get(`${config.prefsPrefix}.llm.temperature`, true) as string) ?? "0.7").toFixed(1); const m = parseInt((Zotero.Prefs.get(`${config.prefsPrefix}.llm.maxTokens`, true) as string) ?? "2000"); const mk = m >= 1000 ? Math.round(m / 1000) + "k" : String(m); return `T: ${t} · ${mk}`; })()}</span>
+          <span class="pw-temp-text">${(() => {
+            const t = parseFloat(
+              (Zotero.Prefs.get(
+                `${config.prefsPrefix}.llm.temperature`,
+                true,
+              ) as string) ?? "0.7",
+            ).toFixed(1);
+            const m = parseInt(
+              (Zotero.Prefs.get(
+                `${config.prefsPrefix}.llm.maxTokens`,
+                true,
+              ) as string) ?? "2000",
+            );
+            const mk = m >= 1000 ? Math.round(m / 1000) + "k" : String(m);
+            return `T: ${t} · ${mk}`;
+          })()}</span>
           <span class="pw-dropdown-arrow">▼</span>
         </div>
       </div>
@@ -167,7 +182,7 @@ ${CHAT_CSS}
   const win = body.ownerDocument!.defaultView!;
   const badge = panel.querySelector(".pw-model-text") as HTMLElement;
   const tempBadge = panel.querySelector(".pw-temp-text") as HTMLElement;
-  let dropdownOpen = false;
+  const dropdownOpen = false;
 
   const badgeTimer = win.setInterval(() => {
     if (dropdownOpen) return; // 下拉打开时跳过，避免干扰用户选择
@@ -183,10 +198,16 @@ ${CHAT_CSS}
     if (badge.textContent !== next) badge.textContent = next;
 
     const tVal = parseFloat(
-      (Zotero.Prefs.get(`${config.prefsPrefix}.llm.temperature`, true) as string) ?? "0.7",
+      (Zotero.Prefs.get(
+        `${config.prefsPrefix}.llm.temperature`,
+        true,
+      ) as string) ?? "0.7",
     ).toFixed(1);
     const mVal = parseInt(
-      (Zotero.Prefs.get(`${config.prefsPrefix}.llm.maxTokens`, true) as string) ?? "2000",
+      (Zotero.Prefs.get(
+        `${config.prefsPrefix}.llm.maxTokens`,
+        true,
+      ) as string) ?? "2000",
     );
     const mStr = mVal >= 1000 ? Math.round(mVal / 1000) + "k" : String(mVal);
     const tNext = `T: ${tVal} · ${mStr}`;
@@ -213,10 +234,12 @@ function bindEvents(
   const textarea = panel.querySelector(".pw-input") as HTMLTextAreaElement;
   const sendBtn = panel.querySelector(".pw-send-btn") as HTMLElement;
   const sessionsBtn = panel.querySelector(".pw-sessions-btn") as HTMLElement;
-  const modelTrigger = panel.querySelector(".pw-model-dropdown-trigger") as HTMLElement;
+  const modelTrigger = panel.querySelector(
+    ".pw-model-dropdown-trigger",
+  ) as HTMLElement;
 
   // 下拉菜单状态（用于定时器控制）
-  let dropdownState = { open: false };
+  const dropdownState = { open: false };
 
   // capturedSelection：短暂变量，在 mousedown 阶段捕获 PDF 选区，
   // "选择文本"按钮读取后立即清空，避免残留到下次操作。
@@ -260,7 +283,7 @@ function bindEvents(
     if (!text) return;
     textarea.value = "";
     const sel = pendingSelection; // 使用 chip 中明确附加的上下文
-    clearChip();                  // 发送后清空 chip
+    clearChip(); // 发送后清空 chip
     void send(doc, messagesEl, item, text, sel, sendBtn);
   }
 
@@ -295,9 +318,10 @@ function bindEvents(
 
       if (action === "quote") {
         // mousedown 阶段已更新 capturedSelection；若为空则降级实时读取
-        const sel = capturedSelection.length >= 10
-          ? capturedSelection
-          : PaperExtractor.getSelectedText(item);
+        const sel =
+          capturedSelection.length >= 10
+            ? capturedSelection
+            : PaperExtractor.getSelectedText(item);
         capturedSelection = ""; // 读取后立即清空，避免残留
         if (sel.length >= 10) {
           showChip(sel);
@@ -306,7 +330,9 @@ function bindEvents(
           // 临时提示，2 秒后自动隐藏
           chipTextEl.textContent = "请先在 PDF 中选中一段文字";
           chip.classList.remove("pw-hidden");
-          setTimeout(() => { if (!pendingSelection) chip.classList.add("pw-hidden"); }, 2000);
+          setTimeout(() => {
+            if (!pendingSelection) chip.classList.add("pw-hidden");
+          }, 2000);
         }
         return;
       }
@@ -395,7 +421,9 @@ async function send(
   const manager = LLMManager.getInstance();
   const providerName = manager.getActiveProviderName();
   const configuredProviders = getConfiguredProviders();
-  const isConfigured = configuredProviders.some(p => p.providerId === providerName);
+  const isConfigured = configuredProviders.some(
+    (p) => p.providerId === providerName,
+  );
 
   appendMessage(doc, messagesEl, "user", finalText);
   scrollToBottom(messagesEl);
@@ -433,17 +461,21 @@ async function send(
     { role: "system" as const, content: systemContent },
     ...history.getAll(),
   ];
-  
+
   const model =
     (Zotero.Prefs.get(
       `${config.prefsPrefix}.llm.${providerName}.model`,
       true,
     ) as string) ?? "gpt-4o";
   const temperature = parseFloat(
-    (Zotero.Prefs.get(`${config.prefsPrefix}.llm.temperature`, true) as string) ?? "0.7",
+    (Zotero.Prefs.get(
+      `${config.prefsPrefix}.llm.temperature`,
+      true,
+    ) as string) ?? "0.7",
   );
   const maxTokens = parseInt(
-    (Zotero.Prefs.get(`${config.prefsPrefix}.llm.maxTokens`, true) as string) ?? "2000",
+    (Zotero.Prefs.get(`${config.prefsPrefix}.llm.maxTokens`, true) as string) ??
+      "2000",
   );
 
   let fullResponse = "";
@@ -483,11 +515,17 @@ async function send(
  * - 有 Token 且已缓存 → "✓ 精细文本"
  * - 有 Token 未缓存 → "⚡ 精细提取"
  */
-async function initMinerUButton(panel: HTMLElement, item: Zotero.Item): Promise<void> {
+async function initMinerUButton(
+  panel: HTMLElement,
+  item: Zotero.Item,
+): Promise<void> {
   const btn = panel.querySelector(".pw-mineru-btn") as HTMLElement | null;
   if (!btn) return;
 
-  const token = Zotero.Prefs.get(`${config.prefsPrefix}.mineru.apiToken`, true) as string;
+  const token = Zotero.Prefs.get(
+    `${config.prefsPrefix}.mineru.apiToken`,
+    true,
+  ) as string;
   if (!token) return; // 无 Token，保持隐藏
 
   btn.style.display = "inline-block";
@@ -495,7 +533,10 @@ async function initMinerUButton(panel: HTMLElement, item: Zotero.Item): Promise<
   setMinerUBtnState(btn, hasCache ? "cached" : "ready");
 }
 
-function setMinerUBtnState(btn: HTMLElement, state: "ready" | "cached" | "busy"): void {
+function setMinerUBtnState(
+  btn: HTMLElement,
+  state: "ready" | "cached" | "busy",
+): void {
   btn.classList.remove("pw-mineru-cached", "pw-disabled");
   switch (state) {
     case "ready":
@@ -515,13 +556,22 @@ function setMinerUBtnState(btn: HTMLElement, state: "ready" | "cached" | "busy")
   }
 }
 
-async function handleMinerUExtraction(panel: HTMLElement, item: Zotero.Item): Promise<void> {
+async function handleMinerUExtraction(
+  panel: HTMLElement,
+  item: Zotero.Item,
+): Promise<void> {
   const btn = panel.querySelector(".pw-mineru-btn") as HTMLElement | null;
   if (!btn || btn.classList.contains("pw-disabled")) return;
 
-  const progressEl = panel.querySelector(".pw-pdf-progress") as HTMLElement | null;
-  const progressFill = panel.querySelector(".pw-progress-fill") as HTMLElement | null;
-  const progressText = panel.querySelector(".pw-progress-text") as HTMLElement | null;
+  const progressEl = panel.querySelector(
+    ".pw-pdf-progress",
+  ) as HTMLElement | null;
+  const progressFill = panel.querySelector(
+    ".pw-progress-fill",
+  ) as HTMLElement | null;
+  const progressText = panel.querySelector(
+    ".pw-progress-text",
+  ) as HTMLElement | null;
 
   setMinerUBtnState(btn, "busy");
   if (progressEl) {
@@ -531,10 +581,13 @@ async function handleMinerUExtraction(panel: HTMLElement, item: Zotero.Item): Pr
   }
 
   try {
-    await PaperExtractor.triggerMinerUExtraction(item, (stage, message, percent) => {
-      if (progressFill) progressFill.style.width = `${percent}%`;
-      if (progressText) progressText.textContent = message;
-    });
+    await PaperExtractor.triggerMinerUExtraction(
+      item,
+      (stage, message, percent) => {
+        if (progressFill) progressFill.style.width = `${percent}%`;
+        if (progressText) progressText.textContent = message;
+      },
+    );
     // 成功：立即隐藏进度条，按钮变为已缓存状态
     if (progressEl) progressEl.style.display = "none";
     setMinerUBtnState(btn, "cached");
@@ -544,7 +597,10 @@ async function handleMinerUExtraction(panel: HTMLElement, item: Zotero.Item): Pr
     setMinerUBtnState(btn, "ready");
     if (progressText) progressText.textContent = `提取失败：${error.message}`;
     const win = panel.ownerDocument?.defaultView;
-    if (win) win.setTimeout(() => { if (progressEl) progressEl.style.display = "none"; }, 2000);
+    if (win)
+      win.setTimeout(() => {
+        if (progressEl) progressEl.style.display = "none";
+      }, 2000);
   }
 }
 
@@ -603,7 +659,8 @@ function setMarkdown(el: HTMLElement, text: string): void {
       flushPara();
       i++;
       const mathLines: string[] = [];
-      while (i < lines.length && lines[i].trim() !== "$$") mathLines.push(lines[i++]);
+      while (i < lines.length && lines[i].trim() !== "$$")
+        mathLines.push(lines[i++]);
       if (lines[i]?.trim() === "$$") i++;
       const wrap = doc.createElement("div");
       wrap.className = "pw-math-display";
@@ -617,7 +674,8 @@ function setMarkdown(el: HTMLElement, text: string): void {
       flushPara();
       i++;
       const mathLines: string[] = [];
-      while (i < lines.length && lines[i].trim() !== "\\]") mathLines.push(lines[i++]);
+      while (i < lines.length && lines[i].trim() !== "\\]")
+        mathLines.push(lines[i++]);
       if (lines[i]?.trim() === "\\]") i++;
       const wrap = doc.createElement("div");
       wrap.className = "pw-math-display";
@@ -655,7 +713,8 @@ function setMarkdown(el: HTMLElement, text: string): void {
       flushPara();
       i++;
       const codeLines: string[] = [];
-      while (i < lines.length && !lines[i].startsWith("```")) codeLines.push(lines[i++]);
+      while (i < lines.length && !lines[i].startsWith("```"))
+        codeLines.push(lines[i++]);
       if (lines[i]?.startsWith("```")) i++;
       const pre = doc.createElement("pre");
       const code = doc.createElement("code");
@@ -724,10 +783,15 @@ function setMarkdown(el: HTMLElement, text: string): void {
       if (tableLines.length >= 2 && isSepRow(tableLines[1])) {
         flushPara();
         const parseCells = (row: string) =>
-          row.split("|").slice(1).map(c => c.trim()).filter((_, idx, arr) =>
-            !(idx === arr.length - 1 && arr[arr.length - 1] === "")
-          );
-        const alignments = parseCells(tableLines[1]).map(cell => {
+          row
+            .split("|")
+            .slice(1)
+            .map((c) => c.trim())
+            .filter(
+              (_, idx, arr) =>
+                !(idx === arr.length - 1 && arr[arr.length - 1] === ""),
+            );
+        const alignments = parseCells(tableLines[1]).map((cell) => {
           if (cell.startsWith(":") && cell.endsWith(":")) return "center";
           if (cell.endsWith(":")) return "right";
           return "left";
@@ -795,12 +859,17 @@ function appendInline(doc: Document, el: Element, text: string): void {
         const span = doc.createElement("span");
         renderMath(doc, span, part.slice(2, -2), true);
         el.appendChild(span);
-      // 行内数学 $...$
-      } else if (part.startsWith("$") && part.endsWith("$") && part.length > 2 && !part.startsWith("$$")) {
+        // 行内数学 $...$
+      } else if (
+        part.startsWith("$") &&
+        part.endsWith("$") &&
+        part.length > 2 &&
+        !part.startsWith("$$")
+      ) {
         const span = doc.createElement("span");
         renderMath(doc, span, part.slice(1, -1), false);
         el.appendChild(span);
-      // 行内数学 \(...\)（LaTeX 风格）
+        // 行内数学 \(...\)（LaTeX 风格）
       } else if (part.startsWith("\\(") && part.endsWith("\\)")) {
         const span = doc.createElement("span");
         renderMath(doc, span, part.slice(2, -2), false);
@@ -837,7 +906,12 @@ function appendInline(doc: Document, el: Element, text: string): void {
  * 是允许的（与 initPanel 中 wrapper.innerHTML 同原理），
  * 再将节点逐一移入目标元素。
  */
-function renderMath(doc: Document, el: HTMLElement, latex: string, display: boolean): void {
+function renderMath(
+  doc: Document,
+  el: HTMLElement,
+  latex: string,
+  display: boolean,
+): void {
   try {
     const html = katex.renderToString(latex.trim(), {
       throwOnError: false,
@@ -899,7 +973,8 @@ function sessionToBase64(data: SessionData): string {
   const json = JSON.stringify(data);
   const bytes = new TextEncoder().encode(json);
   let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  for (let i = 0; i < bytes.length; i++)
+    binary += String.fromCharCode(bytes[i]);
   return btoa(binary);
 }
 
@@ -917,9 +992,16 @@ function base64ToSession(b64: string): SessionData {
  * 注意：Zotero 存储时会剥离 <code> 上的 class 属性，<details> 也会被转换为 <p>，
  * 因此 parseNoteHtml 不依赖 class 属性来识别数据块，只需匹配足够长的 base64 内容。
  */
-function buildNoteHtml(title: string, visibleMsgs: Array<{ role: string; content: string }>, data: SessionData): string {
+function buildNoteHtml(
+  title: string,
+  visibleMsgs: Array<{ role: string; content: string }>,
+  data: SessionData,
+): string {
   const rows = visibleMsgs
-    .map((m) => `<p><b>${m.role === "user" ? "用户" : "AI"}：</b>${escapeHtml(m.content)}</p>`)
+    .map(
+      (m) =>
+        `<p><b>${m.role === "user" ? "用户" : "AI"}：</b>${escapeHtml(m.content)}</p>`,
+    )
     .join("\n");
   const b64 = sessionToBase64(data);
   return (
@@ -933,19 +1015,26 @@ function buildNoteHtml(title: string, visibleMsgs: Array<{ role: string; content
 function parseNoteHtml(html: string): SessionData | null {
   if (!html.includes("PaperWorm")) return null;
   // 优先匹配带 class 属性的（刚保存、尚未经 Zotero 同步处理的笔记）
-  let m = html.match(/<code[^>]*class=["']pw-archive-data["'][^>]*>([A-Za-z0-9+/=\s]+)<\/code>/);
+  let m = html.match(
+    /<code[^>]*class=["']pw-archive-data["'][^>]*>([A-Za-z0-9+/=\s]+)<\/code>/,
+  );
   // 回退：Zotero 同步/导出后会剥离 class，匹配任意足够长的 base64 <code> 块
   if (!m) m = html.match(/<code[^>]*>([A-Za-z0-9+/=\s]{100,})<\/code>/);
   if (m) {
     try {
       return base64ToSession(m[1].trim());
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
   }
   return null;
 }
 
 /** 自动保存当前会话到 Zotero child note（每次 AI 响应完成后调用） */
-async function saveSession(item: Zotero.Item, history: ChatHistory): Promise<void> {
+async function saveSession(
+  item: Zotero.Item,
+  history: ChatHistory,
+): Promise<void> {
   const msgs = history.getAll();
   const visibleMsgs = msgs.filter((m) => m.role !== "system");
   if (!visibleMsgs.length) return;
@@ -965,10 +1054,18 @@ async function saveSession(item: Zotero.Item, history: ChatHistory): Promise<voi
     try {
       const prev = parseNoteHtml(Zotero.Items.get(existingID).getNote());
       if (prev?.created) created = prev.created;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
-  const data: SessionData = { version: 2, title, created, updated: now, messages: msgs };
+  const data: SessionData = {
+    version: 2,
+    title,
+    created,
+    updated: now,
+    messages: msgs,
+  };
   const noteContent = buildNoteHtml(title, visibleMsgs, data);
 
   if (existingID != null) {
@@ -988,10 +1085,17 @@ async function saveSession(item: Zotero.Item, history: ChatHistory): Promise<voi
 /** 读取该论文的所有 PaperWorm 会话，新→旧排序 */
 async function loadSessions(
   item: Zotero.Item,
-): Promise<Array<{ noteID: number; title: string; updated: string; data: SessionData }>> {
+): Promise<
+  Array<{ noteID: number; title: string; updated: string; data: SessionData }>
+> {
   const parentItem = item.isAttachment() ? (item.parentItem ?? item) : item;
   const noteIDs: number[] = (parentItem as any).getNotes() as number[];
-  const results: Array<{ noteID: number; title: string; updated: string; data: SessionData }> = [];
+  const results: Array<{
+    noteID: number;
+    title: string;
+    updated: string;
+    data: SessionData;
+  }> = [];
 
   for (const nid of noteIDs) {
     try {
@@ -999,20 +1103,36 @@ async function loadSessions(
       const html = note.getNote();
       const data = parseNoteHtml(html);
       if (!data) continue;
-      results.push({ noteID: nid, title: data.title, updated: data.updated, data });
-    } catch { /* skip malformed */ }
+      results.push({
+        noteID: nid,
+        title: data.title,
+        updated: data.updated,
+        data,
+      });
+    } catch {
+      /* skip malformed */
+    }
   }
 
   return results.sort((a, b) => b.updated.localeCompare(a.updated));
 }
 
 /** 渲染聊天历史到消息区 */
-function renderChatHistory(doc: Document, messagesEl: HTMLElement, item: Zotero.Item): void {
+function renderChatHistory(
+  doc: Document,
+  messagesEl: HTMLElement,
+  item: Zotero.Item,
+): void {
   messagesEl.textContent = "";
   for (const msg of getHistory(item).getAll()) {
     if (msg.role !== "system") {
-      appendMessage(doc, messagesEl, msg.role as "user" | "assistant", msg.content,
-        msg.role === "assistant");
+      appendMessage(
+        doc,
+        messagesEl,
+        msg.role as "user" | "assistant",
+        msg.content,
+        msg.role === "assistant",
+      );
     }
   }
   scrollToBottom(messagesEl);
@@ -1022,7 +1142,12 @@ function renderChatHistory(doc: Document, messagesEl: HTMLElement, item: Zotero.
 function showSessionList(
   doc: Document,
   messagesEl: HTMLElement,
-  sessions: Array<{ noteID: number; title: string; updated: string; data: SessionData }>,
+  sessions: Array<{
+    noteID: number;
+    title: string;
+    updated: string;
+    data: SessionData;
+  }>,
   item: Zotero.Item,
 ): void {
   messagesEl.textContent = "";
@@ -1080,7 +1205,9 @@ function showSessionList(
       const history = getHistory(item);
       history.clear();
       for (const msg of sess.data.messages) {
-        history.add(msg as { role: "user" | "assistant" | "system"; content: string });
+        history.add(
+          msg as { role: "user" | "assistant" | "system"; content: string },
+        );
       }
       activeNoteIDs.set(getItemKey(item), sess.noteID);
       renderChatHistory(doc, messagesEl, item);
@@ -1100,7 +1227,9 @@ function showSessionList(
           }
           const newSessions = await loadSessions(item);
           showSessionList(doc, messagesEl, newSessions, item);
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       })();
     });
 
@@ -1123,22 +1252,23 @@ function escapeHtml(s: string): string {
 function getProviderDisplayName(providerId: string): string {
   const displayNames: Record<string, string> = {
     openai: "OpenAI",
-    deepseek: "DeepSeek", 
+    deepseek: "DeepSeek",
     anthropic: "Claude",
     gemini: "Gemini",
     ollama: "Ollama",
     kimi: "Kimi",
     qwen: "Qwen",
-    openrouter: "OpenRouter"
+    openrouter: "OpenRouter",
+    mimo: "MiMo",
   };
   return displayNames[providerId] || providerId;
 }
 
 // 提供商配置接口
 interface ConfiguredProvider {
-  name: string;        // 显示名：OpenAI, Claude, etc.
-  providerId: string;  // id：openai, anthropic, etc.
-  model: string;       // 当前激活的模型名 (llm.<id>.model)
+  name: string; // 显示名：OpenAI, Claude, etc.
+  providerId: string; // id：openai, anthropic, etc.
+  model: string; // 当前激活的模型名 (llm.<id>.model)
   modelsList: string[]; // 可选模型列表 (llm.<id>.models)
 }
 
@@ -1146,7 +1276,7 @@ interface ConfiguredProvider {
 function getConfiguredProviders(): ConfiguredProvider[] {
   const p = config.prefsPrefix;
   const providers: ConfiguredProvider[] = [];
-  
+
   const providerConfigs = [
     { id: "openai", keyPref: "apiKey" },
     { id: "deepseek", keyPref: "apiKey" },
@@ -1155,31 +1285,41 @@ function getConfiguredProviders(): ConfiguredProvider[] {
     { id: "kimi", keyPref: "apiKey" },
     { id: "qwen", keyPref: "apiKey" },
     { id: "openrouter", keyPref: "apiKey" },
-    { id: "ollama", keyPref: "baseUrl" }
+    { id: "mimo", keyPref: "apiKey" },
+    { id: "ollama", keyPref: "baseUrl" },
   ];
-  
+
   for (const cfg of providerConfigs) {
-    const key = Zotero.Prefs.get(`${p}.llm.${cfg.id}.${cfg.keyPref}`, true) as string;
+    const key = Zotero.Prefs.get(
+      `${p}.llm.${cfg.id}.${cfg.keyPref}`,
+      true,
+    ) as string;
     const isConfigured = cfg.id === "ollama" ? !!key : !!key && key.length > 0;
-    
+
     if (isConfigured) {
       // 从模型列表配置读取（逗号分隔）
-      const modelsStr = Zotero.Prefs.get(`${p}.llm.${cfg.id}.models`, true) as string || "";
-      const modelsList = modelsStr.split(",").map(s => s.trim()).filter(Boolean);
-      
+      const modelsStr =
+        (Zotero.Prefs.get(`${p}.llm.${cfg.id}.models`, true) as string) || "";
+      const modelsList = modelsStr
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
       if (modelsList.length > 0) {
         // 当前激活模型；若未配置则默认为列表第一个
-        const activeModel = Zotero.Prefs.get(`${p}.llm.${cfg.id}.model`, true) as string || modelsList[0];
+        const activeModel =
+          (Zotero.Prefs.get(`${p}.llm.${cfg.id}.model`, true) as string) ||
+          modelsList[0];
         providers.push({
           name: getProviderDisplayName(cfg.id),
           providerId: cfg.id,
           model: activeModel,
-          modelsList
+          modelsList,
         });
       }
     }
   }
-  
+
   return providers;
 }
 
@@ -1198,10 +1338,14 @@ function showParamsPopover(
   }
 
   const curTemp = parseFloat(
-    (Zotero.Prefs.get(`${config.prefsPrefix}.llm.temperature`, true) as string) ?? "0.7",
+    (Zotero.Prefs.get(
+      `${config.prefsPrefix}.llm.temperature`,
+      true,
+    ) as string) ?? "0.7",
   );
   const curTokens = parseInt(
-    (Zotero.Prefs.get(`${config.prefsPrefix}.llm.maxTokens`, true) as string) ?? "2000",
+    (Zotero.Prefs.get(`${config.prefsPrefix}.llm.maxTokens`, true) as string) ??
+      "2000",
   );
 
   const popover = doc.createElement("div");
@@ -1294,16 +1438,24 @@ function showParamsPopover(
     updateBadge(str, parseInt(tokensInput.value) || curTokens);
   }
   slider.addEventListener("input", () => applyTemp(parseFloat(slider.value)));
-  tempInput.addEventListener("change", () => applyTemp(parseFloat(tempInput.value) || 0));
+  tempInput.addEventListener("change", () =>
+    applyTemp(parseFloat(tempInput.value) || 0),
+  );
 
   // Max Tokens 联动
   function applyTokens(v: number) {
     const clamped = Math.min(32000, Math.max(100, v));
     tokensInput.value = String(clamped);
-    Zotero.Prefs.set(`${config.prefsPrefix}.llm.maxTokens`, String(clamped), true);
+    Zotero.Prefs.set(
+      `${config.prefsPrefix}.llm.maxTokens`,
+      String(clamped),
+      true,
+    );
     updateBadge(tempInput.value, clamped);
   }
-  tokensInput.addEventListener("change", () => applyTokens(parseInt(tokensInput.value) || 2000));
+  tokensInput.addEventListener("change", () =>
+    applyTokens(parseInt(tokensInput.value) || 2000),
+  );
 
   // ── 点击外部关闭 ──
   const closeHandler = (ev: MouseEvent) => {
@@ -1320,24 +1472,26 @@ function showProviderDropdown(
   doc: Document,
   panel: HTMLElement,
   triggerEl: HTMLElement,
-  dropdownState: { open: boolean }
+  dropdownState: { open: boolean },
 ): void {
   // 关闭已打开的下拉
-  const existingDropdown = panel.querySelector(".pw-provider-dropdown") as HTMLElement;
+  const existingDropdown = panel.querySelector(
+    ".pw-provider-dropdown",
+  ) as HTMLElement;
   if (existingDropdown) {
     existingDropdown.remove();
     dropdownState.open = false;
     return;
   }
-  
+
   dropdownState.open = true;
-  
+
   const dropdown = doc.createElement("div");
   dropdown.className = "pw-provider-dropdown";
-  
+
   const providers = getConfiguredProviders();
   const currentProviderId = LLMManager.getInstance().getActiveProviderName();
-  
+
   function renderProviders() {
     dropdown.textContent = "";
     if (providers.length === 0) {
@@ -1348,36 +1502,36 @@ function showProviderDropdown(
       return;
     }
 
-    providers.forEach(provider => {
+    providers.forEach((provider) => {
       const item = doc.createElement("div");
       item.className = "pw-dropdown-item";
       if (provider.providerId === currentProviderId) {
         item.classList.add("pw-dropdown-active");
       }
-      
+
       const nameEl = doc.createElement("span");
       nameEl.className = "pw-dropdown-provider";
       nameEl.textContent = provider.name;
-      
+
       const modelEl = doc.createElement("span");
       modelEl.className = "pw-dropdown-model";
       modelEl.textContent = provider.model;
-      
+
       item.appendChild(nameEl);
       item.appendChild(modelEl);
-      
+
       item.addEventListener("click", (e) => {
         e.stopPropagation();
         renderModels(provider);
       });
-      
+
       dropdown.appendChild(item);
     });
   }
 
   function renderModels(provider: ConfiguredProvider) {
     dropdown.textContent = "";
-    
+
     // 返回按钮
     const backBtn = doc.createElement("div");
     backBtn.className = "pw-dropdown-back";
@@ -1388,10 +1542,13 @@ function showProviderDropdown(
     });
     dropdown.appendChild(backBtn);
 
-    provider.modelsList.forEach(modelId => {
+    provider.modelsList.forEach((modelId) => {
       const item = doc.createElement("div");
       item.className = "pw-dropdown-item pw-model-item";
-      if (provider.providerId === currentProviderId && modelId === provider.model) {
+      if (
+        provider.providerId === currentProviderId &&
+        modelId === provider.model
+      ) {
         item.classList.add("pw-dropdown-active");
       }
       item.textContent = modelId;
@@ -1399,12 +1556,16 @@ function showProviderDropdown(
         // 更新配置：llm.provider 记录厂商，llm.<id>.model 记录该厂商激活的模型
         const p = config.prefsPrefix;
         Zotero.Prefs.set(`${p}.llm.provider`, provider.providerId, true);
-        Zotero.Prefs.set(`${p}.llm.${provider.providerId}.model`, modelId, true);
-        
+        Zotero.Prefs.set(
+          `${p}.llm.${provider.providerId}.model`,
+          modelId,
+          true,
+        );
+
         // 更新 UI 徽章
         const badge = panel.querySelector(".pw-model-text") as HTMLElement;
         if (badge) badge.textContent = `${provider.name} · ${modelId}`;
-        
+
         dropdown.remove();
         dropdownState.open = false;
       });
@@ -1413,15 +1574,15 @@ function showProviderDropdown(
   }
 
   renderProviders();
-  
+
   // 添加到面板并定位
   panel.appendChild(dropdown);
-  
+
   const rect = triggerEl.getBoundingClientRect();
   const panelRect = panel.getBoundingClientRect();
   dropdown.style.top = `${rect.bottom - panelRect.top + 4}px`;
   dropdown.style.left = `${rect.left - panelRect.left}px`;
-  
+
   // 点击外部关闭
   setTimeout(() => {
     const closeHandler = (e: MouseEvent) => {

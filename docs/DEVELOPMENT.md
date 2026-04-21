@@ -11,7 +11,7 @@ PaperWorm 是一个 Zotero 8 插件，定位为**论文阅读 AI 助手**。
 - **插件 ID**: `paperworm@paperworm.dev`
 - **Namespace / addonRef**: `paperworm`
 - **Zotero 全局实例**: `Zotero.PaperWorm`
-- **目标平台**: Zotero 8（兼容 6.999+）
+- **目标平台**: Zotero 7/8/9（兼容 6.999+）
 - **构建工具**: zotero-plugin-scaffold + esbuild (target: firefox115)
 - **主语言**: TypeScript
 - **核心依赖**: zotero-plugin-toolkit ^5.x, zotero-types ^4.x
@@ -44,14 +44,17 @@ PaperWorm/
 ## 架构核心思路
 
 ### LLM 抽象层
+
 所有 LLM 调用通过统一的 `LLMProvider` 接口，
 业务代码不感知具体厂商，便于后续扩展。
 
 ### 内容提取策略
+
 从 `Zotero.Reader` 获取当前打开的 PDF 条目，
 优先使用用户选中文本，其次提取全文（上限 400,000 字符，约 120 页）。
 
 ### UI 策略
+
 主界面在 Reader Pane 右侧侧边面板（`registerReaderItemPaneSection`），
 设置界面在 Zotero 偏好设置中注册独立分页。
 
@@ -82,11 +85,14 @@ PaperWorm/
 
 ```typescript
 // 通过 _tabs[i].data.itemID 找到对应 tab
-const tab = tabs._tabs.find(t => t.type === "reader" && t.data?.itemID === attachmentID);
+const tab = tabs._tabs.find(
+  (t) => t.type === "reader" && t.data?.itemID === attachmentID,
+);
 // _tabContainer.id = tabID（Zotero 源码 reader.js 确认）
 const tabCont = mainWin.document.getElementById(tab.id);
 // _iframe = <browser class="reader">
-const browser = tabCont.querySelector("browser.reader") ?? tabCont.querySelector("browser");
+const browser =
+  tabCont.querySelector("browser.reader") ?? tabCont.querySelector("browser");
 // 在正确的 window 内搜索，不会跨 tab 污染
 return browser.contentWindow;
 ```
@@ -105,6 +111,7 @@ return browser.contentWindow;
 无论用 `innerHTML` 还是 `createElement` 创建，统统不可见。
 
 **正确做法**：
+
 ```typescript
 // ❌ 错误 — button 在 Item Pane body 里不可见
 const btn = doc.createElement("button");
@@ -135,8 +142,8 @@ Zotero 偏好设置面板通过 `preference` 属性绑定 UI 元素与 pref 存�
 
 ```javascript
 // Zotero 源码：preference 属性值原样使用（global=true）
-let value = Zotero.Prefs.get(preference, true);    // 读取时原样
-Zotero.Prefs.set(preference, value, true);          // 写入时原样
+let value = Zotero.Prefs.get(preference, true); // 读取时原样
+Zotero.Prefs.set(preference, value, true); // 写入时原样
 ```
 
 这意味着 `preference="llm.provider"` 会把值 write 到 Firefox prefs 中的字面路径 `llm.provider`，
@@ -145,6 +152,7 @@ Zotero.Prefs.set(preference, value, true);          // 写入时原样
 
 **模型管理的特殊偏好设计**：
 为了实现配置与使用的解耦，我们使用了两套偏好：
+
 - `llm.<provider>.models`：存储该厂商的**模型列表**（逗号分隔的字符串），由设置页通过“获取模型”按钮维护。
 - `llm.<provider>.model`：存储该厂商当前**激活的模型**，由主面板下拉菜单切换时更新。
 
@@ -159,6 +167,7 @@ Zotero.Prefs.set(preference, value, true);          // 写入时原样
 ```
 
 **规则**：
+
 - XHTML 中所有 `preference` 属性值必须以 `extensions.zotero.paperworm.` 开头
 - TypeScript 中所有 `Zotero.Prefs.get/set` 调用必须使用 `${config.prefsPrefix}.xxx` 形式（`global=true`）
 - 两者路径必须完全一致，否则 UI 与代码读写的是不同 pref
@@ -167,10 +176,10 @@ Zotero.Prefs.set(preference, value, true);          // 写入时原样
 
 Zotero 插件沙盒中有两种 HTTP 方式，用途不同：
 
-| 场景 | 正确方式 | 原因 |
-|------|---------|------|
-| 非流式请求（testConnection / chat） | `Zotero.HTTP.request()` via `zhttp()` | 正确处理 Windows 代理、SSL、离线检测 |
-| 流式请求（chatStream，SSE/ReadableStream） | `fetch()` | `Zotero.HTTP.request()` 不支持 ReadableStream |
+| 场景                                       | 正确方式                              | 原因                                          |
+| ------------------------------------------ | ------------------------------------- | --------------------------------------------- |
+| 非流式请求（testConnection / chat）        | `Zotero.HTTP.request()` via `zhttp()` | 正确处理 Windows 代理、SSL、离线检测          |
+| 流式请求（chatStream，SSE/ReadableStream） | `fetch()`                             | `Zotero.HTTP.request()` 不支持 ReadableStream |
 
 ```typescript
 // ❌ 错误 — 非流式用 fetch()，在 Windows 可能失败

@@ -3,18 +3,17 @@
 /* eslint-disable */
 // @ts-nocheck
 export type FluentMessageId =
-  | 'pref-advanced-section'
   | 'pref-apikey-label'
   | 'pref-apply-template'
   | 'pref-baseurl-label'
   | 'pref-fetch-models-btn'
   | 'pref-help'
   | 'pref-llm-section'
-  | 'pref-maxtokens-label'
   | 'pref-model-label'
   | 'pref-prompt-section'
   | 'pref-provider-label'
-  | 'pref-temperature-label'
+  | 'pref-summarize-prompt-sublabel'
+  | 'pref-system-prompt-sublabel'
   | 'pref-template-label'
   | 'pref-test-btn'
   | 'pref-test-connecting'

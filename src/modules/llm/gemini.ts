@@ -20,7 +20,10 @@ export class GeminiProvider implements LLMProvider {
   async chat(options: LLMRequestOptions): Promise<string> {
     const url = `${BASE_URL}/models/${options.model}:generateContent`;
     const resp = await zhttp("POST", url, {
-      headers: { "Content-Type": "application/json", "x-goog-api-key": this.apiKey },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": this.apiKey,
+      },
       body: JSON.stringify(this.buildBody(options)),
       successCodes: [200],
     });
@@ -40,7 +43,10 @@ export class GeminiProvider implements LLMProvider {
     try {
       res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": this.apiKey },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": this.apiKey,
+        },
         body: JSON.stringify(this.buildBody(options)),
       });
     } catch (e) {
@@ -54,7 +60,9 @@ export class GeminiProvider implements LLMProvider {
       return;
     }
 
-    const reader = (res.body as any).getReader() as ReadableStreamDefaultReader<Uint8Array>;
+    const reader = (
+      res.body as any
+    ).getReader() as ReadableStreamDefaultReader<Uint8Array>;
     const decoder = new TextDecoder();
     let buffer = "";
 
@@ -94,7 +102,7 @@ export class GeminiProvider implements LLMProvider {
       successCodes: [200],
     });
     const data = JSON.parse(resp.responseText) as any;
-    const models = (data.models as any[] ?? [])
+    const models = ((data.models as any[]) ?? [])
       .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
       .map((m) => (m.name as string).replace(/^models\//, ""))
       .filter((id) => !id.includes("embedding") && !id.includes("aqa"));

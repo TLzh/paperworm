@@ -6,14 +6,14 @@
 
 ## 快速选择
 
-| 使用场景 | 推荐模型 | 说明 |
-|---------|---------|------|
-| **日常使用** | Claude Sonnet 4.6 | 最佳平衡，性价比高 |
-| **复杂任务** | Claude Opus 4.6 | 最强智能，适合深度分析 |
-| **快速响应** | Claude Haiku 4.5 | 最快最便宜，适合简单问题 |
-| **中文优化** | Kimi k2.5 | 月之暗面，中文表现优秀 |
-| **代码生成** | GPT-5.4 | OpenAI 最新旗舰模型 |
-| **免费使用** | Gemini 3 Flash | Google 免费 tier 可用 |
+| 使用场景     | 推荐模型          | 说明                     |
+| ------------ | ----------------- | ------------------------ |
+| **日常使用** | Claude Sonnet 4.6 | 最佳平衡，性价比高       |
+| **复杂任务** | Claude Opus 4.7   | 最新旗舰，智能体编程最强 |
+| **快速响应** | Claude Haiku 4.5  | 最快最便宜，适合简单问题 |
+| **中文优化** | Kimi k2.5         | 月之暗面，中文表现优秀   |
+| **代码生成** | GPT-5.4           | OpenAI 最新旗舰模型      |
+| **免费使用** | Gemini 3 Flash    | Google 免费 tier 可用    |
 
 ---
 
@@ -21,21 +21,25 @@
 
 ### Anthropic Claude
 
-**模型系列**：Claude 4.6
+**最新模型系列**：Claude 4.7
 
-| 模型 | API ID | 上下文 | 价格 (输入/输出) | 状态 |
-|------|--------|--------|-----------------|------|
-| **Opus 4.6** | `claude-opus-4-6` | 1M tokens | \$5/\$25 per MTok | ✅ 活跃 |
-| **Sonnet 4.6** | `claude-sonnet-4-6` | 1M tokens | \$3/\$15 per MTok | ✅ 活跃 |
-| **Haiku 4.5** | `claude-haiku-4-5` | 200K tokens | \$1/\$5 per MTok | ✅ 活跃 |
+| 模型           | API ID              | 上下文      | 价格 (输入/输出)  | 状态    |
+| -------------- | ------------------- | ----------- | ----------------- | ------- |
+| **Opus 4.7**   | `claude-opus-4-7`   | 1M tokens   | \$5/\$25 per MTok | ✅ 最新 |
+| **Sonnet 4.6** | `claude-sonnet-4-6` | 1M tokens   | \$3/\$15 per MTok | ✅ 活跃 |
+| **Haiku 4.5**  | `claude-haiku-4-5`  | 200K tokens | \$1/\$5 per MTok  | ✅ 活跃 |
 
 **特点**：
+
 - 流式输出支持优秀
 - 支持 Extended Thinking（深度推理）
+- **Opus 4.7**：智能体编程（agentic coding）能力大幅提升
 - 测试连接使用 Haiku 4.5（便宜且快速）
 
 **注意事项**：
-- ❌ `claude-3-haiku-20240307` 已弃用，2026-04-20 退役
+
+- ❌ `claude-3-haiku-20240307` 已退役，不再可用
+- ⚠️ `claude-sonnet-4-20250514` 和 `claude-opus-4-20250514` 将于 **2026-06-15** 退役
 
 ---
 
@@ -43,13 +47,14 @@
 
 **模型系列**：GPT-5.4
 
-| 模型 | API ID | 上下文 | 特点 |
-|------|--------|--------|------|
-| **GPT-5.4** | `gpt-5.4` | 128K tokens | 最强旗舰 |
-| **GPT-5.4 Mini** | `gpt-5.4-mini` | 128K tokens | 性价比高 |
+| 模型             | API ID         | 上下文      | 特点       |
+| ---------------- | -------------- | ----------- | ---------- |
+| **GPT-5.4**      | `gpt-5.4`      | 128K tokens | 最强旗舰   |
+| **GPT-5.4 Mini** | `gpt-5.4-mini` | 128K tokens | 性价比高   |
 | **GPT-5.4 Nano** | `gpt-5.4-nano` | 128K tokens | 最快最便宜 |
 
 **特点**：
+
 - 支持 Function Calling（高级功能）
 - 知识截止 2025 年
 - 标准 OpenAI API 格式
@@ -60,17 +65,19 @@
 
 **模型系列**：Gemini 3
 
-| 模型 | API ID | 上下文 | 价格 | 状态 |
-|------|--------|--------|------|------|
+| 模型               | API ID                   | 上下文    | 价格           | 状态      |
+| ------------------ | ------------------------ | --------- | -------------- | --------- |
 | **Gemini 3 Flash** | `gemini-3-flash-preview` | 1M tokens | 免费 tier 可用 | ✅ 预览版 |
-| **Gemini 3.1 Pro** | `gemini-3.1-pro-preview` | 2M tokens | 付费 | ✅ 预览版 |
+| **Gemini 3.1 Pro** | `gemini-3.1-pro-preview` | 2M tokens | 付费           | ✅ 预览版 |
 
 **特点**：
+
 - Google AI Studio 免费额度 generous
 - 多模态支持（文本+图像）
 - 长上下文（最高 2M tokens）
 
 **免费使用**：
+
 - 访问 [Google AI Studio](https://aistudio.google.com/app/apikey)
 - 生成 API Key（无需信用卡）
 - 在 PaperWorm 中填入即可使用
@@ -79,18 +86,22 @@
 
 ### 月之暗面 Kimi
 
-**模型系列**：Kimi k2.5
+**模型系列**：Kimi k2.6
 
-| 模型 | API ID | 上下文 | 特点 |
-|------|--------|--------|------|
-| **Kimi k2.5** | `kimi-k2.5` | 256K tokens | 中文优化 |
+| 模型          | API ID      | 上下文      | 特点       |
+| ------------- | ----------- | ----------- | ---------- |
+| **Kimi k2.6** | `kimi-k2.6` | 262K tokens | 智能体编程 |
 
 **特点**：
+
+- **智能体编码（Agentic Coding）**：支持 12 小时长时运行、4000 步协同操作
+- **Agent Swarm**：单次调度最多 300 个子智能体
 - 中文理解和生成能力优秀
 - OpenAI 兼容 API 格式
-- 适合中文论文阅读
+- 适合中文论文阅读和复杂编程任务
 
 **定价**：
+
 - 输入：\$2 / MTok
 - 输出：\$10 / MTok
 
@@ -98,20 +109,26 @@
 
 ### 阿里云通义千问
 
-**模型系列**：Qwen 3
+**模型系列**：Qwen 3.6
 
-| 模型 | API ID | 上下文 | 特点 |
-|------|--------|--------|------|
-| **Qwen 3.6 Plus** | `qwen3.6-plus` | 128K tokens | 中文优化 |
+| 模型               | API ID          | 上下文      | 特点     |
+| ------------------ | --------------- | ----------- | -------- |
+| **Qwen 3.6 Max**   | `qwen3.6-max`   | 128K tokens | 最新旗舰 |
+| **Qwen 3.6 Plus**  | `qwen3.6-plus`  | 128K tokens | 中文优化 |
+| **Qwen 3.6 Flash** | `qwen3.6-flash` | 128K tokens | 轻量高效 |
 
 **特点**：
+
 - DashScope 平台
-- 中文多轮对话优化
-- 适合学术场景
+- **Qwen 3.6 Max**：更强的世界知识和指令遵循能力，智能体编程表现显著提升
+- **Qwen 3.6 Plus**：中文多轮对话优化，适合学术场景
+- **Qwen 3.6 Flash**：轻量高效，Agentic Coding 能力全面提升
 
 **定价**：
-- 输入：\$0.5 / MTok
-- 输出：\$2 / MTok
+
+- Qwen 3.6 Max：输入 \$1.0 / MTok，输出 \$4.0 / MTok
+- Qwen 3.6 Plus：输入 \$0.5 / MTok，输出 \$2.0 / MTok
+- Qwen 3.6 Flash：输入 \$0.1 / MTok，输出 \$0.4 / MTok
 
 ---
 
@@ -119,16 +136,18 @@
 
 **模型系列**：DeepSeek V3
 
-| 模型 | API ID | 上下文 | 特点 |
-|------|--------|--------|------|
+| 模型            | API ID          | 上下文     | 特点     |
+| --------------- | --------------- | ---------- | -------- |
 | **DeepSeek V3** | `deepseek-chat` | 64K tokens | 国产开源 |
 
 **特点**：
+
 - 价格极具竞争力
 - 中文场景表现良好
 - API 与 OpenAI 兼容
 
 **定价**：
+
 - 输入：\$0.07 / MTok（缓存命中）/ \$0.27（未命中）
 - 输出：\$1.1 / MTok
 
@@ -138,19 +157,21 @@
 
 **支持的模型**：任意 Ollama 支持的本地模型
 
-| 模型 | 大小 | 要求 |
-|------|------|------|
-| Llama 3.1 | 8B/70B | 本地运行 |
-| Mistral | 7B | 本地运行 |
-| Qwen 2.5 | 7B/14B/32B | 本地运行 |
+| 模型      | 大小       | 要求     |
+| --------- | ---------- | -------- |
+| Llama 3.1 | 8B/70B     | 本地运行 |
+| Mistral   | 7B         | 本地运行 |
+| Qwen 2.5  | 7B/14B/32B | 本地运行 |
 
 **配置方式**：
+
 1. 安装 Ollama：https://ollama.com
 2. 下载模型：`ollama pull llama3.1`
 3. PaperWorm 设置中填写 Base URL：`http://localhost:11434`
 4. 模型名填写：`llama3.1`
 
 **特点**：
+
 - 完全免费（仅消耗本地算力）
 - 隐私安全（数据不出本地）
 - 无需 API Key
@@ -161,23 +182,50 @@
 
 **概述**：[OpenRouter](https://openrouter.ai) 是模型聚合平台，通过**单一 API Key** 接入数百个模型，包括 OpenAI、Anthropic、Google、Meta、Mistral 等厂商的模型。
 
-| 模型 | API ID | 上下文 | 特点 |
-|------|--------|--------|------|
-| GPT-4.1 | `openai/gpt-4.1` | 1M tokens | OpenAI 旗舰 |
-| Claude Sonnet 4.6 | `anthropic/claude-sonnet-4-6` | 200K tokens | Anthropic 旗舰 |
-| Gemini 2.5 Flash | `google/gemini-2.5-flash-preview` | 1M tokens | 高速低价 |
-| Llama 4 Maverick | `meta-llama/llama-4-maverick` | 1M tokens | 开源旗舰 |
-| DeepSeek R2 | `deepseek/deepseek-r2` | 128K tokens | 推理增强 |
+| 模型              | API ID                            | 上下文      | 特点           |
+| ----------------- | --------------------------------- | ----------- | -------------- |
+| GPT-4.1           | `openai/gpt-4.1`                  | 1M tokens   | OpenAI 旗舰    |
+| Claude Sonnet 4.6 | `anthropic/claude-sonnet-4-6`     | 200K tokens | Anthropic 旗舰 |
+| Gemini 2.5 Flash  | `google/gemini-2.5-flash-preview` | 1M tokens   | 高速低价       |
+| Llama 4 Maverick  | `meta-llama/llama-4-maverick`     | 1M tokens   | 开源旗舰       |
+| DeepSeek R2       | `deepseek/deepseek-r2`            | 128K tokens | 推理增强       |
 
 **特点**：
+
 - 单一 API Key 管理所有模型，无需多个账号
 - 支持"获取模型"按钮自动拉取完整模型列表
 - 部分模型有免费额度
 - 统一账单，方便成本控制
 
 **配置方式**：
+
 1. 注册 [openrouter.ai](https://openrouter.ai) 并获取 API Key
 2. PaperWorm 设置中选择 "OpenRouter"，填入 API Key
+3. 点击"获取模型"自动加载可用模型列表
+
+---
+
+### Xiaomi MiMo
+
+**概述**：[Xiaomi MiMo](https://platform.xiaomimimo.com) 是小米推出的 AI 大模型，兼容 OpenAI API 格式，支持 `api-key` 认证方式。
+
+| 模型              | API ID          | 上下文      | 特点               |
+| ----------------- | --------------- | ----------- | ------------------ |
+| **MiMo V2 Pro**   | `mimo-v2-pro`   | 131K tokens | 旗舰模型，深度推理 |
+| **MiMo V2 Flash** | `mimo-v2-flash` | 65K tokens  | 快速响应，性价比高 |
+| **MiMo V2 Omni**  | `mimo-v2-omni`  | 32K tokens  | 多模态支持         |
+
+**特点**：
+
+- 完全兼容 OpenAI API 格式
+- 使用 `api-key` 请求头认证（非 Bearer）
+- 支持流式输出（SSE 格式）
+- 支持思维链（thinking mode）
+
+**配置方式**：
+
+1. 注册 [platform.xiaomimimo.com](https://platform.xiaomimimo.com) 并获取 API Key
+2. PaperWorm 设置中选择 "MiMo（小米）"，填入 API Key
 3. 点击"获取模型"自动加载可用模型列表
 
 ---
@@ -185,21 +233,25 @@
 ## 模型选择建议
 
 ### 预算优先
+
 - **免费**：Gemini 3 Flash（Google）
 - **低价**：Ollama 本地部署
 - **性价比**：DeepSeek V3、Kimi k2.5
 - **多模型统一管理**：OpenRouter（单一账号接入全部厂商）
 
 ### 质量优先
-- **最强智能**：Claude Opus 4.6、GPT-5.4
+
+- **最强智能**：Claude Opus 4.7、GPT-5.4
 - **平衡之选**：Claude Sonnet 4.6
 
 ### 中文场景
+
 1. **Kimi k2.5**（月之暗面）- 中文理解最佳
 2. **Qwen 3.6 Plus**（阿里）- 学术中文优秀
 3. **DeepSeek V3** - 高性价比中文模型
 
 ### 大文件处理
+
 - **Claude**：最高 1M tokens 上下文
 - **Gemini**：最高 2M tokens 上下文
 - 适合整本书或长论文一次性处理
@@ -208,13 +260,14 @@
 
 ## 更新日志
 
-| 日期 | 更新内容 |
-|------|----------|
-| 2026-04-08 | 新增 Claude 4.6 系列模型信息 |
-| 2026-04-08 | 修正 Anthropic 测试模型为 Haiku 4.5（原 3-haiku 已弃用） |
-| 2026-04-08 | 更新 GPT-5.4 系列模型信息 |
-| 2026-04-08 | 更新 Gemini 3 系列模型信息 |
-| 2026-04-20 | 新增 OpenRouter 服务商支持和文档 |
+| 日期       | 更新内容                                          |
+| ---------- | ------------------------------------------------- |
+| 2026-04-08 | 新增 Claude 4.6 系列模型信息                      |
+| 2026-04-08 | 更新 GPT-5.4 系列模型信息                         |
+| 2026-04-08 | 更新 Gemini 3 系列模型信息                        |
+| 2026-04-20 | 新增 OpenRouter 服务商支持和文档                  |
+| 2026-04-21 | 新增 Xiaomi MiMo 服务商支持和文档                 |
+| 2026-04-21 | 更新 Claude 模型信息：新增 Opus 4.7，更新弃用通知 |
 
 ---
 

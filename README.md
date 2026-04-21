@@ -14,7 +14,7 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 - **Contextual chat** — the paper's full text, title, authors, year, and abstract are automatically included in every conversation; no manual indexing required for text-based PDFs
 - **Streaming responses** — AI replies appear word by word in real time
 - **Quick actions** — one-click to summarize the paper, or select text from the PDF as context for your questions
-- **Multi-provider** — supports OpenAI, DeepSeek, Anthropic (Claude), Google Gemini, Kimi (Moonshot), Qwen (Alibaba Cloud), OpenRouter, and Ollama (local). See [Model Guide](docs/models.md) for details
+- **Multi-provider** — supports OpenAI, DeepSeek, Anthropic (Claude), Google Gemini, Kimi (Moonshot), Qwen (Alibaba Cloud), OpenRouter, Xiaomi MiMo, and Ollama (local). See [Model Guide](docs/models.md) for details
 - **Persistent sessions with cross-device sync** — every conversation is automatically saved as a Zotero child note attached to the paper; sessions survive Zotero restarts and sync to other devices via your free Zotero account
 - **Multiple sessions per paper** — start new conversations and switch between them via the **Session List** view
 - **Rich text rendering** — Markdown (headings, bold, lists, code blocks) and LaTeX math (via KaTeX MathML) rendered in AI responses
@@ -22,7 +22,7 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 
 ## Requirements
 
-- Zotero 7 or 8 (`strict_min_version: 6.999`)
+- Zotero 7, 8, or 9 (`strict_min_version: 6.999`)
 - An API key for at least one supported LLM provider (or a local Ollama instance)
 
 ## Installation
@@ -58,16 +58,17 @@ To enable this feature:
 
 ## Supported Providers
 
-| Provider | Recommended Model | Notes |
-|---|---|---|
-| OpenAI | `gpt-5.4` | Requires API key. See [OpenAI Model Guide](#openai-model-guide) below |
-| DeepSeek | `deepseek-chat` | Requires API key |
-| Anthropic | `claude-sonnet-4-6` | Requires API key. See [Claude Model Guide](#claude-model-guide) below |
-| Google Gemini | `gemini-3-flash-preview` (free) | Recommended for most tasks; free tier available. See [Gemini Model Guide](#gemini-model-guide) below |
-| Kimi (Moonshot) | `kimi-k2.5` | Requires API key from [platform.moonshot.cn](https://platform.moonshot.cn) |
-| Qwen (Alibaba Cloud) | `qwen3.6-plus` | Requires API key from [bailian.console.aliyun.com](https://bailian.console.aliyun.com) |
-| OpenRouter | any model (e.g. `openai/gpt-4.1`) | Access hundreds of models via a single API key from [openrouter.ai](https://openrouter.ai) |
-| Ollama | any local model | No API key needed; set base URL (default: `http://localhost:11434`) |
+| Provider             | Recommended Model                 | Notes                                                                                                |
+| -------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| OpenAI               | `gpt-5.4`                         | Requires API key. See [OpenAI Model Guide](#openai-model-guide) below                                |
+| DeepSeek             | `deepseek-chat`                   | Requires API key                                                                                     |
+| Anthropic            | `claude-sonnet-4-6`               | Requires API key. See [Claude Model Guide](#claude-model-guide) below                                |
+| Google Gemini        | `gemini-3-flash-preview` (free)   | Recommended for most tasks; free tier available. See [Gemini Model Guide](#gemini-model-guide) below |
+| Kimi (Moonshot)      | `kimi-k2.6`                       | Requires API key from [platform.moonshot.cn](https://platform.moonshot.cn)                           |
+| Qwen (Alibaba Cloud) | `qwen3.6-max`                     | Requires API key from [bailian.console.aliyun.com](https://bailian.console.aliyun.com)               |
+| OpenRouter           | any model (e.g. `openai/gpt-4.1`) | Access hundreds of models via a single API key from [openrouter.ai](https://openrouter.ai)           |
+| Xiaomi MiMo          | `mimo-v2-pro`                     | Requires API key from [platform.xiaomimimo.com](https://platform.xiaomimimo.com)                     |
+| Ollama               | any local model                   | No API key needed; set base URL (default: `http://localhost:11434`)                                  |
 
 ## Switching Providers Mid-Conversation
 
@@ -87,28 +88,30 @@ Google Gemini offers a wide range of models through the Gemini API. Below is a g
 
 **Gemini 3 Series** (Preview status - latest generation)
 
-| Model | API Identifier | Best For | Free Tier |
-|-------|---------------|----------|-----------|
-| **Gemini 3 Flash** | `gemini-3-flash-preview` | General paper reading, fast responses | ✅ Free |
-| **Gemini 3.1 Pro** | `gemini-3.1-pro-preview` | Complex reasoning, detailed analysis | ❌ Paid only |
-| **Gemini 3.1 Flash-Lite** | `gemini-3.1-flash-lite-preview` | High-volume, cost-effective tasks | ✅ Free |
+| Model                     | API Identifier                  | Best For                              | Free Tier    |
+| ------------------------- | ------------------------------- | ------------------------------------- | ------------ |
+| **Gemini 3 Flash**        | `gemini-3-flash-preview`        | General paper reading, fast responses | ✅ Free      |
+| **Gemini 3.1 Pro**        | `gemini-3.1-pro-preview`        | Complex reasoning, detailed analysis  | ❌ Paid only |
+| **Gemini 3.1 Flash-Lite** | `gemini-3.1-flash-lite-preview` | High-volume, cost-effective tasks     | ✅ Free      |
 
 **Gemini 2.5 Series** (Stable release)
 
-| Model | API Identifier | Best For | Free Tier |
-|-------|---------------|----------|-----------|
-| **Gemini 2.5 Flash** | `gemini-2.5-flash` | Balanced performance and speed | ✅ Free |
-| **Gemini 2.5 Flash-Lite** | `gemini-2.5-flash-lite` | Most cost-effective option | ✅ Free |
-| **Gemini 2.5 Pro** | `gemini-2.5-pro-preview-03-25` | Maximum reasoning capability | ❌ Paid only |
+| Model                     | API Identifier                 | Best For                       | Free Tier    |
+| ------------------------- | ------------------------------ | ------------------------------ | ------------ |
+| **Gemini 2.5 Flash**      | `gemini-2.5-flash`             | Balanced performance and speed | ✅ Free      |
+| **Gemini 2.5 Flash-Lite** | `gemini-2.5-flash-lite`        | Most cost-effective option     | ✅ Free      |
+| **Gemini 2.5 Pro**        | `gemini-2.5-pro-preview-03-25` | Maximum reasoning capability   | ❌ Paid only |
 
 ### Model Naming Guide
 
 Gemini model names follow this pattern:
+
 ```
 gemini-{major}.{minor}-{variant}-{status}
 ```
 
 Examples:
+
 - `gemini-3-flash-preview` — Gemini 3 Flash, preview release
 - `gemini-3.1-pro-preview` — Gemini 3.1 Pro, preview release
 - `gemini-2.5-flash` — Gemini 2.5 Flash, stable release
@@ -137,18 +140,18 @@ OpenAI's GPT models are state-of-the-art large language models capable of unders
 
 ### Latest Generation Models (GPT-5.4 Series)
 
-| Model | API Identifier | Best For | Cost |
-|-------|---------------|----------|------|
-| **GPT-5.4** | `gpt-5.4` | Complex reasoning, coding, analysis | Standard |
-| **GPT-5.4 Mini** | `gpt-5.4-mini` | Balanced performance and efficiency | Lower |
-| **GPT-5.4 Nano** | `gpt-5.4-nano` | Simple tasks, high-volume processing | Lowest |
+| Model            | API Identifier | Best For                             | Cost     |
+| ---------------- | -------------- | ------------------------------------ | -------- |
+| **GPT-5.4**      | `gpt-5.4`      | Complex reasoning, coding, analysis  | Standard |
+| **GPT-5.4 Mini** | `gpt-5.4-mini` | Balanced performance and efficiency  | Lower    |
+| **GPT-5.4 Nano** | `gpt-5.4-nano` | Simple tasks, high-volume processing | Lowest   |
 
 ### Previous Generation (Still Supported)
 
-| Model | API Identifier | Best For |
-|-------|---------------|----------|
-| **GPT-4o** | `gpt-4o` | Multimodal tasks (text + vision) |
-| **GPT-4o Mini** | `gpt-4o-mini` | Cost-effective general tasks |
+| Model           | API Identifier | Best For                         |
+| --------------- | -------------- | -------------------------------- |
+| **GPT-4o**      | `gpt-4o`       | Multimodal tasks (text + vision) |
+| **GPT-4o Mini** | `gpt-4o-mini`  | Cost-effective general tasks     |
 
 ### Recommendations for Paper Reading
 
@@ -174,27 +177,28 @@ Anthropic's Claude models are designed for high performance across language, rea
 
 ### Latest Generation Models
 
-| Model | Best For | Speed | Intelligence |
-|-------|----------|-------|--------------|
-| **Claude Opus 4.6** | Complex analysis, coding, professional work | Standard | Highest |
-| **Claude Sonnet 4.6** | General paper reading, balanced performance | Fast | High |
-| **Claude Haiku 4.5** | Quick summaries, high-volume processing | Fastest | Near-frontier |
+| Model                 | Best For                                    | Speed    | Intelligence  |
+| --------------------- | ------------------------------------------- | -------- | ------------- |
+| **Claude Opus 4.6**   | Complex analysis, coding, professional work | Standard | Highest       |
+| **Claude Sonnet 4.6** | General paper reading, balanced performance | Fast     | High          |
+| **Claude Haiku 4.5**  | Quick summaries, high-volume processing     | Fastest  | Near-frontier |
 
 ### Model Naming
 
 Claude model names follow this pattern:
+
 ```
 claude-{variant}-{version}
 ```
 
 - **Opus**: Most intelligent, best for complex reasoning and coding
-- **Sonnet**: Balanced intelligence and speed, good for most tasks  
+- **Sonnet**: Balanced intelligence and speed, good for most tasks
 - **Haiku**: Fastest, most cost-effective for simple tasks
 
 ### Recommendations for Paper Reading
 
 1. **For most users**: Use `claude-sonnet-4-6` (best balance of quality and speed)
-2. **For deep analysis**: Use `claude-opus-4-6` (maximum reasoning capability)
+2. **For deep analysis**: Use `claude-opus-4-7` (maximum reasoning capability)
 3. **For quick summaries**: Use `claude-haiku-4-5` (fastest, most economical)
 
 ### Getting a Claude API Key
@@ -238,6 +242,7 @@ PaperWorm stores each conversation as a **Zotero child note** attached to the pa
 ### Note format
 
 Each session note contains:
+
 - A human-readable transcript (`用户` / `AI` turns)
 - A machine-readable metadata block used by PaperWorm to restore the session
 

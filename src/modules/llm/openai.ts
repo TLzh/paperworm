@@ -10,11 +10,18 @@ export class OpenAIProvider implements LLMProvider {
   readonly name: string;
   private apiKey: string;
   private baseUrl: string;
+  private authMode: "bearer" | "api-key";
 
-  constructor(name: string, apiKey: string, baseUrl: string) {
+  constructor(
+    name: string,
+    apiKey: string,
+    baseUrl: string,
+    authMode: "bearer" | "api-key" = "bearer",
+  ) {
     this.name = name;
     this.apiKey = apiKey;
     this.baseUrl = baseUrl.replace(/\/$/, "");
+    this.authMode = authMode;
   }
 
   async chat(options: LLMRequestOptions): Promise<string> {
@@ -52,7 +59,9 @@ export class OpenAIProvider implements LLMProvider {
       return;
     }
 
-    const reader = (res.body as any).getReader() as ReadableStreamDefaultReader<Uint8Array>;
+    const reader = (
+      res.body as any
+    ).getReader() as ReadableStreamDefaultReader<Uint8Array>;
     const decoder = new TextDecoder();
     let buffer = "";
 
@@ -81,7 +90,10 @@ export class OpenAIProvider implements LLMProvider {
       await this.getModels();
       return true;
     } catch (e) {
-      Zotero.log(`PaperWorm testConnection (${this.name}) error: ${e}`, "error");
+      Zotero.log(
+        `PaperWorm testConnection (${this.name}) error: ${e}`,
+        "error",
+      );
       return false;
     }
   }
@@ -92,20 +104,33 @@ export class OpenAIProvider implements LLMProvider {
       successCodes: [200],
     });
     const data = JSON.parse(resp.responseText) as any;
-    const models = (data.data as any[] ?? [])
+    const models = ((data.data as any[]) ?? [])
       .map((m) => m.id as string)
       .filter((id) => {
         // 过滤掉明显的非对话模型（如 whisper, dall-e, embedding 等）
-        const blackList = ["whisper", "dall-e", "embedding", "tts", "moderation", "edit"];
+        const blackList = [
+          "whisper",
+          "dall-e",
+          "embedding",
+          "tts",
+          "moderation",
+          "edit",
+        ];
         return !blackList.some((b) => id.toLowerCase().includes(b));
       });
     return models.sort();
   }
 
   private headers(): Record<string, string> {
+    if (this.authMode === "api-key") {
+      return {
+        "Content-Type": "application/json",
+        "api-key": this.apiKey,
+      };
+    }
     return {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${this.apiKey}`,
+      Authorization: `Bearer ${this.apiKey}`,
     };
   }
 

@@ -6,304 +6,395 @@
 <groupbox>
   <label><html:h2>MinerU 设置</html:h2></label>
 
-  <hbox align="center" style="margin-bottom:6px">
-    <label style="width:110px;min-width:110px">API Token</label>
+  <hbox align="center" style="margin-bottom: 6px">
+    <label style="width: 110px; min-width: 110px">API Token</label>
     <html:input
       type="password"
       id="__addonRef__-mineru-token"
       preference="extensions.zotero.paperworm.mineru.apiToken"
       placeholder="在 mineru.net 申请 API Token"
-      style="flex:1;padding:2px 4px"
-    />
-  </hbox>
-  
-  <hbox align="center" style="margin-top:6px">
-    <button
-      id="__addonRef__-mineru-test-btn"
-      label="测试连接"
-    />
-    <label
-      id="__addonRef__-mineru-test-result"
-      style="margin-left:10px"
+      style="flex: 1; padding: 2px 4px"
     />
   </hbox>
 
-  <vbox style="margin-left:8px;margin-top:8px">
-    <description style="font-size: 0.9em; color: #666;">
-      填入 MinerU API Token 后，PaperWorm 面板将显示"⚡ 精细提取"按钮，可按需提取结构化文本（表格、公式等），结果缓存为 Zotero 笔记，自动跨设备同步。
+  <hbox align="center" style="margin-top: 6px">
+    <button id="__addonRef__-mineru-test-btn" label="测试连接" />
+    <label id="__addonRef__-mineru-test-result" style="margin-left: 10px" />
+  </hbox>
+
+  <vbox style="margin-left: 8px; margin-top: 8px">
+    <description style="font-size: 0.9em; color: #666">
+      填入 MinerU API Token 后，PaperWorm 面板将显示"⚡
+      精细提取"按钮，可按需提取结构化文本（表格、公式等），结果缓存为 Zotero
+      笔记，自动跨设备同步。
     </description>
   </vbox>
 </groupbox>
 
 <!-- ── Section 2: LLM Service ── -->
 <!-- onload 必须挂在真实容器元素上，不能挂在自闭合元素上 -->
-<groupbox onload="Zotero.__addonInstance__.hooks.onPrefsEvent('load', { window })">
+<groupbox
+  onload="Zotero.__addonInstance__.hooks.onPrefsEvent('load', { window })"
+>
   <label><html:h2 data-l10n-id="pref-llm-section"></html:h2></label>
 
   <!-- Provider selector -->
-  <hbox align="center" style="margin-bottom:6px">
-    <label data-l10n-id="pref-provider-label" style="width:110px;min-width:110px" />
+  <hbox align="center" style="margin-bottom: 6px">
+    <label
+      data-l10n-id="pref-provider-label"
+      style="width: 110px; min-width: 110px"
+    />
     <menulist
       id="__addonRef__-provider"
       preference="extensions.zotero.paperworm.llm.provider"
-      style="flex:1"
+      style="flex: 1"
     >
       <menupopup>
-        <menuitem value="openai"    label="OpenAI" />
-        <menuitem value="deepseek"  label="DeepSeek" />
+        <menuitem value="openai" label="OpenAI" />
+        <menuitem value="deepseek" label="DeepSeek" />
         <menuitem value="anthropic" label="Anthropic (Claude)" />
-        <menuitem value="gemini"    label="Google Gemini" />
-        <menuitem value="ollama"    label="Ollama（本地）" />
-        <menuitem value="kimi"      label="Kimi（月之暗面）" />
-        <menuitem value="qwen"      label="通义千问（阿里云）" />
+        <menuitem value="gemini" label="Google Gemini" />
+        <menuitem value="ollama" label="Ollama（本地）" />
+        <menuitem value="kimi" label="Kimi（月之暗面）" />
+        <menuitem value="qwen" label="通义千问（阿里云）" />
         <menuitem value="openrouter" label="OpenRouter" />
+        <menuitem value="mimo" label="MiMo（小米）" />
       </menupopup>
     </menulist>
   </hbox>
 
   <!-- OpenAI -->
-  <vbox id="__addonRef__-section-openai" style="margin-left:8px">
-    <hbox align="center" style="margin-bottom:4px">
-      <label data-l10n-id="pref-apikey-label" style="width:110px;min-width:110px" />
+  <vbox id="__addonRef__-section-openai" style="margin-left: 8px">
+    <hbox align="center" style="margin-bottom: 4px">
+      <label
+        data-l10n-id="pref-apikey-label"
+        style="width: 110px; min-width: 110px"
+      />
       <html:input
         type="password"
         id="__addonRef__-openai-apikey"
         preference="extensions.zotero.paperworm.llm.openai.apiKey"
-        style="flex:1;padding:2px 4px"
+        style="flex: 1; padding: 2px 4px"
       />
     </hbox>
     <hbox align="center">
-      <label data-l10n-id="pref-model-label" style="width:110px;min-width:110px" />
+      <label
+        data-l10n-id="pref-model-label"
+        style="width: 110px; min-width: 110px"
+      />
       <html:input
         type="text"
         id="__addonRef__-openai-models"
         preference="extensions.zotero.paperworm.llm.openai.models"
         placeholder="逗号分隔的模型列表"
-        style="flex:1;padding:2px 4px"
+        style="flex: 1; padding: 2px 4px"
       />
-      <button 
+      <button
         class="pw-fetch-models-btn"
         data-provider="openai"
         data-l10n-id="pref-fetch-models-btn"
-        style="margin-left:4px;min-width:0"
+        style="margin-left: 4px; min-width: 0"
       />
     </hbox>
   </vbox>
 
   <!-- DeepSeek（兼容 OpenAI 格式，Base URL 不同）-->
-  <vbox id="__addonRef__-section-deepseek" style="margin-left:8px" hidden="true">
-    <hbox align="center" style="margin-bottom:4px">
-      <label data-l10n-id="pref-apikey-label" style="width:110px;min-width:110px" />
+  <vbox
+    id="__addonRef__-section-deepseek"
+    style="margin-left: 8px"
+    hidden="true"
+  >
+    <hbox align="center" style="margin-bottom: 4px">
+      <label
+        data-l10n-id="pref-apikey-label"
+        style="width: 110px; min-width: 110px"
+      />
       <html:input
         type="password"
         id="__addonRef__-deepseek-apikey"
         preference="extensions.zotero.paperworm.llm.deepseek.apiKey"
-        style="flex:1;padding:2px 4px"
+        style="flex: 1; padding: 2px 4px"
       />
     </hbox>
     <hbox align="center">
-      <label data-l10n-id="pref-model-label" style="width:110px;min-width:110px" />
+      <label
+        data-l10n-id="pref-model-label"
+        style="width: 110px; min-width: 110px"
+      />
       <html:input
         type="text"
         id="__addonRef__-deepseek-models"
         preference="extensions.zotero.paperworm.llm.deepseek.models"
         placeholder="逗号分隔的模型列表"
-        style="flex:1;padding:2px 4px"
+        style="flex: 1; padding: 2px 4px"
       />
-      <button 
+      <button
         class="pw-fetch-models-btn"
         data-provider="deepseek"
         data-l10n-id="pref-fetch-models-btn"
-        style="margin-left:4px;min-width:0"
+        style="margin-left: 4px; min-width: 0"
       />
     </hbox>
   </vbox>
 
   <!-- Anthropic -->
-  <vbox id="__addonRef__-section-anthropic" style="margin-left:8px" hidden="true">
-    <hbox align="center" style="margin-bottom:4px">
-      <label data-l10n-id="pref-apikey-label" style="width:110px;min-width:110px" />
+  <vbox
+    id="__addonRef__-section-anthropic"
+    style="margin-left: 8px"
+    hidden="true"
+  >
+    <hbox align="center" style="margin-bottom: 4px">
+      <label
+        data-l10n-id="pref-apikey-label"
+        style="width: 110px; min-width: 110px"
+      />
       <html:input
         type="password"
         id="__addonRef__-anthropic-apikey"
         preference="extensions.zotero.paperworm.llm.anthropic.apiKey"
-        style="flex:1;padding:2px 4px"
+        style="flex: 1; padding: 2px 4px"
       />
     </hbox>
     <hbox align="center">
-      <label data-l10n-id="pref-model-label" style="width:110px;min-width:110px" />
+      <label
+        data-l10n-id="pref-model-label"
+        style="width: 110px; min-width: 110px"
+      />
       <html:input
         type="text"
         id="__addonRef__-anthropic-models"
         preference="extensions.zotero.paperworm.llm.anthropic.models"
         placeholder="逗号分隔的模型列表"
-        style="flex:1;padding:2px 4px"
+        style="flex: 1; padding: 2px 4px"
       />
-      <button 
+      <button
         class="pw-fetch-models-btn"
         data-provider="anthropic"
         data-l10n-id="pref-fetch-models-btn"
-        style="margin-left:4px;min-width:0"
+        style="margin-left: 4px; min-width: 0"
       />
     </hbox>
   </vbox>
 
   <!-- Gemini -->
-  <vbox id="__addonRef__-section-gemini" style="margin-left:8px" hidden="true">
-    <hbox align="center" style="margin-bottom:4px">
-      <label data-l10n-id="pref-apikey-label" style="width:110px;min-width:110px" />
+  <vbox id="__addonRef__-section-gemini" style="margin-left: 8px" hidden="true">
+    <hbox align="center" style="margin-bottom: 4px">
+      <label
+        data-l10n-id="pref-apikey-label"
+        style="width: 110px; min-width: 110px"
+      />
       <html:input
         type="password"
         id="__addonRef__-gemini-apikey"
         preference="extensions.zotero.paperworm.llm.gemini.apiKey"
-        style="flex:1;padding:2px 4px"
+        style="flex: 1; padding: 2px 4px"
       />
     </hbox>
     <hbox align="center">
-      <label data-l10n-id="pref-model-label" style="width:110px;min-width:110px" />
+      <label
+        data-l10n-id="pref-model-label"
+        style="width: 110px; min-width: 110px"
+      />
       <html:input
         type="text"
         id="__addonRef__-gemini-models"
         preference="extensions.zotero.paperworm.llm.gemini.models"
         placeholder="逗号分隔的模型列表"
-        style="flex:1;padding:2px 4px"
+        style="flex: 1; padding: 2px 4px"
       />
-      <button 
+      <button
         class="pw-fetch-models-btn"
         data-provider="gemini"
         data-l10n-id="pref-fetch-models-btn"
-        style="margin-left:4px;min-width:0"
+        style="margin-left: 4px; min-width: 0"
       />
     </hbox>
   </vbox>
 
   <!-- Ollama -->
-  <vbox id="__addonRef__-section-ollama" style="margin-left:8px" hidden="true">
-    <hbox align="center" style="margin-bottom:4px">
-      <label data-l10n-id="pref-baseurl-label" style="width:110px;min-width:110px" />
+  <vbox id="__addonRef__-section-ollama" style="margin-left: 8px" hidden="true">
+    <hbox align="center" style="margin-bottom: 4px">
+      <label
+        data-l10n-id="pref-baseurl-label"
+        style="width: 110px; min-width: 110px"
+      />
       <html:input
         type="text"
         id="__addonRef__-ollama-baseurl"
         preference="extensions.zotero.paperworm.llm.ollama.baseUrl"
         placeholder="http://localhost:11434"
-        style="flex:1;padding:2px 4px"
+        style="flex: 1; padding: 2px 4px"
       />
     </hbox>
     <hbox align="center">
-      <label data-l10n-id="pref-model-label" style="width:110px;min-width:110px" />
+      <label
+        data-l10n-id="pref-model-label"
+        style="width: 110px; min-width: 110px"
+      />
       <html:input
         type="text"
         id="__addonRef__-ollama-models"
         preference="extensions.zotero.paperworm.llm.ollama.models"
         placeholder="逗号分隔的模型列表"
-        style="flex:1;padding:2px 4px"
+        style="flex: 1; padding: 2px 4px"
       />
-      <button 
+      <button
         class="pw-fetch-models-btn"
         data-provider="ollama"
         data-l10n-id="pref-fetch-models-btn"
-        style="margin-left:4px;min-width:0"
+        style="margin-left: 4px; min-width: 0"
       />
     </hbox>
   </vbox>
 
   <!-- Kimi（月之暗面，OpenAI 兼容格式）-->
-  <vbox id="__addonRef__-section-kimi" style="margin-left:8px" hidden="true">
-    <hbox align="center" style="margin-bottom:4px">
-      <label data-l10n-id="pref-apikey-label" style="width:110px;min-width:110px" />
+  <vbox id="__addonRef__-section-kimi" style="margin-left: 8px" hidden="true">
+    <hbox align="center" style="margin-bottom: 4px">
+      <label
+        data-l10n-id="pref-apikey-label"
+        style="width: 110px; min-width: 110px"
+      />
       <html:input
         type="password"
         id="__addonRef__-kimi-apikey"
         preference="extensions.zotero.paperworm.llm.kimi.apiKey"
-        style="flex:1;padding:2px 4px"
+        style="flex: 1; padding: 2px 4px"
       />
     </hbox>
     <hbox align="center">
-      <label data-l10n-id="pref-model-label" style="width:110px;min-width:110px" />
+      <label
+        data-l10n-id="pref-model-label"
+        style="width: 110px; min-width: 110px"
+      />
       <html:input
         type="text"
         id="__addonRef__-kimi-models"
         preference="extensions.zotero.paperworm.llm.kimi.models"
         placeholder="逗号分隔的模型列表"
-        style="flex:1;padding:2px 4px"
+        style="flex: 1; padding: 2px 4px"
       />
-      <button 
+      <button
         class="pw-fetch-models-btn"
         data-provider="kimi"
         data-l10n-id="pref-fetch-models-btn"
-        style="margin-left:4px;min-width:0"
+        style="margin-left: 4px; min-width: 0"
       />
     </hbox>
   </vbox>
 
   <!-- 通义千问（阿里云，OpenAI 兼容格式）-->
-  <vbox id="__addonRef__-section-qwen" style="margin-left:8px" hidden="true">
-    <hbox align="center" style="margin-bottom:4px">
-      <label data-l10n-id="pref-apikey-label" style="width:110px;min-width:110px" />
+  <vbox id="__addonRef__-section-qwen" style="margin-left: 8px" hidden="true">
+    <hbox align="center" style="margin-bottom: 4px">
+      <label
+        data-l10n-id="pref-apikey-label"
+        style="width: 110px; min-width: 110px"
+      />
       <html:input
         type="password"
         id="__addonRef__-qwen-apikey"
         preference="extensions.zotero.paperworm.llm.qwen.apiKey"
-        style="flex:1;padding:2px 4px"
+        style="flex: 1; padding: 2px 4px"
       />
     </hbox>
     <hbox align="center">
-      <label data-l10n-id="pref-model-label" style="width:110px;min-width:110px" />
+      <label
+        data-l10n-id="pref-model-label"
+        style="width: 110px; min-width: 110px"
+      />
       <html:input
         type="text"
         id="__addonRef__-qwen-models"
         preference="extensions.zotero.paperworm.llm.qwen.models"
         placeholder="逗号分隔的模型列表"
-        style="flex:1;padding:2px 4px"
+        style="flex: 1; padding: 2px 4px"
       />
-      <button 
+      <button
         class="pw-fetch-models-btn"
         data-provider="qwen"
         data-l10n-id="pref-fetch-models-btn"
-        style="margin-left:4px;min-width:0"
+        style="margin-left: 4px; min-width: 0"
       />
     </hbox>
   </vbox>
 
   <!-- OpenRouter（OpenAI 兼容格式）-->
-  <vbox id="__addonRef__-section-openrouter" style="margin-left:8px" hidden="true">
-    <hbox align="center" style="margin-bottom:4px">
-      <label data-l10n-id="pref-apikey-label" style="width:110px;min-width:110px" />
+  <vbox
+    id="__addonRef__-section-openrouter"
+    style="margin-left: 8px"
+    hidden="true"
+  >
+    <hbox align="center" style="margin-bottom: 4px">
+      <label
+        data-l10n-id="pref-apikey-label"
+        style="width: 110px; min-width: 110px"
+      />
       <html:input
         type="password"
         id="__addonRef__-openrouter-apikey"
         preference="extensions.zotero.paperworm.llm.openrouter.apiKey"
-        style="flex:1;padding:2px 4px"
+        style="flex: 1; padding: 2px 4px"
       />
     </hbox>
     <hbox align="center">
-      <label data-l10n-id="pref-model-label" style="width:110px;min-width:110px" />
+      <label
+        data-l10n-id="pref-model-label"
+        style="width: 110px; min-width: 110px"
+      />
       <html:input
         type="text"
         id="__addonRef__-openrouter-models"
         preference="extensions.zotero.paperworm.llm.openrouter.models"
         placeholder="逗号分隔的模型列表"
-        style="flex:1;padding:2px 4px"
+        style="flex: 1; padding: 2px 4px"
       />
       <button
         class="pw-fetch-models-btn"
         data-provider="openrouter"
         data-l10n-id="pref-fetch-models-btn"
-        style="margin-left:4px;min-width:0"
+        style="margin-left: 4px; min-width: 0"
+      />
+    </hbox>
+  </vbox>
+
+  <!-- MiMo（小米，OpenAI 兼容格式）-->
+  <vbox id="__addonRef__-section-mimo" style="margin-left: 8px" hidden="true">
+    <hbox align="center" style="margin-bottom: 4px">
+      <label
+        data-l10n-id="pref-apikey-label"
+        style="width: 110px; min-width: 110px"
+      />
+      <html:input
+        type="password"
+        id="__addonRef__-mimo-apikey"
+        preference="extensions.zotero.paperworm.llm.mimo.apiKey"
+        style="flex: 1; padding: 2px 4px"
+      />
+    </hbox>
+    <hbox align="center">
+      <label
+        data-l10n-id="pref-model-label"
+        style="width: 110px; min-width: 110px"
+      />
+      <html:input
+        type="text"
+        id="__addonRef__-mimo-models"
+        preference="extensions.zotero.paperworm.llm.mimo.models"
+        placeholder="逗号分隔的模型列表"
+        style="flex: 1; padding: 2px 4px"
+      />
+      <button
+        class="pw-fetch-models-btn"
+        data-provider="mimo"
+        data-l10n-id="pref-fetch-models-btn"
+        style="margin-left: 4px; min-width: 0"
       />
     </hbox>
   </vbox>
 
   <!-- Test connection -->
-  <hbox align="center" style="margin-top:10px">
-    <button
-      id="__addonRef__-test-btn"
-      data-l10n-id="pref-test-btn"
-    />
-    <label
-      id="__addonRef__-test-result"
-      style="margin-left:10px"
-    />
+  <hbox align="center" style="margin-top: 10px">
+    <button id="__addonRef__-test-btn" data-l10n-id="pref-test-btn" />
+    <label id="__addonRef__-test-result" style="margin-left: 10px" />
   </hbox>
 </groupbox>
 
@@ -312,66 +403,125 @@
   <label><html:h2 data-l10n-id="pref-prompt-section"></html:h2></label>
 
   <!-- 系统提示词 -->
-  <label data-l10n-id="pref-system-prompt-sublabel" style="font-weight:600;margin-bottom:6px;opacity:0.7;font-size:0.9em" />
+  <label
+    data-l10n-id="pref-system-prompt-sublabel"
+    style="font-weight: 600; margin-bottom: 6px; opacity: 0.7; font-size: 0.9em"
+  />
 
-  <hbox align="center" style="margin-bottom:8px">
-    <label data-l10n-id="pref-template-label" style="width:110px;min-width:110px" />
-    <menulist id="__addonRef__-prompt-template" style="flex:1">
+  <hbox align="center" style="margin-bottom: 8px">
+    <label
+      data-l10n-id="pref-template-label"
+      style="width: 110px; min-width: 110px"
+    />
+    <menulist id="__addonRef__-prompt-template" style="flex: 1">
       <menupopup>
         <menuitem value="__blank__" label="自定义（清空）" />
-        <menuitem value="unlocker"  label="开锁专家" />
-        <menuitem value="academic"  label="学术阅读助手" />
+        <menuitem value="unlocker" label="开锁专家" />
+        <menuitem value="academic" label="学术阅读助手" />
         <menuitem value="translate" label="翻译模式" />
-        <menuitem value="critical"  label="批判性分析" />
-        <menuitem value="notes"     label="研究笔记助手" />
+        <menuitem value="critical" label="批判性分析" />
+        <menuitem value="notes" label="研究笔记助手" />
         <menuseparator id="__addonRef__-user-template-sep" hidden="true" />
       </menupopup>
     </menulist>
     <button
       id="__addonRef__-apply-template"
       data-l10n-id="pref-apply-template"
-      style="margin-left:6px"
+      style="margin-left: 6px"
     />
-    <button id="__addonRef__-delete-template" label="删除"   disabled="true" style="margin-left:4px" />
-    <button id="__addonRef__-saveas-template" label="另存为" style="margin-left:4px" />
+    <button
+      id="__addonRef__-delete-template"
+      label="删除"
+      disabled="true"
+      style="margin-left: 4px"
+    />
+    <button
+      id="__addonRef__-saveas-template"
+      label="另存为"
+      style="margin-left: 4px"
+    />
   </hbox>
 
-  <hbox id="__addonRef__-save-row" hidden="true" align="center" style="margin-bottom:4px">
-    <label value="模板名称：" style="width:110px;min-width:110px" />
-    <html:input type="text" id="__addonRef__-template-name-input"
-      placeholder="输入模板名称" style="flex:1;padding:2px 4px" />
-    <button id="__addonRef__-confirm-save" label="保存" style="margin-left:6px" />
-    <button id="__addonRef__-cancel-save"  label="取消" style="margin-left:4px" />
+  <hbox
+    id="__addonRef__-save-row"
+    hidden="true"
+    align="center"
+    style="margin-bottom: 4px"
+  >
+    <label value="模板名称：" style="width: 110px; min-width: 110px" />
+    <html:input
+      type="text"
+      id="__addonRef__-template-name-input"
+      placeholder="输入模板名称"
+      style="flex: 1; padding: 2px 4px"
+    />
+    <button
+      id="__addonRef__-confirm-save"
+      label="保存"
+      style="margin-left: 6px"
+    />
+    <button
+      id="__addonRef__-cancel-save"
+      label="取消"
+      style="margin-left: 4px"
+    />
   </hbox>
-  <label id="__addonRef__-save-error" hidden="true"
-    style="color:red;font-size:0.85em;margin-bottom:4px" />
+  <label
+    id="__addonRef__-save-error"
+    hidden="true"
+    style="color: red; font-size: 0.85em; margin-bottom: 4px"
+  />
 
   <html:textarea
     id="__addonRef__-system-prompt"
     preference="extensions.zotero.paperworm.systemPrompt.content"
     rows="8"
-    style="width:100%;padding:6px;font-family:monospace;font-size:0.9em;resize:vertical"
+    style="
+      width: 100%;
+      padding: 6px;
+      font-family: monospace;
+      font-size: 0.9em;
+      resize: vertical;
+    "
   ></html:textarea>
 
   <!-- 分隔线 -->
-  <separator style="margin-top:12px;margin-bottom:8px;border-top:1px solid rgba(128,128,128,0.2)" />
+  <separator
+    style="
+      margin-top: 12px;
+      margin-bottom: 8px;
+      border-top: 1px solid rgba(128, 128, 128, 0.2);
+    "
+  />
 
   <!-- 总结全文提示词 -->
-  <label data-l10n-id="pref-summarize-prompt-sublabel" style="font-weight:600;margin-bottom:6px;opacity:0.7;font-size:0.9em" />
+  <label
+    data-l10n-id="pref-summarize-prompt-sublabel"
+    style="font-weight: 600; margin-bottom: 6px; opacity: 0.7; font-size: 0.9em"
+  />
 
   <html:textarea
     preference="extensions.zotero.paperworm.action.summarizePrompt"
     rows="3"
     placeholder="请对这篇论文做一个结构化总结，包括：研究问题、方法、主要发现、贡献和局限性。&#10;&#10;论文标题：{title}"
-    style="width:100%;padding:4px 6px;font-size:0.9em;resize:vertical;font-family:inherit"
+    style="
+      width: 100%;
+      padding: 4px 6px;
+      font-size: 0.9em;
+      resize: vertical;
+      font-family: inherit;
+    "
   ></html:textarea>
-  <label value="可用变量：{title}  {authors}  {year}  {abstract}  {doi}" style="margin-top:3px;opacity:0.5;font-size:0.85em" />
+  <label
+    value="可用变量：{title}  {authors}  {year}  {abstract}  {doi}"
+    style="margin-top: 3px; opacity: 0.5; font-size: 0.85em"
+  />
 </groupbox>
 
 <!-- ── Footer ── -->
 <vbox>
   <label
-    style="opacity:0.5;font-size:0.85em;margin-top:4px"
+    style="opacity: 0.5; font-size: 0.85em; margin-top: 4px"
     data-l10n-id="pref-help"
     data-l10n-args='{"name":"__addonName__","version":"__buildVersion__"}'
   />
