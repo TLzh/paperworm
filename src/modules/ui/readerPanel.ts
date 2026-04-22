@@ -241,7 +241,7 @@ function bindEvents(
   // 下拉菜单状态（用于定时器控制）
   const dropdownState = { open: false };
 
-  // capturedSelection：短暂变量，在 mousedown 阶段捕获 PDF 选区，
+  // capturedSelection：短暂变量，在 mouseup 阶段捕获 PDF 选区，
   // "选择文本"按钮读取后立即清空，避免残留到下次操作。
   let capturedSelection = "";
 
@@ -269,7 +269,7 @@ function bindEvents(
   chipClose.addEventListener("click", clearChip);
 
   panel.addEventListener(
-    "mousedown",
+    "mouseup",
     () => {
       const sel = PaperExtractor.getSelectedText(item);
       if (sel.length >= 10) capturedSelection = sel;
@@ -317,7 +317,7 @@ function bindEvents(
       }
 
       if (action === "quote") {
-        // mousedown 阶段已更新 capturedSelection；若为空则降级实时读取
+        // mouseup 阶段已更新 capturedSelection；若为空则降级实时读取
         const sel =
           capturedSelection.length >= 10
             ? capturedSelection
