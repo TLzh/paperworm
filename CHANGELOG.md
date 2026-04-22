@@ -10,6 +10,19 @@
 
 ---
 
+## [0.6.9] - 2026-04-22
+
+### Added
+
+- **MiniMax 支持** — 新增 [MiniMax](https://platform.minimaxi.com) 服务商，兼容 OpenAI API 格式，支持 `MiniMax-M2.7`、`MiniMax-M2.5`、`MiniMax-M2.1`、`MiniMax-M2` 等模型系列（含极速版）
+  - 设置页服务商下拉新增 "MiniMax" 选项
+  - 支持 "获取模型" 按钮自动加载 MiniMax 可用模型列表（硬编码）
+  - 主面板模型切换徽章支持显示 MiniMax 名称
+  - 标准 OpenAI API 兼容，Bearer 认证
+  - 自动过滤 `<think>` 思维链标签，只显示正式回答内容
+
+---
+
 ## [0.6.8] - 2026-04-21
 
 ### Added

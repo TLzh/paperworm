@@ -484,12 +484,16 @@ async function send(
     { model, messages, temperature, maxTokens },
     (chunk) => {
       fullResponse += chunk;
+      // 流式输出时过滤 MiniMax 思维链标签（标签可能跨 chunk）
+      const displayText = fullResponse.replace(/<think>[\s\S]*?<\/think>/g, "");
       aiEl.classList.remove("pw-msg-loading");
-      aiEl.textContent = fullResponse;
+      aiEl.textContent = displayText;
       scrollToBottom(messagesEl);
     },
     () => {
       aiEl.classList.remove("pw-msg-loading");
+      // 完成后再过滤一次，确保完整内容无思维链
+      fullResponse = fullResponse.replace(/<think>[\s\S]*?<\/think>/g, "");
       if (fullResponse) {
         setMarkdown(aiEl, fullResponse);
         history.add({ role: "assistant", content: fullResponse });
@@ -1260,6 +1264,7 @@ function getProviderDisplayName(providerId: string): string {
     qwen: "Qwen",
     openrouter: "OpenRouter",
     mimo: "MiMo",
+    minimax: "MiniMax",
   };
   return displayNames[providerId] || providerId;
 }
@@ -1286,6 +1291,7 @@ function getConfiguredProviders(): ConfiguredProvider[] {
     { id: "qwen", keyPref: "apiKey" },
     { id: "openrouter", keyPref: "apiKey" },
     { id: "mimo", keyPref: "apiKey" },
+    { id: "minimax", keyPref: "apiKey" },
     { id: "ollama", keyPref: "baseUrl" },
   ];
 

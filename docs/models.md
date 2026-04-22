@@ -230,6 +230,40 @@
 
 ---
 
+### MiniMax
+
+**概述**：[MiniMax](https://platform.minimaxi.com) 是 MiniMax 推出的 AI 大模型，兼容 OpenAI API 格式，支持 `reasoning_split` 参数分离思考内容。
+
+| 模型                       | API ID                   | 上下文      | 特点                          |
+| -------------------------- | ------------------------ | ----------- | ----------------------------- |
+| **MiniMax-M2.7**           | `MiniMax-M2.7`           | 204K tokens | 开启模型的自我迭代（~60 TPS） |
+| **MiniMax-M2.7-highspeed** | `MiniMax-M2.7-highspeed` | 204K tokens | M2.7 极速版（~100 TPS）       |
+| **MiniMax-M2.5**           | `MiniMax-M2.5`           | 204K tokens | 顶尖性能与极致性价比          |
+| **MiniMax-M2.5-highspeed** | `MiniMax-M2.5-highspeed` | 204K tokens | M2.5 极速版（~100 TPS）       |
+| **MiniMax-M2.1**           | `MiniMax-M2.1`           | 204K tokens | 强大多语言编程能力            |
+| **MiniMax-M2.1-highspeed** | `MiniMax-M2.1-highspeed` | 204K tokens | M2.1 极速版（~100 TPS）       |
+| **MiniMax-M2**             | `MiniMax-M2`             | 204K tokens | 专为高效编码与 Agent 工作流   |
+
+**特点**：
+
+- 完全兼容 OpenAI API 格式（Bearer 认证）
+- Temperature 范围：(0.0, 1.0]，推荐 1.0
+- 模型原生输出包含思维链（包裹在 `<think>` 标签中），PaperWorm 会自动过滤
+
+**注意事项**：
+
+- `temperature` 超出 (0.0, 1.0] 范围会返回错误
+- 部分 OpenAI 参数（如 `presence_penalty`、`frequency_penalty`）会被忽略
+- 当前不支持图像和音频类型的输入
+
+**配置方式**：
+
+1. 注册 [platform.minimaxi.com](https://platform.minimaxi.com) 并获取 API Key
+2. PaperWorm 设置中选择 "MiniMax"，填入 API Key
+3. 点击"获取模型"自动加载可用模型列表
+
+---
+
 ## 模型选择建议
 
 ### 预算优先
@@ -268,6 +302,47 @@
 | 2026-04-20 | 新增 OpenRouter 服务商支持和文档                  |
 | 2026-04-21 | 新增 Xiaomi MiMo 服务商支持和文档                 |
 | 2026-04-21 | 更新 Claude 模型信息：新增 Opus 4.7，更新弃用通知 |
+| 2026-04-22 | 新增 MiniMax 服务商支持 |
+
+---
+
+## 思维链（Chain-of-Thought）支持状态
+
+> 本章节记录各模型思维链支持情况及 PaperWorm 的处理策略。
+
+### 当前状态
+
+| 提供商 | 思维链支持 | PaperWorm 处理 | 状态 |
+|--------|-----------|----------------|------|
+| **MiniMax** | ✅ `<think>` 标签包裹 | 流式输出时过滤标签，最终内容无思维链 | ✅ 已适配 |
+| **OpenAI (o1/o3)** | ✅ `reasoning_content` | 未处理 | ⏳ 待适配 |
+| **DeepSeek** | ✅ `<think>` 标签包裹 | 未处理 | ⏳ 待适配 |
+| **Anthropic** | ✅ `thinking` content block | 未处理 | ⏳ 待适配 |
+| **Gemini** | ✅ `thought` 字段 | 未处理 | ⏳ 待适配 |
+| **Kimi/Qwen/MiMo** | 部分支持 | 未处理 | ⏳ 待适配 |
+
+### MiniMax 思维链处理经验
+
+**发现的问题**：
+1. MiniMax 原生格式将思维链包裹在 `<think>...</think>` 标签中，直接包含在 `content` 字段
+2. 思维链语言不固定（中文/英文混合），影响阅读体验
+3. SSE 流式传输中 `<think>` 标签可能跨多个 chunk，需要在 UI 层累积完整内容后过滤
+
+**实现方案**：
+- Provider 层：`minimax.ts` 中过滤 `<think>` 标签（作为第一层防护）
+- UI 层：`readerPanel.ts` 中累积 `fullResponse` 后统一过滤（解决跨 chunk 问题）
+- 正则表达式：`/<think>[\s\S]*?<\/think>/g`
+
+**注意事项**：
+- 流式输出时思维链会短暂显示，完成后自动过滤
+- 这是当前最优解，未来版本将设计统一的思维链显示架构
+
+### 未来规划
+
+**v0.7.x 目标**：
+- 设计统一的思维链显示架构（可折叠、灰色显示）
+- 支持所有主流模型的思维链提取
+- 用户可配置是否显示思维链
 
 ---
 
@@ -279,6 +354,7 @@
 - [Kimi API 文档](https://platform.moonshot.cn/)
 - [Qwen 文档](https://help.aliyun.com/dashscope/)
 - [DeepSeek 文档](https://platform.deepseek.com/)
+- [MiniMax 文档](https://platform.minimaxi.com/docs/)
 - [Ollama 模型库](https://ollama.com/library)
 
 ---

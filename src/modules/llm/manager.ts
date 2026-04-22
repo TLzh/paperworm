@@ -6,6 +6,7 @@ import { OpenAIProvider } from "./openai";
 import { AnthropicProvider } from "./anthropic";
 import { GeminiProvider } from "./gemini";
 import { OllamaProvider } from "./ollama";
+import { MiniMaxProvider } from "./minimax";
 import { config } from "../../../package.json";
 
 export type ProviderName =
@@ -17,7 +18,8 @@ export type ProviderName =
   | "kimi"
   | "qwen"
   | "openrouter"
-  | "mimo";
+  | "mimo"
+  | "minimax";
 
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
@@ -102,6 +104,11 @@ export class LLMManager {
         const apiKey =
           (Zotero.Prefs.get(`${p}.llm.mimo.apiKey`, true) as string) ?? "";
         return new OpenAIProvider("mimo", apiKey, MIMO_BASE_URL, "api-key");
+      }
+      case "minimax": {
+        const apiKey =
+          (Zotero.Prefs.get(`${p}.llm.minimax.apiKey`, true) as string) ?? "";
+        return new MiniMaxProvider(apiKey);
       }
       default:
         throw new Error(`Unknown provider: ${name}`);
