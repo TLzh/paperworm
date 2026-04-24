@@ -65,7 +65,7 @@ To enable this feature:
 | Anthropic            | `claude-sonnet-4-6`               | Requires API key. See [Claude Model Guide](#claude-model-guide) below                                |
 | Google Gemini        | `gemini-3-flash-preview` (free)   | Recommended for most tasks; free tier available. See [Gemini Model Guide](#gemini-model-guide) below |
 | Kimi (Moonshot)      | `kimi-k2.6`                       | Requires API key from [platform.moonshot.cn](https://platform.moonshot.cn)                           |
-| Qwen (Alibaba Cloud) | `qwen3.6-max`                     | Requires API key from [bailian.console.aliyun.com](https://bailian.console.aliyun.com)               |
+| Alibaba Cloud Bailian | `qwen3.6-max`                     | Model aggregation platform; requires API key from [bailian.console.aliyun.com](https://bailian.console.aliyun.com) |
 | OpenRouter           | any model (e.g. `openai/gpt-4.1`) | Access hundreds of models via a single API key from [openrouter.ai](https://openrouter.ai)           |
 | Xiaomi MiMo          | `mimo-v2-pro`                     | Requires API key from [platform.xiaomimimo.com](https://platform.xiaomimimo.com)                     |
 | MiniMax              | `MiniMax-M2.7`                    | Requires API key from [platform.minimaxi.com](https://platform.minimaxi.com)                           |

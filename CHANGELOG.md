@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **服务商重命名** — "通义千问（阿里云）" 更名为 "阿里云百炼"，更准确反映其作为模型聚合平台的定位（类似 OpenRouter，除 Qwen 外还支持 MiniMax、DeepSeek 等第三方模型）
+
 ### Fixed
 
 - **文本选择时机优化** — 将选区捕获时机从 `mousedown` 改为 `mouseup`，确保在鼠标释放后捕获已完成的选区，减少因选区未完成或残留导致的文本偏移问题
@@ -174,7 +178,7 @@
 
 ### Added
 
-- 新增通义千问（阿里云 DashScope）支持，推荐模型 `qwen3.6-plus`。API 兼容 OpenAI 格式，复用 `OpenAIProvider`，无额外依赖。
+- 新增阿里云百炼（原通义千问）支持，推荐模型 `qwen3.6-plus`。API 兼容 OpenAI 格式，复用 `OpenAIProvider`，无额外依赖。
 
 ### Changed
 
