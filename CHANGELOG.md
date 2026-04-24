@@ -12,6 +12,14 @@
 
 - **服务商重命名** — "通义千问（阿里云）" 更名为 "阿里云百炼"，更准确反映其作为模型聚合平台的定位（类似 OpenRouter，除 Qwen 外还支持 MiniMax、DeepSeek 等第三方模型）
 
+### Updated
+
+- **DeepSeek 模型更新** — 新增 DeepSeek V4 系列模型信息
+  - 新增 `deepseek-v4-pro` 和 `deepseek-v4-flash` 模型
+  - 旧模型 `deepseek-chat` 和 `deepseek-reasoner` 将于 2026/07/24 弃用
+  - 新增思考模式（Thinking Mode）文档：支持思维链输出和工具调用
+  - 支持 OpenAI 和 Anthropic 双 API 格式
+
 ### Fixed
 
 - **文本选择时机优化** — 将选区捕获时机从 `mousedown` 改为 `mouseup`，确保在鼠标释放后捕获已完成的选区，减少因选区未完成或残留导致的文本偏移问题

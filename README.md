@@ -61,7 +61,7 @@ To enable this feature:
 | Provider             | Recommended Model                 | Notes                                                                                                |
 | -------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | OpenAI               | `gpt-5.4`                         | Requires API key. See [OpenAI Model Guide](#openai-model-guide) below                                |
-| DeepSeek             | `deepseek-chat`                   | Requires API key                                                                                     |
+| DeepSeek             | `deepseek-v4-pro`                 | Requires API key. Supports thinking mode and tool calling                                            |
 | Anthropic            | `claude-sonnet-4-6`               | Requires API key. See [Claude Model Guide](#claude-model-guide) below                                |
 | Google Gemini        | `gemini-3-flash-preview` (free)   | Recommended for most tasks; free tier available. See [Gemini Model Guide](#gemini-model-guide) below |
 | Kimi (Moonshot)      | `kimi-k2.6`                       | Requires API key from [platform.moonshot.cn](https://platform.moonshot.cn)                           |

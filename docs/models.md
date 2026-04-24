@@ -138,22 +138,65 @@
 
 ### DeepSeek
 
-**模型系列**：DeepSeek V3
+**最新模型系列**：DeepSeek V4
 
-| 模型            | API ID          | 上下文     | 特点     |
-| --------------- | --------------- | ---------- | -------- |
-| **DeepSeek V3** | `deepseek-chat` | 64K tokens | 国产开源 |
+| 模型                | API ID               | 上下文      | 特点         |
+| ------------------- | -------------------- | ----------- | ------------ |
+| **DeepSeek V4 Pro** | `deepseek-v4-pro`    | 1M tokens   | 旗舰模型     |
+| **DeepSeek V4 Flash** | `deepseek-v4-flash` | 1M tokens   | 快速响应     |
+
+**旧模型（即将弃用）**：
+
+| 模型              | API ID            | 状态                  |
+| ----------------- | ----------------- | --------------------- |
+| DeepSeek V3       | `deepseek-chat`   | ⚠️ 2026/07/24 弃用   |
+| DeepSeek Reasoner | `deepseek-reasoner` | ⚠️ 2026/07/24 弃用 |
+
+> 弃用说明：`deepseek-chat` 和 `deepseek-reasoner` 分别对应 `deepseek-v4-flash` 的非思考与思考模式。建议尽快迁移至新模型名。
 
 **特点**：
 
-- 价格极具竞争力
+- **超长上下文**：1M tokens 上下文长度，最大 384K 输出长度
+- **思考模式（Thinking Mode）**：支持思维链输出，通过 `thinking` 参数控制开关
+- **思考强度控制**：`reasoning_effort` 支持 `high` / `max`
+- **双 API 格式兼容**：同时支持 OpenAI 格式和 Anthropic 格式
+- **工具调用**：思考模式下支持多轮工具调用
+- **FIM 补全**：Beta 功能，仅非思考模式支持
 - 中文场景表现良好
-- API 与 OpenAI 兼容
+- 价格极具竞争力
 
-**定价**：
+**思考模式配置**（OpenAI 格式）：
 
-- 输入：\$0.07 / MTok（缓存命中）/ \$0.27（未命中）
-- 输出：\$1.1 / MTok
+```json
+{
+  "thinking": {"type": "enabled"},
+  "reasoning_effort": "high"
+}
+```
+
+**思考强度（`reasoning_effort`）说明**：
+
+| 级别 | 适用场景 | 说明 |
+|------|----------|------|
+| `high` | 普通对话、一般任务 | 默认级别，平衡质量与速度 |
+| `max` | 复杂 Agent 任务、深度推理 | 最高质量，消耗更多 Token |
+
+- 默认值：`high`（普通请求），`max`（复杂 Agent 类请求如 Claude Code、OpenCode）
+- 兼容性映射：`low`、`medium` → `high`；`xhigh` → `max`
+
+**注意事项**：
+
+- 思考模式下不支持 `temperature`、`top_p`、`presence_penalty`、`frequency_penalty` 参数（设置不会报错但不会生效）
+- 思维链内容通过 `reasoning_content` 字段返回，与 `content` 同级
+- 进行了工具调用的轮次，后续请求必须回传 `reasoning_content`
+
+**定价**（人民币）：
+
+| 计费项 | DeepSeek V4 Flash | DeepSeek V4 Pro |
+|--------|-------------------|-----------------|
+| 输入（缓存命中） | ¥0.2 / MTok | ¥1 / MTok |
+| 输入（缓存未命中） | ¥1 / MTok | ¥12 / MTok |
+| 输出 | ¥2 / MTok | ¥24 / MTok |
 
 ---
 
@@ -338,7 +381,7 @@
 |--------|-----------|----------------|------|
 | **MiniMax** | ✅ `<think>` 标签包裹 | 流式输出时过滤标签，最终内容无思维链 | ✅ 已适配 |
 | **OpenAI (o1/o3)** | ✅ `reasoning_content` | 未处理 | ⏳ 待适配 |
-| **DeepSeek** | ✅ `<think>` 标签包裹 | 未处理 | ⏳ 待适配 |
+| **DeepSeek (V4)** | ✅ `reasoning_content` 字段 | 未处理 | ⏳ 待适配 |
 | **Anthropic** | ✅ `thinking` content block | 未处理 | ⏳ 待适配 |
 | **Gemini** | ✅ `thought` 字段 | 未处理 | ⏳ 待适配 |
 | **Kimi/Qwen/MiMo** | 部分支持 | 未处理 | ⏳ 待适配 |
@@ -359,12 +402,37 @@
 - 流式输出时思维链会短暂显示，完成后自动过滤
 - 这是当前最优解，未来版本将设计统一的思维链显示架构
 
+### DeepSeek V4 思维链处理经验
+
+**关键发现**：
+1. **默认启用思考模式**：`deepseek-v4-pro` 和 `deepseek-v4-flash` 默认 `thinking: enabled`，即默认输出思维链
+2. **思维链格式**：通过 `reasoning_content` 字段返回，与 `content` 同级（非 `<think>` 标签包裹）
+3. **参数限制**：思考模式下 `temperature`、`top_p`、`presence_penalty`、`frequency_penalty` 不生效（设置不报错但无效）
+4. **上下文拼接**：
+   - 无工具调用：之前轮次的 `reasoning_content` **无需**回传，API 会忽略
+   - 有工具调用：之前轮次的 `reasoning_content` **必须**回传，否则返回 400 错误
+
+**实现方案（建议）**：
+- Provider 层：提取 `reasoning_content` 字段，与 `content` 分离
+- UI 层：设计可折叠的思维链显示区域（灰色、可展开/收起）
+- 配置项：用户可选择是否显示思维链（默认隐藏）
+
+**与 MiniMax 的区别**：
+
+| 特性 | MiniMax | DeepSeek V4 |
+|------|---------|-------------|
+| 思维链格式 | `<think>` 标签包裹在 `content` 中 | `reasoning_content` 独立字段 |
+| 默认状态 | 始终输出 | 默认启用（可关闭） |
+| 参数限制 | temperature 范围 (0, 1] | 思考模式下 temperature 等参数无效 |
+| 过滤方式 | 正则过滤 `<think>` 标签 | 直接提取 `reasoning_content` 字段 |
+
 ### 未来规划
 
 **v0.7.x 目标**：
 - 设计统一的思维链显示架构（可折叠、灰色显示）
-- 支持所有主流模型的思维链提取
+- 支持所有主流模型的思维链提取（MiniMax `<think>`、DeepSeek `reasoning_content`、Anthropic `thinking` block 等）
 - 用户可配置是否显示思维链
+- 针对 DeepSeek：添加"启用思考模式"开关，关闭时设置 `thinking: disabled`
 
 ---
 
