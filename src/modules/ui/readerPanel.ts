@@ -150,7 +150,7 @@ ${CHAT_CSS}
     <div class="pw-actions">
       <div class="pw-action-btn" role="button" tabindex="0" data-action="summarize">总结全文</div>
       <div class="pw-action-btn" role="button" tabindex="0" data-action="quote">选择文本</div>
-      <div class="pw-action-btn" role="button" tabindex="0" data-action="screenshot" title="画框截图，附加到消息">画框</div>
+      <div class="pw-action-btn" role="button" tabindex="0" data-action="screenshot" title="框选区域，截图附加到消息">框选区域</div>
       <div class="pw-action-btn pw-mineru-btn" role="button" tabindex="0" data-action="mineru" style="display:none">⚡ 精细提取</div>
     </div>
   </div>
@@ -409,7 +409,7 @@ function bindEvents(
   });
 }
 
-// ── 画框截图 ─────────────────────────────────────────────────────────────────
+// ── 框选区域截图 ──────────────────────────────────────────────────────────────
 
 /**
  * 激活截图模式：在 PDF 视图层注入全屏遮罩，用户拖框后从 PDF.js canvas 采样像素。
@@ -2448,7 +2448,7 @@ const CHAT_CSS = `
   border: 1px solid rgba(26,127,212,0.3);
   flex-shrink: 0;
 }
-/* 画框截图遮罩 */
+/* 框选区域截图遮罩 */
 .pw-capture-overlay {
   position: fixed;
   top: 0;

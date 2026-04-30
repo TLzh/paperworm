@@ -63,7 +63,7 @@ PaperWorm can analyze figures, charts, equations, and any visible region of a PD
 
 **How to use:**
 
-1. While reading a PDF, click the **camera icon** (画框) button in the PaperWorm panel toolbar
+1. While reading a PDF, click the **框选区域** button in the PaperWorm panel toolbar
 2. The cursor changes to a crosshair — drag to select the region you want to capture
 3. A thumbnail chip appears above the input box showing your screenshot
 4. Type your question (or leave it blank) and press Send

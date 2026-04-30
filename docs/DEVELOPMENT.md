@@ -193,6 +193,55 @@ const resp = await zhttp("POST", url, { headers, body, successCodes: [200] });
 
 ---
 
+## ⚠️ 截图捕获陷阱 — 每次碰 screenshot/视觉相关代码必读
+
+### Zotero 主窗口是 XUL 文档，无法注入 HTML overlay
+
+Zotero 的主窗口（`Zotero.getMainWindow()`）是 XUL 文档，`document.body === null`。
+任何向 `mainWin.document.body` 插入元素的尝试都会静默失败（`appendChild` 到 null）。
+
+**正确做法**：overlay 必须注入到 PDF viewer 的 HTML contentDocument，而不是主窗口。
+
+定位路径（与全文提取的 reader window 定位相同，见上方"PDF 全文提取"章节）：
+1. 通过 `Zotero_Tabs` 找到目标论文的 reader window
+2. 用 `_findDocumentWithCanvases()` 递归遍历帧树，找到含 `<canvas>` 的 HTML 文档
+3. 将 overlay 注入该文档的 `document.body`
+
+```typescript
+// ❌ 错误 — mainWin.document.body 是 null（XUL 文档）
+mainWin.document.body.appendChild(overlay);
+
+// ✅ 正确 — 注入 PDF viewer 的 HTML contentDocument
+pdfDoc.body.appendChild(overlay);
+```
+
+### `ctx.drawWindow()` 在 Zotero 7 (Firefox 115+) 已移除
+
+`CanvasRenderingContext2D.drawWindow()` 是 Gecko 特权 API，在 Firefox 115+ 已被移除。
+即使在 chrome 特权上下文中调用，也会抛出 `TypeError: ctx.drawWindow is not a function`。
+
+**正确做法**：直接从 PDF.js 渲染的 `<canvas>` 元素用 `drawImage()` 裁剪：
+
+```typescript
+// ❌ 错误 — Firefox 115+ 已移除
+ctx.drawWindow(win, x, y, w, h, "white");
+
+// ✅ 正确 — 从 PDF.js canvas 裁剪目标区域
+const scale = canvas.width / canvas.getBoundingClientRect().width;
+offscreen.getContext("2d").drawImage(
+  canvas,
+  (selX - canvasRect.left) * scale,  // 源 x
+  (selY - canvasRect.top) * scale,   // 源 y
+  selW * scale, selH * scale,        // 源宽高
+  0, 0, selW * scale, selH * scale   // 目标
+);
+```
+
+这个方案坐标系一致（overlay 和 canvas 都在同一 contentDocument 里），
+`getBoundingClientRect()` 直接可用，无需额外偏移计算。
+
+---
+
 ## 重要约定
 
 - 不要在 `hooks.ts` 里写业务逻辑，只做分发
