@@ -19,6 +19,7 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 - **Multiple sessions per paper** — start new conversations and switch between them via the **Session List** view
 - **Rich text rendering** — Markdown (headings, bold, lists, code blocks) and LaTeX math (via KaTeX MathML) rendered in AI responses
 - **Precise layout extraction (MinerU)** — optional layout-aware text extraction using [MinerU](https://github.com/opendatalab/mineru) to better handle tables, formulas, and structured content
+- **Multimodal screenshot analysis** — drag to draw a rectangle over any figure, chart, or equation in the PDF; the captured region is attached to your next message and analyzed by a vision-capable model
 
 ## Requirements
 
@@ -55,6 +56,39 @@ To enable this feature:
 6. The extracted content will be cached as a Zotero note and used for subsequent conversations with this paper
 
 **Note**: The cached content syncs across devices via your Zotero account. Once extracted, the structured text is available on all your devices without re-extraction.
+
+### Multimodal Screenshot Analysis (Optional)
+
+PaperWorm can analyze figures, charts, equations, and any visible region of a PDF by capturing a screenshot and sending it to a vision-capable LLM.
+
+**How to use:**
+
+1. While reading a PDF, click the **camera icon** (画框) button in the PaperWorm panel toolbar
+2. The cursor changes to a crosshair — drag to select the region you want to capture
+3. A thumbnail chip appears above the input box showing your screenshot
+4. Type your question (or leave it blank) and press Send
+5. The AI will receive both the screenshot and your text
+
+**Configuring the vision assistant model:**
+
+The vision assistant runs as a separate LLM call, independent of your main chat model. To configure it:
+
+1. Open **Edit → Settings → PaperWorm**
+2. Scroll to the **视觉辅助模型** (Vision Assistant Model) section
+3. Select a provider and enter the vision model name (e.g. `kimi-k2.6` for Kimi)
+4. The vision assistant uses the same API key as the selected provider — no extra key needed
+
+**Recommended vision models:**
+
+| Provider | Model | Notes |
+|----------|-------|-------|
+| Kimi (Moonshot) | `kimi-k2.6` | Supports native vision; API key shared with Kimi chat config |
+
+**Notes:**
+
+- If no vision assistant is configured, the screenshot is still described as "视觉模型未配置" and the message is sent with that placeholder — the main model will acknowledge it but cannot see the image
+- Screenshot descriptions are cached for the session: the same image region sent multiple times only calls the vision model once
+- Screenshot data stays in memory only; stored session notes use `[截图 📷]` as a placeholder instead of the raw image
 
 ## Supported Providers
 

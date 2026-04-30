@@ -3,8 +3,21 @@
  * API 格式与 OpenAI 不同：system prompt 单独传参，streaming 事件类型不同
  */
 
-import type { LLMProvider, LLMMessage, LLMRequestOptions } from "./provider";
+import type { LLMProvider, LLMMessage, LLMRequestOptions, ContentPart } from "./provider";
 import { zhttp } from "./provider";
+
+function toAnthropicContent(content: string | ContentPart[]) {
+  if (typeof content === "string") return content;
+  return content.map((part) => {
+    if (part.type === "text") return { type: "text", text: part.text };
+    const commaIdx = part.image_url.url.indexOf(",");
+    if (commaIdx === -1) return { type: "text", text: "[图片数据格式错误]" };
+    const meta = part.image_url.url.slice(0, commaIdx);
+    const data = part.image_url.url.slice(commaIdx + 1);
+    const mediaType = meta.split(":")[1]?.split(";")[0] ?? "image/png";
+    return { type: "image", source: { type: "base64", media_type: mediaType, data } };
+  });
+}
 
 const BASE_URL = "https://api.anthropic.com";
 const API_VERSION = "2023-06-01";
@@ -117,7 +130,10 @@ export class AnthropicProvider implements LLMProvider {
 
     const body: Record<string, any> = {
       model: options.model,
-      messages: userMessages,
+      messages: userMessages.map((m) => ({
+        ...m,
+        content: toAnthropicContent(m.content),
+      })),
       max_tokens: options.maxTokens ?? 2000,
       stream,
     };

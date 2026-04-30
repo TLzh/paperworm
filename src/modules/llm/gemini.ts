@@ -4,8 +4,21 @@
  * 流式输出返回 JSON 数组（Server-Sent Events 格式）
  */
 
-import type { LLMProvider, LLMMessage, LLMRequestOptions } from "./provider";
+import type { LLMProvider, LLMMessage, LLMRequestOptions, ContentPart } from "./provider";
 import { zhttp } from "./provider";
+
+function toGeminiParts(content: string | ContentPart[]) {
+  if (typeof content === "string") return [{ text: content }];
+  return content.map((part) => {
+    if (part.type === "text") return { text: part.text };
+    const commaIdx = part.image_url.url.indexOf(",");
+    if (commaIdx === -1) return { text: "[图片数据格式错误]" };
+    const meta = part.image_url.url.slice(0, commaIdx);
+    const data = part.image_url.url.slice(commaIdx + 1);
+    const mimeType = meta.split(":")[1]?.split(";")[0] ?? "image/png";
+    return { inlineData: { mimeType, data } };
+  });
+}
 
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -116,7 +129,7 @@ export class GeminiProvider implements LLMProvider {
     const body: Record<string, any> = {
       contents: otherMessages.map((m) => ({
         role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
+        parts: toGeminiParts(m.content),
       })),
       generationConfig: {
         temperature: options.temperature ?? 0.7,
@@ -125,7 +138,8 @@ export class GeminiProvider implements LLMProvider {
     };
 
     if (systemMsg) {
-      body.systemInstruction = { parts: [{ text: systemMsg.content }] };
+      const sysText = typeof systemMsg.content === "string" ? systemMsg.content : "";
+      body.systemInstruction = { parts: [{ text: sysText }] };
     }
 
     return body;

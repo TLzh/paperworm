@@ -438,7 +438,44 @@
   </hbox>
 </groupbox>
 
-<!-- ── Section 3: Prompts ── -->
+<!-- ── Section 3: Vision Assistant ── -->
+<groupbox>
+  <label><html:h2>视觉辅助模型（可选）</html:h2></label>
+
+  <vbox style="margin-left: 8px; margin-bottom: 8px">
+    <description style="font-size: 0.9em; color: #666">
+      配置后，"画框"截图功能将调用此视觉模型描述图片内容，再交给主模型分析。
+      API Key 自动复用「LLM 服务配置」中已保存的对应提供商密钥，无需重复填写。
+    </description>
+  </vbox>
+
+  <hbox align="center" style="margin-bottom: 6px">
+    <label style="width: 110px; min-width: 110px">视觉提供商</label>
+    <menulist
+      id="__addonRef__-vision-provider"
+      preference="extensions.zotero.paperworm.llm.vision.provider"
+      style="flex: 1"
+    >
+      <menupopup>
+        <menuitem value="" label="不启用" />
+        <menuitem value="kimi" label="Kimi（月之暗面）" />
+      </menupopup>
+    </menulist>
+  </hbox>
+
+  <hbox align="center" style="margin-bottom: 6px">
+    <label style="width: 110px; min-width: 110px">视觉模型</label>
+    <html:input
+      type="text"
+      id="__addonRef__-vision-model"
+      preference="extensions.zotero.paperworm.llm.vision.model"
+      style="flex: 1; padding: 2px 4px"
+      placeholder="如 kimi-k2.6、moonshot-v1-128k-vision-preview"
+    />
+  </hbox>
+</groupbox>
+
+<!-- ── Section 4: Prompts ── -->
 <groupbox>
   <label><html:h2 data-l10n-id="pref-prompt-section"></html:h2></label>
 

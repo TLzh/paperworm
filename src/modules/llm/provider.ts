@@ -13,20 +13,27 @@ export async function zhttp(
   opts: {
     headers?: Record<string, string>;
     body?: string;
-    successCodes?: number[];
+    successCodes?: number[] | false; // false = 接受所有状态码
+    timeout?: number; // ms；0 = 不限；默认继承 Zotero.HTTP 的 30s
   } = {},
 ): Promise<{ status: number; responseText: string }> {
-  return (Zotero.HTTP as any).request(method, url, {
+  const reqOpts: Record<string, any> = {
     headers: opts.headers,
     body: opts.body,
-    successCodes: opts.successCodes ?? [200],
+    successCodes: opts.successCodes !== undefined ? opts.successCodes : [200],
     errorDelayMax: 0, // 禁止 5xx 自动重试，立即抛出
-  });
+  };
+  if (opts.timeout !== undefined) reqOpts.timeout = opts.timeout;
+  return (Zotero.HTTP as any).request(method, url, reqOpts);
 }
+
+export type ContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
 
 export interface LLMMessage {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | ContentPart[];
 }
 
 export interface LLMRequestOptions {

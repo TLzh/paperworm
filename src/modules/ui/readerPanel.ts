@@ -5,9 +5,16 @@
 
 import { config } from "../../../package.json";
 import { LLMManager } from "../llm/manager";
+import type { ContentPart } from "../llm/provider";
 import { ChatHistory } from "../chat/history";
 import { PaperExtractor } from "../paper/extractor";
 import { MinerUCacheManager } from "../paper/strategies/mineru";
+import {
+  getVisionMode,
+  isVisionConfigured,
+  describeImage,
+  clearVisionCache,
+} from "../llm/visionRouter";
 import katex from "katex";
 
 // 每篇论文单独维护一份对话历史（以 parentItem.id 为 key）
@@ -55,6 +62,8 @@ export function registerReaderPanel() {
     },
     onItemChange(props: any) {
       const { body, item } = props as { body: HTMLElement; item: Zotero.Item };
+      // 切换论文时清空视觉描述缓存，避免截图 base64 跨会话驻留内存
+      clearVisionCache();
       // 仅当该论文有活跃会话时才自动导航，否则让用户看到信息/摘要
       const hasSession =
         getHistory(item).getAll().length > 0 ||
@@ -141,7 +150,7 @@ ${CHAT_CSS}
     <div class="pw-actions">
       <div class="pw-action-btn" role="button" tabindex="0" data-action="summarize">总结全文</div>
       <div class="pw-action-btn" role="button" tabindex="0" data-action="quote">选择文本</div>
-      <div class="pw-action-btn pw-action-btn--disabled" role="button" tabindex="0" data-action="screenshot" title="多模态截图（即将支持）">画框</div>
+      <div class="pw-action-btn" role="button" tabindex="0" data-action="screenshot" title="画框截图，附加到消息">画框</div>
       <div class="pw-action-btn pw-mineru-btn" role="button" tabindex="0" data-action="mineru" style="display:none">⚡ 精细提取</div>
     </div>
   </div>
@@ -150,7 +159,12 @@ ${CHAT_CSS}
     <div class="pw-selection-chip pw-hidden">
       <span class="pw-chip-label">引用</span>
       <span class="pw-chip-text"></span>
-      <div class="pw-chip-close" role="button" tabindex="0">×</div>
+      <div class="pw-chip-close pw-sel-chip-close" role="button" tabindex="0">×</div>
+    </div>
+    <div class="pw-screenshot-chip pw-hidden">
+      <span class="pw-chip-label">截图</span>
+      <img class="pw-screenshot-thumb" alt="截图预览" />
+      <div class="pw-chip-close pw-img-chip-close" role="button" tabindex="0">×</div>
     </div>
     <textarea class="pw-input" rows="3" placeholder="输入问题… Enter 发送，Shift+Enter 换行"></textarea>
     <div class="pw-send-btn" role="button" tabindex="0">发送 ↑</div>
@@ -249,10 +263,10 @@ function bindEvents(
   // 显示为 chip，发送后或用户手动关闭后清空。
   let pendingSelection = "";
 
-  // Chip DOM 引用
+  // Selection chip DOM 引用
   const chip = panel.querySelector(".pw-selection-chip") as HTMLElement;
   const chipTextEl = panel.querySelector(".pw-chip-text") as HTMLElement;
-  const chipClose = panel.querySelector(".pw-chip-close") as HTMLElement;
+  const chipClose = panel.querySelector(".pw-sel-chip-close") as HTMLElement;
 
   function showChip(text: string) {
     pendingSelection = text;
@@ -268,6 +282,26 @@ function bindEvents(
 
   chipClose.addEventListener("click", clearChip);
 
+  // Screenshot chip
+  let pendingScreenshot: string | null = null;
+  const screenshotChip = panel.querySelector(".pw-screenshot-chip") as HTMLElement;
+  const screenshotThumb = panel.querySelector(".pw-screenshot-thumb") as HTMLImageElement;
+  const imgChipClose = panel.querySelector(".pw-img-chip-close") as HTMLElement;
+
+  function showScreenshotChip(dataUrl: string) {
+    pendingScreenshot = dataUrl;
+    screenshotThumb.src = dataUrl;
+    screenshotChip.classList.remove("pw-hidden");
+  }
+
+  function clearScreenshotChip() {
+    pendingScreenshot = null;
+    screenshotThumb.src = "";
+    screenshotChip.classList.add("pw-hidden");
+  }
+
+  imgChipClose.addEventListener("click", clearScreenshotChip);
+
   panel.addEventListener(
     "mouseup",
     () => {
@@ -280,11 +314,13 @@ function bindEvents(
   function doSend() {
     if (sendBtn.classList.contains("pw-disabled")) return;
     const text = textarea.value.trim();
-    if (!text) return;
+    if (!text && !pendingScreenshot) return;
     textarea.value = "";
-    const sel = pendingSelection; // 使用 chip 中明确附加的上下文
-    clearChip(); // 发送后清空 chip
-    void send(doc, messagesEl, item, text, sel, sendBtn);
+    const sel = pendingSelection;
+    const screenshot = pendingScreenshot;
+    clearChip();
+    clearScreenshotChip();
+    void send(doc, messagesEl, item, text, sel, screenshot, sendBtn);
   }
 
   sendBtn.addEventListener("click", doSend);
@@ -312,7 +348,10 @@ function bindEvents(
       }
 
       if (action === "screenshot") {
-        // 占位：多模态画框功能，等待实现
+        startScreenshotCapture(doc, item, (dataUrl) => {
+          showScreenshotChip(dataUrl);
+          textarea.focus();
+        });
         return;
       }
 
@@ -370,6 +409,268 @@ function bindEvents(
   });
 }
 
+// ── 画框截图 ─────────────────────────────────────────────────────────────────
+
+/**
+ * 激活截图模式：在 PDF 视图层注入全屏遮罩，用户拖框后从 PDF.js canvas 采样像素。
+ *
+ * 注意：主窗口是 XUL 文档（document.body = null），不能直接操作。
+ * 遮罩必须注入到含有 PDF.js canvas 元素的 HTML 文档（PDF viewer 内容文档）。
+ */
+function startScreenshotCapture(
+  _panelDoc: Document,
+  item: Zotero.Item,
+  onCapture: (dataUrl: string) => void,
+): void {
+  const attachmentID = item.isAttachment()
+    ? item.id
+    : ((item.getAttachments()[0] as number | undefined) ?? null);
+  if (!attachmentID) return;
+
+  const readerWin = _getReaderWindowForAttachment(attachmentID);
+  if (!readerWin) return;
+
+  const pdfDoc = _findDocumentWithCanvases(readerWin);
+  if (!pdfDoc?.body) return;
+  const doc = pdfDoc; // narrowed, non-null alias for use inside closures
+
+  // Inject CSS (idempotent)
+  if (!doc.getElementById("pw-capture-css")) {
+    const style = doc.createElement("style");
+    style.id = "pw-capture-css";
+    style.textContent =
+      ".pw-capture-overlay{position:fixed;top:0;left:0;right:0;bottom:0;cursor:crosshair;z-index:9999;background:rgba(0,0,0,0.08);}" +
+      ".pw-capture-selection{position:fixed;border:2px solid #1a7fd4;background:rgba(26,127,212,0.08);pointer-events:none;z-index:10000;display:none;}";
+    (doc.head ?? doc.documentElement!).appendChild(style);
+  }
+
+  const overlay = doc.createElement("div");
+  overlay.className = "pw-capture-overlay";
+  doc.body!.appendChild(overlay);
+
+  const selBox = doc.createElement("div");
+  selBox.className = "pw-capture-selection";
+  doc.body!.appendChild(selBox);
+
+  let startX = 0, startY = 0, dragging = false;
+
+  function cleanup() {
+    overlay.remove();
+    selBox.remove();
+    doc.removeEventListener("keydown", escHandler);
+  }
+
+  overlay.addEventListener("mousedown", (e: MouseEvent) => {
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    selBox.style.cssText = `display:block;left:${startX}px;top:${startY}px;width:0;height:0;`;
+  });
+
+  overlay.addEventListener("mousemove", (e: MouseEvent) => {
+    if (!dragging) return;
+    const x = Math.min(e.clientX, startX);
+    const y = Math.min(e.clientY, startY);
+    const w = Math.abs(e.clientX - startX);
+    const h = Math.abs(e.clientY - startY);
+    selBox.style.cssText = `display:block;position:fixed;left:${x}px;top:${y}px;width:${w}px;height:${h}px;border:2px solid #1a7fd4;background:rgba(26,127,212,0.08);pointer-events:none;z-index:10000;`;
+  });
+
+  overlay.addEventListener("mouseup", (e: MouseEvent) => {
+    if (!dragging) return;
+    dragging = false;
+    const x = Math.min(e.clientX, startX);
+    const y = Math.min(e.clientY, startY);
+    const w = Math.abs(e.clientX - startX);
+    const h = Math.abs(e.clientY - startY);
+
+    overlay.style.display = "none";
+    selBox.style.display = "none";
+
+    const dataUrl = captureFromPDFCanvas(doc, x, y, w, h);
+    cleanup();
+    if (dataUrl) onCapture(dataUrl);
+  });
+
+  const escHandler = (e: KeyboardEvent) => {
+    if (e.key === "Escape") cleanup();
+  };
+  doc.addEventListener("keydown", escHandler);
+}
+
+/**
+ * 递归搜索 reader 窗口的帧树，找到包含 PDF.js canvas 元素的文档。
+ * PDF.js 渲染的每页都是一个 <canvas>，该文档即为注入遮罩的目标文档。
+ */
+function _findDocumentWithCanvases(win: any): Document | null {
+  const visited = new Set<any>();
+
+  function search(w: any): Document | null {
+    if (!w || visited.has(w)) return null;
+    visited.add(w);
+
+    try {
+      const doc = w.document as Document;
+      if (doc?.querySelector?.("canvas")) return doc;
+    } catch {
+      /* cross-origin */
+    }
+
+    try {
+      for (let i = 0; i < (w.frames?.length ?? 0); i++) {
+        try {
+          const r = search(w.frames[i]);
+          if (r) return r;
+        } catch {
+          /* cross-origin */
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      const els = Array.from(
+        w.document?.querySelectorAll?.("iframe, browser") ?? [],
+      ) as any[];
+      for (const el of els) {
+        try {
+          const r = search(el.contentWindow);
+          if (r) return r;
+        } catch {
+          /* cross-origin */
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    return null;
+  }
+
+  return search(win);
+}
+
+/**
+ * 从 PDF.js canvas 元素中裁剪指定视口矩形区域（CSS 像素坐标）。
+ * 选区可跨多个页面 canvas，按空间位置拼合到输出图像。
+ */
+function captureFromPDFCanvas(
+  pdfDoc: Document,
+  selX: number,
+  selY: number,
+  selW: number,
+  selH: number,
+): string | null {
+  if (selW < 4 || selH < 4) return null;
+
+  try {
+    const offscreen = pdfDoc.createElement("canvas");
+    offscreen.width = Math.round(selW);
+    offscreen.height = Math.round(selH);
+    const ctx = offscreen.getContext("2d") as CanvasRenderingContext2D | null;
+    if (!ctx) return null;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+
+    const canvases = Array.from(
+      pdfDoc.querySelectorAll("canvas"),
+    ) as HTMLCanvasElement[];
+    let captured = false;
+
+    for (const canvas of canvases) {
+      if (!canvas.width || !canvas.height) continue;
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) continue;
+
+      const intLeft = Math.max(selX, rect.left);
+      const intTop = Math.max(selY, rect.top);
+      const intRight = Math.min(selX + selW, rect.right);
+      const intBottom = Math.min(selY + selH, rect.bottom);
+      if (intRight <= intLeft || intBottom <= intTop) continue;
+
+      const intW = intRight - intLeft;
+      const intH = intBottom - intTop;
+
+      // Canvas intrinsic pixels : CSS pixels
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      const srcX = (intLeft - rect.left) * scaleX;
+      const srcY = (intTop - rect.top) * scaleY;
+      const srcW = intW * scaleX;
+      const srcH = intH * scaleY;
+
+      const destX = intLeft - selX;
+      const destY = intTop - selY;
+
+      ctx.drawImage(canvas, srcX, srcY, srcW, srcH, destX, destY, intW, intH);
+      captured = true;
+    }
+
+    if (!captured) return null;
+
+    // Scale down for vision API: cap long side at 1024px, encode as JPEG to shrink payload
+    const MAX_SIDE = 1024;
+    const longSide = Math.max(offscreen.width, offscreen.height);
+    if (longSide > MAX_SIDE) {
+      const scale = MAX_SIDE / longSide;
+      const scaled = pdfDoc.createElement("canvas");
+      scaled.width = Math.round(offscreen.width * scale);
+      scaled.height = Math.round(offscreen.height * scale);
+      const sctx = scaled.getContext("2d") as CanvasRenderingContext2D | null;
+      if (sctx) {
+        sctx.drawImage(offscreen, 0, 0, scaled.width, scaled.height);
+        return scaled.toDataURL("image/jpeg", 0.9);
+      }
+    }
+    return offscreen.toDataURL("image/png");
+  } catch (e) {
+    Zotero.log(`PaperWorm: captureFromPDFCanvas failed — ${e}`, "error");
+    return null;
+  }
+}
+
+/**
+ * 通过 Zotero_Tabs + Zotero.Reader._readers 找到指定附件 ID 对应的 reader 窗口。
+ * 与 PaperExtractor._getReaderWindow() 逻辑相同（私有方法不可跨模块调用，故复制）。
+ */
+function _getReaderWindowForAttachment(attachmentID: number): Window | null {
+  const mainWin = Zotero.getMainWindow() as any;
+  if (!mainWin) return null;
+
+  const tabs = (globalThis as any).Zotero_Tabs;
+  const allTabs: any[] = tabs?._tabs ?? [];
+
+  for (const tab of allTabs) {
+    if (tab?.type !== "reader") continue;
+    if (tab?.data?.itemID !== attachmentID) continue;
+    try {
+      const tabCont = mainWin.document?.getElementById?.(tab.id);
+      if (!tabCont) continue;
+      const browser =
+        tabCont.querySelector?.("browser.reader") ??
+        tabCont.querySelector?.("browser");
+      if (browser?.contentWindow) return browser.contentWindow as Window;
+    } catch {
+      /* skip */
+    }
+  }
+
+  try {
+    const readers: any[] = (Zotero.Reader as any)._readers ?? [];
+    for (const r of readers) {
+      if (r?.itemID !== attachmentID) continue;
+      const win = r._iframeWindow ?? r._iframe?.contentWindow ?? null;
+      if (win) return win as Window;
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return null;
+}
+
 // ── 快捷操作 ─────────────────────────────────────────────────────────────────
 
 function handleAction(
@@ -407,6 +708,7 @@ async function send(
   item: Zotero.Item,
   userText: string,
   selectedText: string,
+  screenshotDataUrl: string | null,
   sendBtn: HTMLElement,
 ) {
   sendBtn.classList.add("pw-disabled");
@@ -425,7 +727,11 @@ async function send(
     (p) => p.providerId === providerName,
   );
 
-  appendMessage(doc, messagesEl, "user", finalText);
+  // 展示用消息（UI 显示截图占位符或纯文本）
+  const displayText = screenshotDataUrl
+    ? (finalText ? `[截图 📷] ${finalText}` : "[截图 📷]")
+    : finalText;
+  appendMessage(doc, messagesEl, "user", displayText);
   scrollToBottom(messagesEl);
 
   const aiEl = appendMessage(doc, messagesEl, "assistant", "");
@@ -454,12 +760,43 @@ async function send(
     // 注意：未入库历史，避免留下无 AI 响应的悬空消息
   }
 
+  // 构建发送给 LLM 的实际消息 content（可能含 ContentPart[]）
+  // 历史存储始终用纯文本，图片替换为占位符
+  let userContent: string | ContentPart[];
+  const historyContent = screenshotDataUrl
+    ? `[截图 📷]${finalText ? "\n\n" + finalText : ""}`
+    : finalText;
+
+  if (screenshotDataUrl) {
+    const mode = getVisionMode();
+    if (mode === "native") {
+      userContent = [
+        { type: "text", text: finalText || "请分析这张截图" },
+        { type: "image_url", image_url: { url: screenshotDataUrl } },
+      ] as ContentPart[];
+    } else {
+      // text 模式：调用辅助视觉 LLM 获取描述（带会话级缓存）
+      let desc = "(视觉模型未配置，请在设置中配置视觉辅助模型)";
+      if (isVisionConfigured()) {
+        try {
+          desc = await describeImage(screenshotDataUrl, userText);
+        } catch (e: any) {
+          desc = `（视觉模型调用失败：${e.message}）`;
+        }
+      }
+      userContent = `[图片内容描述：\n${desc}]${finalText ? "\n\n" + finalText : ""}`;
+    }
+  } else {
+    userContent = finalText;
+  }
+
   // 提取成功后才将用户消息入库，防止异常时留下悬空历史
-  history.add({ role: "user", content: finalText });
+  history.add({ role: "user", content: historyContent });
 
   const messages = [
     { role: "system" as const, content: systemContent },
-    ...history.getAll(),
+    ...history.getAll().slice(0, -1), // 除最后一条（用 userContent 替代）
+    { role: "user" as const, content: userContent },
   ];
 
   const model =
@@ -1045,9 +1382,8 @@ async function saveSession(
 
   // 标题 = 首条用户消息前 25 字（去换行）
   const firstUser = visibleMsgs.find((m) => m.role === "user");
-  const title = firstUser
-    ? firstUser.content.replace(/\n/g, " ").trim().slice(0, 25)
-    : "未命名会话";
+  const firstContent = typeof firstUser?.content === "string" ? firstUser.content : "[截图 📷]";
+  const title = firstUser ? firstContent.replace(/\n/g, " ").trim().slice(0, 25) : "未命名会话";
 
   const now = new Date().toISOString();
   const existingID = activeNoteIDs.get(getItemKey(item)) ?? null;
@@ -1063,14 +1399,21 @@ async function saveSession(
     }
   }
 
+  // 历史中的 content 始终是 string（图片已在 send() 中替换为占位符），此处防御性转换
+  const stringMessages = msgs.map((m) => ({
+    role: m.role,
+    content: typeof m.content === "string" ? m.content : "[截图 📷]",
+  }));
+  const stringVisibleMsgs = stringMessages.filter((m) => m.role !== "system");
+
   const data: SessionData = {
     version: 2,
     title,
     created,
     updated: now,
-    messages: msgs,
+    messages: stringMessages,
   };
-  const noteContent = buildNoteHtml(title, visibleMsgs, data);
+  const noteContent = buildNoteHtml(title, stringVisibleMsgs, data);
 
   if (existingID != null) {
     const note = Zotero.Items.get(existingID);
@@ -1130,11 +1473,12 @@ function renderChatHistory(
   messagesEl.textContent = "";
   for (const msg of getHistory(item).getAll()) {
     if (msg.role !== "system") {
+      const text = typeof msg.content === "string" ? msg.content : "[截图 📷]";
       appendMessage(
         doc,
         messagesEl,
         msg.role as "user" | "assistant",
-        msg.content,
+        text,
         msg.role === "assistant",
       );
     }
@@ -1261,7 +1605,7 @@ function getProviderDisplayName(providerId: string): string {
     gemini: "Gemini",
     ollama: "Ollama",
     kimi: "Kimi",
-    qwen: "Qwen",
+    qwen: "阿里云百炼",
     openrouter: "OpenRouter",
     mimo: "MiMo",
     minimax: "MiniMax",
@@ -2081,4 +2425,46 @@ const CHAT_CSS = `
   line-height: 1;
 }
 .pw-session-del:hover { opacity: 0.8; }
+/* 截图 chip */
+.pw-screenshot-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(26,127,212,0.08);
+  border: 1px solid rgba(26,127,212,0.3);
+  border-radius: 6px;
+  font-size: 11px;
+  color: #1a7fd4;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.pw-screenshot-chip.pw-hidden { display: none; }
+.pw-screenshot-thumb {
+  width: 48px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid rgba(26,127,212,0.3);
+  flex-shrink: 0;
+}
+/* 画框截图遮罩 */
+.pw-capture-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  cursor: crosshair;
+  z-index: 9999;
+  background: rgba(0,0,0,0.08);
+}
+.pw-capture-selection {
+  position: fixed;
+  border: 2px solid #1a7fd4;
+  background: rgba(26,127,212,0.08);
+  pointer-events: none;
+  z-index: 10000;
+  display: none;
+}
 `;

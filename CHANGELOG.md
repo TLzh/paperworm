@@ -8,21 +8,45 @@
 
 ## [Unreleased]
 
+---
+
+## [0.7.0] - 2026-04-30
+
+### Added
+
+- **多模态截图分析** — 启用"画框"按钮，支持在 PDF 上拖框截图并附加到对话消息
+  - 点击"画框"后出现全屏遮罩，鼠标变十字光标
+  - 拖框选取 PDF 区域，松开后生成截图缩略图（截图 chip）显示在输入框上方
+  - 截图通过递归帧树定位 PDF.js 渲染 canvas，使用 `drawImage()` 精确裁剪所选区域
+  - 长边超过 1024px 自动等比缩放（JPEG 90%），控制图片体积
+  - 支持截图 + 文字混合发送；截图历史存储为 `[截图 📷]` 占位符，不持久化原始 base64
+  - 按 Esc 键取消截图模式
+
+- **视觉辅助模型配置** — 设置页新增"视觉辅助模型（可选）"区域
+  - 当前支持 Kimi（月之暗面）作为视觉提供商，API Key 自动复用主模型 Kimi Key，无需重复填写
+  - 推荐视觉模型：`kimi-k2.6`（原生多模态，中文描述能力强）
+  - 配置后截图发送时先调用视觉 LLM 描述图片，描述文本以 `[图片内容描述：\n...]` 形式注入主模型 context
+  - 会话级图片描述缓存：相同截图在同一会话内只调用视觉 LLM 一次；切换论文自动清空缓存
+
+- **多模态 Provider 支持** — 各 LLM 适配器均扩展了多模态消息格式：
+  - **OpenAI / MiniMax / OpenRouter / MiMo / DeepSeek / Kimi / 阿里云百炼**：透传 OpenAI content 数组格式（无需修改）
+  - **Anthropic**：自动将 `ContentPart[]` 转换为 `source.base64` 格式
+  - **Gemini**：自动将 `ContentPart[]` 转换为 `inlineData` 格式
+  - **Ollama**：自动提取图片到顶层 `images` 字段（裸 base64）
+
 ### Changed
 
-- **服务商重命名** — "通义千问（阿里云）" 更名为 "阿里云百炼"，更准确反映其作为模型聚合平台的定位（类似 OpenRouter，除 Qwen 外还支持 MiniMax、DeepSeek 等第三方模型）
+- **服务商重命名** — "通义千问（阿里云）" 更名为 "阿里云百炼"，更准确反映其作为模型聚合平台的定位
 
 ### Updated
 
 - **DeepSeek 模型更新** — 新增 DeepSeek V4 系列模型信息
   - 新增 `deepseek-v4-pro` 和 `deepseek-v4-flash` 模型
   - 旧模型 `deepseek-chat` 和 `deepseek-reasoner` 将于 2026/07/24 弃用
-  - 新增思考模式（Thinking Mode）文档：支持思维链输出和工具调用
-  - 支持 OpenAI 和 Anthropic 双 API 格式
 
 ### Fixed
 
-- **文本选择时机优化** — 将选区捕获时机从 `mousedown` 改为 `mouseup`，确保在鼠标释放后捕获已完成的选区，减少因选区未完成或残留导致的文本偏移问题
+- **文本选择时机优化** — 将选区捕获时机从 `mousedown` 改为 `mouseup`，减少选区残留问题
 
 ---
 

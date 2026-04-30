@@ -4,7 +4,7 @@
  * 无需 API Key，通过 baseUrl 指向本地服务
  */
 
-import type { LLMProvider, LLMRequestOptions } from "./provider";
+import type { LLMProvider, LLMRequestOptions, ContentPart } from "./provider";
 import { zhttp } from "./provider";
 
 export class OllamaProvider implements LLMProvider {
@@ -105,9 +105,27 @@ export class OllamaProvider implements LLMProvider {
   }
 
   private buildBody(options: LLMRequestOptions, stream: boolean) {
+    const images: string[] = [];
+    const messages = options.messages.map((m) => {
+      if (typeof m.content === "string") return m;
+      const parts = m.content as ContentPart[];
+      parts
+        .filter((p) => p.type === "image_url")
+        .forEach((p) => {
+          const url: string = (p as any).image_url.url;
+          const commaIdx = url.indexOf(",");
+          if (commaIdx !== -1) images.push(url.slice(commaIdx + 1));
+        });
+      const text = parts
+        .filter((p) => p.type === "text")
+        .map((p) => (p as any).text)
+        .join("\n");
+      return { ...m, content: text };
+    });
     return {
       model: options.model,
-      messages: options.messages,
+      messages,
+      ...(images.length > 0 ? { images } : {}),
       stream,
       options: {
         temperature: options.temperature ?? 0.7,
