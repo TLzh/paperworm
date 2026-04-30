@@ -357,6 +357,7 @@ interface LLMProvider {
 - [zotero-plugin-scaffold](https://github.com/northword/zotero-plugin-scaffold) by [@northword](https://github.com/northword) — build toolchain
 - [KaTeX](https://katex.org) — math formula rendering
 - [MinerU](https://github.com/opendatalab/mineru) by [OpenDataLab](https://github.com/opendatalab) — free, non-commercial layout-aware PDF text extraction service
+- [HermesAgent](https://github.com/NousResearch/hermes-agent) by [NousResearch](https://github.com/NousResearch) — the vision routing strategy (dedicated vision LLM → text description → main model injection) was inspired by HermesAgent's multimodal architecture
 
 ## License
 
