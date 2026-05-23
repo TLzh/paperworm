@@ -167,7 +167,7 @@ ${CHAT_CSS}
       <div class="pw-chip-close pw-img-chip-close" role="button" tabindex="0">×</div>
     </div>
     <textarea class="pw-input" rows="3" placeholder="输入问题… Enter 发送，Shift+Enter 换行"></textarea>
-    <div class="pw-send-btn" role="button" tabindex="0">发送 ↑</div>
+    <div class="pw-send-btn" role="button" tabindex="0">发送 ↑ (Enter)</div>
   </div>
 </div>`;
   body.appendChild(wrapper);
@@ -284,8 +284,12 @@ function bindEvents(
 
   // Screenshot chip
   let pendingScreenshot: string | null = null;
-  const screenshotChip = panel.querySelector(".pw-screenshot-chip") as HTMLElement;
-  const screenshotThumb = panel.querySelector(".pw-screenshot-thumb") as HTMLImageElement;
+  const screenshotChip = panel.querySelector(
+    ".pw-screenshot-chip",
+  ) as HTMLElement;
+  const screenshotThumb = panel.querySelector(
+    ".pw-screenshot-thumb",
+  ) as HTMLImageElement;
   const imgChipClose = panel.querySelector(".pw-img-chip-close") as HTMLElement;
 
   function showScreenshotChip(dataUrl: string) {
@@ -316,6 +320,7 @@ function bindEvents(
     const text = textarea.value.trim();
     if (!text && !pendingScreenshot) return;
     textarea.value = "";
+    textarea.style.height = "auto"; // 重置高度
     const sel = pendingSelection;
     const screenshot = pendingScreenshot;
     clearChip();
@@ -337,6 +342,12 @@ function bindEvents(
     },
     true,
   );
+
+  // 输入框高度自动增长
+  textarea.addEventListener("input", () => {
+    textarea.style.height = "auto";
+    textarea.style.height = textarea.scrollHeight + "px";
+  });
 
   panel.querySelectorAll(".pw-action-btn").forEach((btn: Element) => {
     btn.addEventListener("click", () => {
@@ -452,7 +463,9 @@ function startScreenshotCapture(
   selBox.className = "pw-capture-selection";
   doc.body!.appendChild(selBox);
 
-  let startX = 0, startY = 0, dragging = false;
+  let startX = 0,
+    startY = 0,
+    dragging = false;
 
   function cleanup() {
     overlay.remove();
@@ -698,6 +711,9 @@ function handleAction(
   }
   textarea.focus();
   textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+  // 触发高度调整
+  textarea.style.height = "auto";
+  textarea.style.height = textarea.scrollHeight + "px";
 }
 
 // ── 发送 & 流式输出 ───────────────────────────────────────────────────────────
@@ -729,7 +745,9 @@ async function send(
 
   // 展示用消息（UI 显示截图占位符或纯文本）
   const displayText = screenshotDataUrl
-    ? (finalText ? `[截图 📷] ${finalText}` : "[截图 📷]")
+    ? finalText
+      ? `[截图 📷] ${finalText}`
+      : "[截图 📷]"
     : finalText;
   appendMessage(doc, messagesEl, "user", displayText);
   scrollToBottom(messagesEl);
@@ -1382,8 +1400,11 @@ async function saveSession(
 
   // 标题 = 首条用户消息前 25 字（去换行）
   const firstUser = visibleMsgs.find((m) => m.role === "user");
-  const firstContent = typeof firstUser?.content === "string" ? firstUser.content : "[截图 📷]";
-  const title = firstUser ? firstContent.replace(/\n/g, " ").trim().slice(0, 25) : "未命名会话";
+  const firstContent =
+    typeof firstUser?.content === "string" ? firstUser.content : "[截图 📷]";
+  const title = firstUser
+    ? firstContent.replace(/\n/g, " ").trim().slice(0, 25)
+    : "未命名会话";
 
   const now = new Date().toISOString();
   const existingID = activeNoteIDs.get(getItemKey(item)) ?? null;
@@ -2283,6 +2304,9 @@ const CHAT_CSS = `
   gap: 6px;
   padding: 8px 10px;
   border-top: 1px solid rgba(128,128,128,0.2);
+  position: sticky;
+  bottom: 0;
+  background: Canvas;
 }
 .pw-input {
   width: 100%;
@@ -2290,12 +2314,14 @@ const CHAT_CSS = `
   border: 1px solid rgba(128,128,128,0.3);
   border-radius: 6px;
   resize: none;
+  overflow-y: auto;
   font-size: 13px;
   font-family: inherit;
   line-height: 1.4;
   background: transparent;
   color: inherit;
   box-sizing: border-box;
+  max-height: 400px;
 }
 .pw-input:focus {
   outline: none;
@@ -2311,6 +2337,7 @@ const CHAT_CSS = `
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  text-align: center;
 }
 .pw-send-btn:hover { background: #1568b3; }
 .pw-send-btn.pw-disabled {

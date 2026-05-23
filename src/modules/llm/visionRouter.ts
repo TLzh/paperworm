@@ -37,14 +37,19 @@ export function isVisionConfigured(): boolean {
  * @param dataUrl  base64 data URL（data:image/png;base64,...）
  * @param question 用户原始问题，用于两段式 prompt
  */
-export async function describeImage(dataUrl: string, question: string): Promise<string> {
+export async function describeImage(
+  dataUrl: string,
+  question: string,
+): Promise<string> {
   if (descriptionCache.has(dataUrl)) {
     return descriptionCache.get(dataUrl)!;
   }
 
   const provider = getPref("llm.vision.provider");
   if (provider !== "kimi") {
-    throw new Error("当前仅支持 Kimi 视觉辅助模型，请在设置中选择「Kimi（月之暗面）」");
+    throw new Error(
+      "当前仅支持 Kimi 视觉辅助模型，请在设置中选择「Kimi（月之暗面）」",
+    );
   }
 
   const model = getPref("llm.vision.model");
@@ -54,7 +59,9 @@ export async function describeImage(dataUrl: string, question: string): Promise<
 
   const apiKey = getPref("llm.kimi.apiKey");
   if (!apiKey) {
-    throw new Error("Kimi API Key 未配置，请先在「LLM 服务配置」中填写 Kimi API Key");
+    throw new Error(
+      "Kimi API Key 未配置，请先在「LLM 服务配置」中填写 Kimi API Key",
+    );
   }
 
   const visionPrompt = `请详细描述这张图片中的所有内容，包括文字、图表、数学公式、图形等一切可见元素。然后回答：${question || "这张图片展示了什么？"}`;
@@ -108,7 +115,8 @@ export async function describeImage(dataUrl: string, question: string): Promise<
   }
 
   const data = JSON.parse(resp.responseText) as any;
-  const description: string = data.choices?.[0]?.message?.content ?? "（无法解析图片内容）";
+  const description: string =
+    data.choices?.[0]?.message?.content ?? "（无法解析图片内容）";
 
   descriptionCache.set(dataUrl, description);
   return description;
@@ -120,5 +128,7 @@ export function clearVisionCache(): void {
 }
 
 function getPref(key: string): string {
-  return ((Zotero.Prefs.get(`${config.prefsPrefix}.${key}`, true) as string) ?? "").trim();
+  return (
+    (Zotero.Prefs.get(`${config.prefsPrefix}.${key}`, true) as string) ?? ""
+  ).trim();
 }

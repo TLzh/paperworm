@@ -3,7 +3,12 @@
  * API 格式与 OpenAI 不同：system prompt 单独传参，streaming 事件类型不同
  */
 
-import type { LLMProvider, LLMMessage, LLMRequestOptions, ContentPart } from "./provider";
+import type {
+  LLMProvider,
+  LLMMessage,
+  LLMRequestOptions,
+  ContentPart,
+} from "./provider";
 import { zhttp } from "./provider";
 
 function toAnthropicContent(content: string | ContentPart[]) {
@@ -15,7 +20,10 @@ function toAnthropicContent(content: string | ContentPart[]) {
     const meta = part.image_url.url.slice(0, commaIdx);
     const data = part.image_url.url.slice(commaIdx + 1);
     const mediaType = meta.split(":")[1]?.split(";")[0] ?? "image/png";
-    return { type: "image", source: { type: "base64", media_type: mediaType, data } };
+    return {
+      type: "image",
+      source: { type: "base64", media_type: mediaType, data },
+    };
   });
 }
 

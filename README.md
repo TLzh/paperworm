@@ -80,8 +80,8 @@ The vision assistant runs as a separate LLM call, independent of your main chat 
 
 **Recommended vision models:**
 
-| Provider | Model | Notes |
-|----------|-------|-------|
+| Provider        | Model       | Notes                                                        |
+| --------------- | ----------- | ------------------------------------------------------------ |
 | Kimi (Moonshot) | `kimi-k2.6` | Supports native vision; API key shared with Kimi chat config |
 
 **Notes:**
@@ -92,18 +92,18 @@ The vision assistant runs as a separate LLM call, independent of your main chat 
 
 ## Supported Providers
 
-| Provider             | Recommended Model                 | Notes                                                                                                |
-| -------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| OpenAI               | `gpt-5.4`                         | Requires API key. See [OpenAI Model Guide](#openai-model-guide) below                                |
-| DeepSeek             | `deepseek-v4-pro`                 | Requires API key. Supports thinking mode and tool calling                                            |
-| Anthropic            | `claude-sonnet-4-6`               | Requires API key. See [Claude Model Guide](#claude-model-guide) below                                |
-| Google Gemini        | `gemini-3-flash-preview` (free)   | Recommended for most tasks; free tier available. See [Gemini Model Guide](#gemini-model-guide) below |
-| Kimi (Moonshot)      | `kimi-k2.6`                       | Requires API key from [platform.moonshot.cn](https://platform.moonshot.cn)                           |
+| Provider              | Recommended Model                 | Notes                                                                                                              |
+| --------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| OpenAI                | `gpt-5.4`                         | Requires API key. See [OpenAI Model Guide](#openai-model-guide) below                                              |
+| DeepSeek              | `deepseek-v4-pro`                 | Requires API key. Supports thinking mode and tool calling                                                          |
+| Anthropic             | `claude-sonnet-4-6`               | Requires API key. See [Claude Model Guide](#claude-model-guide) below                                              |
+| Google Gemini         | `gemini-3-flash-preview` (free)   | Recommended for most tasks; free tier available. See [Gemini Model Guide](#gemini-model-guide) below               |
+| Kimi (Moonshot)       | `kimi-k2.6`                       | Requires API key from [platform.moonshot.cn](https://platform.moonshot.cn)                                         |
 | Alibaba Cloud Bailian | `qwen3.6-max`                     | Model aggregation platform; requires API key from [bailian.console.aliyun.com](https://bailian.console.aliyun.com) |
-| OpenRouter           | any model (e.g. `openai/gpt-4.1`) | Access hundreds of models via a single API key from [openrouter.ai](https://openrouter.ai)           |
-| Xiaomi MiMo          | `mimo-v2-pro`                     | Requires API key from [platform.xiaomimimo.com](https://platform.xiaomimimo.com)                     |
-| MiniMax              | `MiniMax-M2.7`                    | Requires API key from [platform.minimaxi.com](https://platform.minimaxi.com)                           |
-| Ollama               | any local model                   | No API key needed; set base URL (default: `http://localhost:11434`)                                  |
+| OpenRouter            | any model (e.g. `openai/gpt-4.1`) | Access hundreds of models via a single API key from [openrouter.ai](https://openrouter.ai)                         |
+| Xiaomi MiMo           | `mimo-v2-pro`                     | Requires API key from [platform.xiaomimimo.com](https://platform.xiaomimimo.com)                                   |
+| MiniMax               | `MiniMax-M2.7`                    | Requires API key from [platform.minimaxi.com](https://platform.minimaxi.com)                                       |
+| Ollama                | any local model                   | No API key needed; set base URL (default: `http://localhost:11434`)                                                |
 
 ## Switching Providers Mid-Conversation
 

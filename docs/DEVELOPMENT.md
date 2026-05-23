@@ -203,6 +203,7 @@ Zotero 的主窗口（`Zotero.getMainWindow()`）是 XUL 文档，`document.body
 **正确做法**：overlay 必须注入到 PDF viewer 的 HTML contentDocument，而不是主窗口。
 
 定位路径（与全文提取的 reader window 定位相同，见上方"PDF 全文提取"章节）：
+
 1. 通过 `Zotero_Tabs` 找到目标论文的 reader window
 2. 用 `_findDocumentWithCanvases()` 递归遍历帧树，找到含 `<canvas>` 的 HTML 文档
 3. 将 overlay 注入该文档的 `document.body`
@@ -230,10 +231,14 @@ ctx.drawWindow(win, x, y, w, h, "white");
 const scale = canvas.width / canvas.getBoundingClientRect().width;
 offscreen.getContext("2d").drawImage(
   canvas,
-  (selX - canvasRect.left) * scale,  // 源 x
-  (selY - canvasRect.top) * scale,   // 源 y
-  selW * scale, selH * scale,        // 源宽高
-  0, 0, selW * scale, selH * scale   // 目标
+  (selX - canvasRect.left) * scale, // 源 x
+  (selY - canvasRect.top) * scale, // 源 y
+  selW * scale,
+  selH * scale, // 源宽高
+  0,
+  0,
+  selW * scale,
+  selH * scale, // 目标
 );
 ```
 

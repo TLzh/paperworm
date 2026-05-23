@@ -4,7 +4,12 @@
  * 流式输出返回 JSON 数组（Server-Sent Events 格式）
  */
 
-import type { LLMProvider, LLMMessage, LLMRequestOptions, ContentPart } from "./provider";
+import type {
+  LLMProvider,
+  LLMMessage,
+  LLMRequestOptions,
+  ContentPart,
+} from "./provider";
 import { zhttp } from "./provider";
 
 function toGeminiParts(content: string | ContentPart[]) {
@@ -138,7 +143,8 @@ export class GeminiProvider implements LLMProvider {
     };
 
     if (systemMsg) {
-      const sysText = typeof systemMsg.content === "string" ? systemMsg.content : "";
+      const sysText =
+        typeof systemMsg.content === "string" ? systemMsg.content : "";
       body.systemInstruction = { parts: [{ text: sysText }] };
     }
 
