@@ -6,6 +6,7 @@ import {
   MinerUCacheManager,
   ImageHandler,
 } from "./strategies/mineru";
+import { config } from "../../../package.json";
 
 export interface PaperMetadata {
   title: string;
@@ -129,7 +130,7 @@ export class PaperExtractor {
 
     // 2. 获取 MinerU API Token
     const token = Zotero.Prefs.get(
-      "extensions.zotero.paperworm.mineru.apiToken",
+      `${config.prefsPrefix}.mineru.apiToken`,
       true,
     ) as string;
 

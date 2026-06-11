@@ -44,8 +44,14 @@ export class AnthropicProvider implements LLMProvider {
       body: JSON.stringify(this.buildBody(options, false)),
       successCodes: [200],
     });
-    const data = JSON.parse(resp.responseText) as any;
-    return data.content?.[0]?.text ?? "";
+    try {
+      const data = JSON.parse(resp.responseText) as any;
+      return data.content?.[0]?.text ?? "";
+    } catch (e) {
+      throw new Error(
+        `Failed to parse Anthropic response: ${(e as Error).message}`,
+      );
+    }
   }
 
   async chatStream(
@@ -147,7 +153,9 @@ export class AnthropicProvider implements LLMProvider {
     };
     if (options.temperature !== undefined)
       body.temperature = options.temperature;
-    if (systemMsg) body.system = systemMsg.content;
+    if (systemMsg)
+      body.system =
+        typeof systemMsg.content === "string" ? systemMsg.content : "";
     return body;
   }
 

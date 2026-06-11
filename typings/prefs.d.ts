@@ -26,6 +26,8 @@ declare namespace _ZoteroTypes {
       "llm.mimo.model": string;
       "llm.minimax.apiKey": string;
       "llm.minimax.model": string;
+      "llm.openrouter.apiKey": string;
+      "llm.openrouter.model": string;
       "pdf.extractionMode": string;
       "mineru.apiToken": string;
       "llm.temperature": string;

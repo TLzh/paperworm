@@ -45,8 +45,14 @@ export class GeminiProvider implements LLMProvider {
       body: JSON.stringify(this.buildBody(options)),
       successCodes: [200],
     });
-    const data = JSON.parse(resp.responseText) as any;
-    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    try {
+      const data = JSON.parse(resp.responseText) as any;
+      return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    } catch (e) {
+      throw new Error(
+        `Failed to parse Gemini response: ${(e as Error).message}`,
+      );
+    }
   }
 
   async chatStream(
@@ -119,12 +125,22 @@ export class GeminiProvider implements LLMProvider {
       headers: { "x-goog-api-key": this.apiKey },
       successCodes: [200],
     });
-    const data = JSON.parse(resp.responseText) as any;
-    const models = ((data.models as any[]) ?? [])
-      .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
-      .map((m) => (m.name as string).replace(/^models\//, ""))
-      .filter((id) => !id.includes("embedding") && !id.includes("aqa"));
-    return models.sort();
+    try {
+      const data = JSON.parse(resp.responseText) as any;
+      const models = ((data.models as any[]) ?? [])
+        .filter((m) =>
+          m.supportedGenerationMethods?.includes("generateContent"),
+        )
+        .map((m) => (m.name as string).replace(/^models\//, ""))
+        .filter((id) => !id.includes("embedding") && !id.includes("aqa"));
+      return models.sort();
+    } catch (e) {
+      Zotero.log(
+        `PaperWorm: failed to parse Gemini models response: ${e}`,
+        "error",
+      );
+      return [];
+    }
   }
 
   private buildBody(options: LLMRequestOptions) {
@@ -145,6 +161,12 @@ export class GeminiProvider implements LLMProvider {
     if (systemMsg) {
       const sysText =
         typeof systemMsg.content === "string" ? systemMsg.content : "";
+      if (typeof systemMsg.content !== "string") {
+        Zotero.log(
+          "PaperWorm: Gemini system prompt is not a string, ignoring",
+          "warning",
+        );
+      }
       body.systemInstruction = { parts: [{ text: sysText }] };
     }
 

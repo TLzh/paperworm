@@ -30,8 +30,14 @@ export class OpenAIProvider implements LLMProvider {
       body: JSON.stringify(this.buildBody(options, false)),
       successCodes: [200],
     });
-    const data = JSON.parse(resp.responseText) as any;
-    return data.choices?.[0]?.message?.content ?? "";
+    try {
+      const data = JSON.parse(resp.responseText) as any;
+      return data.choices?.[0]?.message?.content ?? "";
+    } catch (e) {
+      throw new Error(
+        `Failed to parse ${this.name} response: ${(e as Error).message}`,
+      );
+    }
   }
 
   async chatStream(
@@ -103,22 +109,30 @@ export class OpenAIProvider implements LLMProvider {
       headers: this.headers(),
       successCodes: [200],
     });
-    const data = JSON.parse(resp.responseText) as any;
-    const models = ((data.data as any[]) ?? [])
-      .map((m) => m.id as string)
-      .filter((id) => {
-        // 过滤掉明显的非对话模型（如 whisper, dall-e, embedding 等）
-        const blackList = [
-          "whisper",
-          "dall-e",
-          "embedding",
-          "tts",
-          "moderation",
-          "edit",
-        ];
-        return !blackList.some((b) => id.toLowerCase().includes(b));
-      });
-    return models.sort();
+    try {
+      const data = JSON.parse(resp.responseText) as any;
+      const models = ((data.data as any[]) ?? [])
+        .map((m) => m.id as string)
+        .filter((id) => {
+          // 过滤掉明显的非对话模型（如 whisper, dall-e, embedding 等）
+          const blackList = [
+            "whisper",
+            "dall-e",
+            "embedding",
+            "tts",
+            "moderation",
+            "edit",
+          ];
+          return !blackList.some((b) => id.toLowerCase().includes(b));
+        });
+      return models.sort();
+    } catch (e) {
+      Zotero.log(
+        `PaperWorm: failed to parse ${this.name} models response: ${e}`,
+        "error",
+      );
+      return [];
+    }
   }
 
   private headers(): Record<string, string> {

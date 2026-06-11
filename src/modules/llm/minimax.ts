@@ -36,10 +36,15 @@ export class MiniMaxProvider implements LLMProvider {
       body: JSON.stringify(this.buildBody(options, false)),
       successCodes: [200],
     });
-    const data = JSON.parse(resp.responseText) as any;
-    const content = data.choices?.[0]?.message?.content ?? "";
-    // 过滤掉思维链标签
-    return content.replace(/<think>[\s\S]*?<\/think>/g, "");
+    try {
+      const data = JSON.parse(resp.responseText) as any;
+      const content = data.choices?.[0]?.message?.content ?? "";
+      return content.replace(/<think>[\s\S]*?<\/think>/g, "");
+    } catch (e) {
+      throw new Error(
+        `Failed to parse MiniMax response: ${(e as Error).message}`,
+      );
+    }
   }
 
   async chatStream(

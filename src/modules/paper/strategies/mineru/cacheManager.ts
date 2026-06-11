@@ -19,9 +19,13 @@ export class MinerUCacheManager {
     if (!note) return null;
 
     const html = note.getNote();
-    const match = html.match(
+    // 优先匹配带 class 的（刚保存、尚未经 Zotero 同步处理的笔记）
+    let match = html.match(
       /<code[^>]*class="pw-mineru-data"[^>]*>([A-Za-z0-9+/=\s]+)<\/code>/,
     );
+    // 回退：Zotero 同步/导出后会剥离 class，匹配任意足够长的 base64 <code> 块
+    if (!match)
+      match = html.match(/<code[^>]*>([A-Za-z0-9+/=\s]{100,})<\/code>/);
     if (!match) return null;
 
     try {

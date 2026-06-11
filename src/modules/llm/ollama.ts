@@ -21,8 +21,14 @@ export class OllamaProvider implements LLMProvider {
       body: JSON.stringify(this.buildBody(options, false)),
       successCodes: [200],
     });
-    const data = JSON.parse(resp.responseText) as any;
-    return data.message?.content ?? "";
+    try {
+      const data = JSON.parse(resp.responseText) as any;
+      return data.message?.content ?? "";
+    } catch (e) {
+      throw new Error(
+        `Failed to parse Ollama response: ${(e as Error).message}`,
+      );
+    }
   }
 
   async chatStream(
@@ -100,8 +106,16 @@ export class OllamaProvider implements LLMProvider {
     const resp = await zhttp("GET", `${this.baseUrl}/api/tags`, {
       successCodes: [200],
     });
-    const data = JSON.parse(resp.responseText) as any;
-    return ((data.models as any[]) ?? []).map((m) => m.name as string).sort();
+    try {
+      const data = JSON.parse(resp.responseText) as any;
+      return ((data.models as any[]) ?? []).map((m) => m.name as string).sort();
+    } catch (e) {
+      Zotero.log(
+        `PaperWorm: failed to parse Ollama models response: ${e}`,
+        "error",
+      );
+      return [];
+    }
   }
 
   private buildBody(options: LLMRequestOptions, stream: boolean) {
