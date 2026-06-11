@@ -13,7 +13,17 @@
 import { config } from "../../../package.json";
 import { zhttp } from "./provider";
 
-// 会话级缓存：key = 完整 base64 data URL，value = 视觉描述文本
+function hashString(s: string): string {
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    const chr = s.charCodeAt(i);
+    hash = (hash << 5) - hash + chr;
+    hash |= 0;
+  }
+  return hash.toString(36);
+}
+
+// 会话级缓存：key = base64 data URL 的哈希，value = 视觉描述文本
 const descriptionCache = new Map<string, string>();
 
 const KIMI_BASE_URL = "https://api.moonshot.cn/v1";
@@ -41,8 +51,9 @@ export async function describeImage(
   dataUrl: string,
   question: string,
 ): Promise<string> {
-  if (descriptionCache.has(dataUrl)) {
-    return descriptionCache.get(dataUrl)!;
+  const cacheKey = hashString(dataUrl);
+  if (descriptionCache.has(cacheKey)) {
+    return descriptionCache.get(cacheKey)!;
   }
 
   const provider = getPref("llm.vision.provider");
@@ -118,7 +129,7 @@ export async function describeImage(
   const description: string =
     data.choices?.[0]?.message?.content ?? "（无法解析图片内容）";
 
-  descriptionCache.set(dataUrl, description);
+  descriptionCache.set(cacheKey, description);
   return description;
 }
 

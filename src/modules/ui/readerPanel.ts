@@ -187,7 +187,9 @@ ${CHAT_CSS}
     // 无历史：空聊天界面（默认状态）
   }
 
-  bindEvents(doc, panel, messagesEl, item);
+  const dropdownState = { open: false };
+
+  bindEvents(doc, panel, messagesEl, item, dropdownState);
 
   // 异步初始化 MinerU 按钮状态（检查 token 配置和缓存）
   void initMinerUButton(panel, item);
@@ -196,10 +198,9 @@ ${CHAT_CSS}
   const win = body.ownerDocument!.defaultView!;
   const badge = panel.querySelector(".pw-model-text") as HTMLElement;
   const tempBadge = panel.querySelector(".pw-temp-text") as HTMLElement;
-  const dropdownOpen = false;
 
   const badgeTimer = win.setInterval(() => {
-    if (dropdownOpen) return; // 下拉打开时跳过，避免干扰用户选择
+    if (dropdownState.open) return; // 下拉打开时跳过，避免干扰用户选择
 
     const pName = LLMManager.getInstance().getActiveProviderName();
     const mName =
@@ -244,6 +245,7 @@ function bindEvents(
   panel: HTMLElement,
   messagesEl: HTMLElement,
   item: Zotero.Item,
+  dropdownState: { open: boolean },
 ) {
   const textarea = panel.querySelector(".pw-input") as HTMLTextAreaElement;
   const sendBtn = panel.querySelector(".pw-send-btn") as HTMLElement;
@@ -251,9 +253,6 @@ function bindEvents(
   const modelTrigger = panel.querySelector(
     ".pw-model-dropdown-trigger",
   ) as HTMLElement;
-
-  // 下拉菜单状态（用于定时器控制）
-  const dropdownState = { open: false };
 
   // capturedSelection：短暂变量，在 mouseup 阶段捕获 PDF 选区，
   // "选择文本"按钮读取后立即清空，避免残留到下次操作。
