@@ -33,5 +33,23 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release edit "${GITHUB_REF_NAME}" \
-            --notes "$(gh api repos/{owner}/{repo}/releases/generate-notes -f tag_name="${GITHUB_REF_NAME}" -f previous_tag_name=$(git describe --tags --abbrev=0 ${GITHUB_REF_NAME}^) | jq -r .body)"
+          version="${GITHUB_REF_NAME#v}"
+          notes_file="/tmp/release-notes.md"
+
+          # 从 CHANGELOG.md 提取当前版本的条目（跳过版本标题行与 --- 分隔线）
+          awk -v ver="$version" '
+            /^## \[/ {
+              if (found) exit
+              if ($0 ~ "^## \\[" ver "\\]") found = 1
+              next
+            }
+            /^---$/ { next }
+            found { print }
+          ' CHANGELOG.md > "$notes_file"
+
+          # 追加 Full Changelog 链接
+          previous_tag="$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^")"
+          printf '\n**Full Changelog**: https://github.com/%s/compare/%s...%s\n' \
+            "${{ github.repository }}" "$previous_tag" "${GITHUB_REF_NAME}" >> "$notes_file"
+
+          gh release edit "${GITHUB_REF_NAME}" --notes-file "$notes_file"
