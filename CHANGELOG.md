@@ -10,6 +10,24 @@
 
 ---
 
+## [0.7.2] - 2026-08-14
+
+### Changed
+
+- **MiniMax 动态获取模型列表** — MiniMax 官方已支持 `/v1/models` 端点，`MiniMaxProvider` 改用动态获取（失败时回退到内置列表），支持最新 `MiniMax-M3`
+- **模型信息全面更新** — 刷新各厂商最新模型：Claude 5（Fable 5 / Opus 5 / Sonnet 5）、GPT-5.6（Sol / Terra / Luna）、Gemini 3.7 Flash、Kimi K3、Qwen 3.7、DeepSeek V4
+- **默认模型更新** — 出厂默认值更新为上述最新模型；`addon/prefs.js` 纳入版本管理（此前被误排除，导致默认值无法随包发布）
+
+### Fixed
+
+- **API 调用健壮性** — 增强各 Provider（Anthropic / Gemini / MiniMax / Ollama / OpenAI）的响应解析与错误处理，提升数据兼容性
+
+### Added
+
+- **pre-commit 密钥扫描 hook** — 新增 `scripts/pre-commit`（`make hooks` 安装），提交前自动拦截疑似 API key / token / 私钥，防止误提交敏感信息
+
+---
+
 ## [0.7.1] - 2026-05-23
 
 ### Changed

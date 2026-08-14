@@ -14,8 +14,8 @@ tsconfig.tsbuildinfo
 build
 logs
 
-# Zotero preferences (contains API keys in plain text — never commit)
-addon/prefs.js
+# NOTE: addon/prefs.js 是默认值定义（apiKey 默认均为空字符串），不含真实密钥，
+# 可安全提交。真实 API key 只存在于用户本地的 Zotero profile 中，不在此文件。
 
 # Environment
 .env

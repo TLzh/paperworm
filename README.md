@@ -92,18 +92,18 @@ The vision assistant runs as a separate LLM call, independent of your main chat 
 
 ## Supported Providers
 
-| Provider              | Recommended Model                 | Notes                                                                                                              |
-| --------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| OpenAI                | `gpt-5.4`                         | Requires API key. See [OpenAI Model Guide](#openai-model-guide) below                                              |
-| DeepSeek              | `deepseek-v4-pro`                 | Requires API key. Supports thinking mode and tool calling                                                          |
-| Anthropic             | `claude-sonnet-4-6`               | Requires API key. See [Claude Model Guide](#claude-model-guide) below                                              |
-| Google Gemini         | `gemini-3-flash-preview` (free)   | Recommended for most tasks; free tier available. See [Gemini Model Guide](#gemini-model-guide) below               |
-| Kimi (Moonshot)       | `kimi-k2.6`                       | Requires API key from [platform.moonshot.cn](https://platform.moonshot.cn)                                         |
-| Alibaba Cloud Bailian | `qwen3.6-max`                     | Model aggregation platform; requires API key from [bailian.console.aliyun.com](https://bailian.console.aliyun.com) |
-| OpenRouter            | any model (e.g. `openai/gpt-4.1`) | Access hundreds of models via a single API key from [openrouter.ai](https://openrouter.ai)                         |
-| Xiaomi MiMo           | `mimo-v2-pro`                     | Requires API key from [platform.xiaomimimo.com](https://platform.xiaomimimo.com)                                   |
-| MiniMax               | `MiniMax-M2.7`                    | Requires API key from [platform.minimaxi.com](https://platform.minimaxi.com)                                       |
-| Ollama                | any local model                   | No API key needed; set base URL (default: `http://localhost:11434`)                                                |
+| Provider              | Recommended Model                     | Notes                                                                                                              |
+| --------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| OpenAI                | `gpt-5.6-sol`                         | Requires API key. See [OpenAI Model Guide](#openai-model-guide) below                                              |
+| DeepSeek              | `deepseek-v4-pro`                     | Requires API key. Supports thinking mode and tool calling                                                          |
+| Anthropic             | `claude-sonnet-5`                     | Requires API key. See [Claude Model Guide](#claude-model-guide) below                                              |
+| Google Gemini         | `gemini-3.7-flash` (free)             | Recommended for most tasks; free tier available. See [Gemini Model Guide](#gemini-model-guide) below               |
+| Kimi (Moonshot)       | `kimi-k3`                             | Requires API key from [platform.moonshot.cn](https://platform.moonshot.cn)                                         |
+| Alibaba Cloud Bailian | `qwen3.7-plus`                        | Model aggregation platform; requires API key from [bailian.console.aliyun.com](https://bailian.console.aliyun.com) |
+| OpenRouter            | any model (e.g. `openai/gpt-5.6-sol`) | Access hundreds of models via a single API key from [openrouter.ai](https://openrouter.ai)                         |
+| Xiaomi MiMo           | `mimo-v2-pro`                         | Requires API key from [platform.xiaomimimo.com](https://platform.xiaomimimo.com)                                   |
+| MiniMax               | `MiniMax-M3`                          | Requires API key from [platform.minimaxi.com](https://platform.minimaxi.com)                                       |
+| Ollama                | any local model                       | No API key needed; set base URL (default: `http://localhost:11434`)                                                |
 
 ## Switching Providers Mid-Conversation
 
@@ -121,21 +121,19 @@ Google Gemini offers a wide range of models through the Gemini API. Below is a g
 
 ### Current Generation Models (Recommended)
 
-**Gemini 3 Series** (Preview status - latest generation)
+**Gemini 3.x Flash Series** (Stable - latest generation)
 
-| Model                     | API Identifier                  | Best For                              | Free Tier    |
-| ------------------------- | ------------------------------- | ------------------------------------- | ------------ |
-| **Gemini 3 Flash**        | `gemini-3-flash-preview`        | General paper reading, fast responses | ✅ Free      |
-| **Gemini 3.1 Pro**        | `gemini-3.1-pro-preview`        | Complex reasoning, detailed analysis  | ❌ Paid only |
-| **Gemini 3.1 Flash-Lite** | `gemini-3.1-flash-lite-preview` | High-volume, cost-effective tasks     | ✅ Free      |
+| Model                | API Identifier         | Best For                              | Free Tier |
+| -------------------- | ---------------------- | ------------------------------------- | --------- |
+| **Gemini 3.7 Flash** | `gemini-3.7-flash`     | General paper reading, fast responses | ✅ Free   |
+| **Gemini 3.6 Flash** | `gemini-3.6-flash`     | Balanced performance and speed        | ✅ Free   |
+| **Gemini 3.5 Flash** | `gemini-3.5-flash`     | High-volume, cost-effective tasks     | ✅ Free   |
 
-**Gemini 2.5 Series** (Stable release)
+**Gemini Pro** (Preview)
 
-| Model                     | API Identifier                 | Best For                       | Free Tier    |
-| ------------------------- | ------------------------------ | ------------------------------ | ------------ |
-| **Gemini 2.5 Flash**      | `gemini-2.5-flash`             | Balanced performance and speed | ✅ Free      |
-| **Gemini 2.5 Flash-Lite** | `gemini-2.5-flash-lite`        | Most cost-effective option     | ✅ Free      |
-| **Gemini 2.5 Pro**        | `gemini-2.5-pro-preview-03-25` | Maximum reasoning capability   | ❌ Paid only |
+| Model              | API Identifier           | Best For                             | Free Tier    |
+| ------------------ | ------------------------ | ------------------------------------ | ------------ |
+| **Gemini 3.1 Pro** | `gemini-3.1-pro-preview` | Complex reasoning, detailed analysis | ❌ Paid only |
 
 ### Model Naming Guide
 
@@ -147,16 +145,14 @@ gemini-{major}.{minor}-{variant}-{status}
 
 Examples:
 
-- `gemini-3-flash-preview` — Gemini 3 Flash, preview release
+- `gemini-3.7-flash` — Gemini 3.7 Flash, stable release
 - `gemini-3.1-pro-preview` — Gemini 3.1 Pro, preview release
-- `gemini-2.5-flash` — Gemini 2.5 Flash, stable release
 
 ### Recommendations for Paper Reading
 
-1. **For most users**: Use `gemini-3-flash-preview` (free, fast, capable)
+1. **For most users**: Use `gemini-3.7-flash` (free, fast, capable)
 2. **For complex analysis**: Use `gemini-3.1-pro-preview` (best reasoning)
-3. **For high-volume reading**: Use `gemini-3.1-flash-lite-preview` (most economical)
-4. **For stable production**: Use `gemini-2.5-flash` (non-preview, reliable)
+3. **For high-volume reading**: Use `gemini-3.5-flash` (most economical)
 
 ### Getting a Gemini API Key
 
@@ -173,26 +169,26 @@ Examples:
 
 OpenAI's GPT models are state-of-the-art large language models capable of understanding and generating natural language.
 
-### Latest Generation Models (GPT-5.4 Series)
+### Latest Generation Models (GPT-5.6 Series)
 
-| Model            | API Identifier | Best For                             | Cost     |
-| ---------------- | -------------- | ------------------------------------ | -------- |
-| **GPT-5.4**      | `gpt-5.4`      | Complex reasoning, coding, analysis  | Standard |
-| **GPT-5.4 Mini** | `gpt-5.4-mini` | Balanced performance and efficiency  | Lower    |
-| **GPT-5.4 Nano** | `gpt-5.4-nano` | Simple tasks, high-volume processing | Lowest   |
+| Model             | API Identifier  | Best For                             | Cost     |
+| ----------------- | --------------- | ------------------------------------ | -------- |
+| **GPT-5.6 Sol**   | `gpt-5.6-sol`   | Complex reasoning, coding, analysis  | Standard |
+| **GPT-5.6 Terra** | `gpt-5.6-terra` | Balanced intelligence and cost       | Lower    |
+| **GPT-5.6 Luna**  | `gpt-5.6-luna`  | High-volume, cost-sensitive tasks    | Lowest   |
 
 ### Previous Generation (Still Supported)
 
 | Model           | API Identifier | Best For                         |
 | --------------- | -------------- | -------------------------------- |
+| **GPT-5.4**     | `gpt-5.4`      | Complex reasoning, coding        |
 | **GPT-4o**      | `gpt-4o`       | Multimodal tasks (text + vision) |
-| **GPT-4o Mini** | `gpt-4o-mini`  | Cost-effective general tasks     |
 
 ### Recommendations for Paper Reading
 
-1. **For most users**: Use `gpt-5.4` (flagship model with best reasoning)
-2. **For cost-conscious users**: Use `gpt-5.4-mini` (good balance of quality and cost)
-3. **For quick summaries**: Use `gpt-5.4-nano` (fastest, most economical)
+1. **For most users**: Use `gpt-5.6-sol` (flagship model with best reasoning)
+2. **For cost-conscious users**: Use `gpt-5.6-terra` (good balance of quality and cost)
+3. **For quick summaries**: Use `gpt-5.6-luna` (fastest, most economical)
 
 ### Getting an OpenAI API Key
 
@@ -210,13 +206,14 @@ OpenAI's GPT models are state-of-the-art large language models capable of unders
 
 Anthropic's Claude models are designed for high performance across language, reasoning, analysis, and coding tasks.
 
-### Latest Generation Models
+### Latest Generation Models (Claude 5)
 
-| Model                 | Best For                                    | Speed    | Intelligence  |
-| --------------------- | ------------------------------------------- | -------- | ------------- |
-| **Claude Opus 4.6**   | Complex analysis, coding, professional work | Standard | Highest       |
-| **Claude Sonnet 4.6** | General paper reading, balanced performance | Fast     | High          |
-| **Claude Haiku 4.5**  | Quick summaries, high-volume processing     | Fastest  | Near-frontier |
+| Model                | Best For                                    | Speed    | Intelligence  |
+| -------------------- | ------------------------------------------- | -------- | ------------- |
+| **Claude Fable 5**   | Most capable, complex reasoning and coding  | Standard | Highest       |
+| **Claude Opus 5**    | Agentic coding, enterprise work             | Standard | Very high     |
+| **Claude Sonnet 5**  | General paper reading, balanced performance | Fast     | High          |
+| **Claude Haiku 4.5** | Quick summaries, high-volume processing     | Fastest  | Near-frontier |
 
 ### Model Naming
 
@@ -226,14 +223,15 @@ Claude model names follow this pattern:
 claude-{variant}-{version}
 ```
 
+- **Fable**: Most capable, widely released flagship
 - **Opus**: Most intelligent, best for complex reasoning and coding
 - **Sonnet**: Balanced intelligence and speed, good for most tasks
 - **Haiku**: Fastest, most cost-effective for simple tasks
 
 ### Recommendations for Paper Reading
 
-1. **For most users**: Use `claude-sonnet-4-6` (best balance of quality and speed)
-2. **For deep analysis**: Use `claude-opus-4-7` (maximum reasoning capability)
+1. **For most users**: Use `claude-sonnet-5` (best balance of quality and speed)
+2. **For deep analysis**: Use `claude-fable-5` (maximum capability)
 3. **For quick summaries**: Use `claude-haiku-4-5` (fastest, most economical)
 
 ### Getting a Claude API Key

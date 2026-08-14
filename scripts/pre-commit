@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# ============================================================
+# PaperWorm pre-commit hook — 数据安全 / 用户隐私底线
+#
+# 拒绝提交疑似敏感信息（API key / token / 私钥）。
+# 只扫描本次 git add（staged）的新增行，避免历史内容误报。
+#
+# 安装（在仓库根目录执行一次）：
+#   make hooks
+#   # 等价于：ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
+#
+# 确认是误报（占位符 / 示例值）时绕过：
+#   git commit --no-verify
+# ============================================================
+
+set -uo pipefail
+
+# 高危模式：常见云服务 key / 私钥前缀（命中即拒绝）
+HIGH_RISK_PATTERNS=(
+  'sk-[A-Za-z0-9_-]{20,}'              # OpenAI / Anthropic / DeepSeek / Kimi / MiniMax 等
+  'AIza[0-9A-Za-z_-]{30,}'             # Google
+  'ghp_[A-Za-z0-9]{30,}'               # GitHub PAT
+  'xox[baprs]-[A-Za-z0-9-]{10,}'       # Slack
+  'AKIA[0-9A-Z]{16}'                   # AWS Access Key
+  '-----BEGIN [A-Z ]*PRIVATE KEY-----' # PEM 私钥
+)
+
+# 敏感字段名后跟非空长串（疑似真实值；空字符串/占位符不会命中）
+FIELD_PATTERN='(api_?key|apikey|secret|password|token)[[:space:]]*[:=][[:space:]]*[^[:space:]]{16,}'
+
+found=0
+
+while IFS= read -r file; do
+  [ -z "$file" ] && continue
+
+  diff=$(git diff --cached -U0 -- "$file" | grep -Ee '^\+' || true)
+  [ -z "$diff" ] && continue
+
+  for pattern in "${HIGH_RISK_PATTERNS[@]}"; do
+    hits=$(echo "$diff" | grep -Ee "$pattern" || true)
+    if [ -n "$hits" ]; then
+      echo "✗ $file — 命中高危模式：$pattern"
+      echo "$hits" | head -3 | sed 's/^/    > /'
+      found=1
+    fi
+  done
+
+  hits=$(echo "$diff" | grep -Ei -e "$FIELD_PATTERN" || true)
+  if [ -n "$hits" ]; then
+    echo "✗ $file — 疑似敏感字段赋值（api_key/secret/token/password 后跟非空长串）"
+    echo "$hits" | head -3 | sed 's/^/    > /'
+    found=1
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACM)
+
+if [ "$found" -ne 0 ]; then
+  echo
+  echo "已拒绝提交。若确认是误报（占位符/示例值），可用 git commit --no-verify 绕过，"
+  echo "但请务必先人工确认没有真实 API key / token / 私钥泄露。"
+  exit 1
+fi
+
+exit 0
