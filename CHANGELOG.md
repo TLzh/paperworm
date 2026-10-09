@@ -10,6 +10,26 @@
 
 ---
 
+## [0.8.0] - 2026-10-09
+
+### Added
+
+- **输出截断原因提示** — 各 Provider 解析流式结束原因（OpenAI 系 `finish_reason`、Anthropic `stop_reason`、Gemini `finishReason`、Ollama `done_reason`，统一规范化为 `"length"`），回答因 Max Tokens 上限被截断时在消息末尾显示明确提示，便于区分"设置问题"与"厂商/网络问题"；输入"继续"可从断点接着生成
+- **发送阶段反馈** — 首条消息的全文提取阶段显示"正在提取论文全文…"（延迟 600ms，缓存命中不闪烁）；截图消息的视觉分析阶段显示"正在分析截图…"；连接建立 5s 无首字节显示"模型思考中…"
+- **思考模型推理进度** — 各 Provider 解析推理增量（OpenAI 系 `reasoning_content`/`reasoning`、Anthropic `thinking_delta`、Gemini `thought` parts、Ollama `message.thinking`），思考期实时显示"已推理 N 字"；推理耗尽全部 Max Tokens 导致空响应时，给出明确诊断与调参指引（而非笼统的"未返回内容"）
+- **流式请求超时守护** — `fetchWithHeaderTimeout()`（响应头 120s 超时）+ `readStreamLines()` 空闲看门狗（90s 无新数据自动 `reader.cancel()` 中断），连接停滞不再无限闪烁光标，超时后发送按钮自动恢复
+
+### Fixed
+
+- **失败/空响应消息撤回** — 流式失败、超时或空响应时从会话历史撤回本轮 user 消息，重发不再产生连续重复消息；`chatStream` 同步异常增加兜底捕获，杜绝发送按钮永久锁死
+- **lint 存量失败** — `PDFWorkerInstance` 类型增强迁移至 `typings/zotero.d.ts`；`addon/prefs.js`、`README.md`、`docs/models.md` 格式归一，`make lint` / `lint:check` 全绿
+
+### Changed
+
+- 5 个 Provider 的流读取循环统一为 `readStreamLines()`（`src/modules/llm/provider.ts`），消除各文件重复的 buffer/decode/split 代码
+
+---
+
 ## [0.7.2] - 2026-08-14
 
 ### Changed

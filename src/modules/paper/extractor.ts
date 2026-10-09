@@ -17,22 +17,7 @@ export interface PaperMetadata {
   itemKey: string;
 }
 
-// 扩展 Zotero 类型声明 - PDFWorker 方法
-// 注意：不声明 const PDFWorker，因为它已经在 Zotero 全局对象中
-declare global {
-  namespace Zotero {
-    interface PDFWorkerInstance {
-      getFullText(
-        itemID: number,
-        maxPages: number | null,
-      ): Promise<{
-        text: string;
-        extractedPages: number;
-        totalPages: number;
-      }>;
-    }
-  }
-}
+// PDFWorker.getFullText 的类型声明见 typings/zotero.d.ts（Zotero 类型增强）
 
 export class PaperExtractor {
   /** 跟踪正在提取 MinerU 的条目 ID，防止重复请求 */

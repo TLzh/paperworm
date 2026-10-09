@@ -13,6 +13,7 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 
 - **Contextual chat** — the paper's full text, title, authors, year, and abstract are automatically included in every conversation; no manual indexing required for text-based PDFs
 - **Streaming responses** — AI replies appear word by word in real time
+- **Reliability guards** — stalled streams are detected and interrupted automatically (idle watchdog + request timeout), staged progress is shown while the full text is being extracted or the model is thinking, and replies truncated by the Max Tokens limit get an explicit notice so you can tell your settings apart from provider issues
 - **Quick actions** — one-click to summarize the paper, or select text from the PDF as context for your questions
 - **Multi-provider** — supports OpenAI, DeepSeek, Anthropic (Claude), Google Gemini, Kimi (Moonshot), Qwen (Alibaba Cloud), OpenRouter, Xiaomi MiMo, MiniMax, and Ollama (local). See [Model Guide](docs/models.md) for details
 - **Persistent sessions with cross-device sync** — every conversation is automatically saved as a Zotero child note attached to the paper; sessions survive Zotero restarts and sync to other devices via your free Zotero account
@@ -123,11 +124,11 @@ Google Gemini offers a wide range of models through the Gemini API. Below is a g
 
 **Gemini 3.x Flash Series** (Stable - latest generation)
 
-| Model                | API Identifier         | Best For                              | Free Tier |
-| -------------------- | ---------------------- | ------------------------------------- | --------- |
-| **Gemini 3.7 Flash** | `gemini-3.7-flash`     | General paper reading, fast responses | ✅ Free   |
-| **Gemini 3.6 Flash** | `gemini-3.6-flash`     | Balanced performance and speed        | ✅ Free   |
-| **Gemini 3.5 Flash** | `gemini-3.5-flash`     | High-volume, cost-effective tasks     | ✅ Free   |
+| Model                | API Identifier     | Best For                              | Free Tier |
+| -------------------- | ------------------ | ------------------------------------- | --------- |
+| **Gemini 3.7 Flash** | `gemini-3.7-flash` | General paper reading, fast responses | ✅ Free   |
+| **Gemini 3.6 Flash** | `gemini-3.6-flash` | Balanced performance and speed        | ✅ Free   |
+| **Gemini 3.5 Flash** | `gemini-3.5-flash` | High-volume, cost-effective tasks     | ✅ Free   |
 
 **Gemini Pro** (Preview)
 
@@ -171,18 +172,18 @@ OpenAI's GPT models are state-of-the-art large language models capable of unders
 
 ### Latest Generation Models (GPT-5.6 Series)
 
-| Model             | API Identifier  | Best For                             | Cost     |
-| ----------------- | --------------- | ------------------------------------ | -------- |
-| **GPT-5.6 Sol**   | `gpt-5.6-sol`   | Complex reasoning, coding, analysis  | Standard |
-| **GPT-5.6 Terra** | `gpt-5.6-terra` | Balanced intelligence and cost       | Lower    |
-| **GPT-5.6 Luna**  | `gpt-5.6-luna`  | High-volume, cost-sensitive tasks    | Lowest   |
+| Model             | API Identifier  | Best For                            | Cost     |
+| ----------------- | --------------- | ----------------------------------- | -------- |
+| **GPT-5.6 Sol**   | `gpt-5.6-sol`   | Complex reasoning, coding, analysis | Standard |
+| **GPT-5.6 Terra** | `gpt-5.6-terra` | Balanced intelligence and cost      | Lower    |
+| **GPT-5.6 Luna**  | `gpt-5.6-luna`  | High-volume, cost-sensitive tasks   | Lowest   |
 
 ### Previous Generation (Still Supported)
 
-| Model           | API Identifier | Best For                         |
-| --------------- | -------------- | -------------------------------- |
-| **GPT-5.4**     | `gpt-5.4`      | Complex reasoning, coding        |
-| **GPT-4o**      | `gpt-4o`       | Multimodal tasks (text + vision) |
+| Model       | API Identifier | Best For                         |
+| ----------- | -------------- | -------------------------------- |
+| **GPT-5.4** | `gpt-5.4`      | Complex reasoning, coding        |
+| **GPT-4o**  | `gpt-4o`       | Multimodal tasks (text + vision) |
 
 ### Recommendations for Paper Reading
 

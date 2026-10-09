@@ -5,7 +5,7 @@
  */
 
 import type { LLMProvider, LLMRequestOptions, ContentPart } from "./provider";
-import { zhttp } from "./provider";
+import { zhttp, fetchWithHeaderTimeout, readStreamLines } from "./provider";
 
 export class OllamaProvider implements LLMProvider {
   readonly name = "ollama";
@@ -33,14 +33,14 @@ export class OllamaProvider implements LLMProvider {
 
   async chatStream(
     options: LLMRequestOptions,
-    onChunk: (chunk: string) => void,
-    onDone: () => void,
+    onChunk: (chunk: string, reasoningDelta?: string) => void,
+    onDone: (finishReason?: string) => void,
     onError: (err: Error) => void,
   ): Promise<void> {
     // 流式输出需要 ReadableStream，Zotero.HTTP.request() 不支持，使用 fetch()
     let res: Response;
     try {
-      res = await fetch(`${this.baseUrl}/api/chat`, {
+      res = await fetchWithHeaderTimeout(`${this.baseUrl}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(this.buildBody(options, true)),
@@ -59,34 +59,27 @@ export class OllamaProvider implements LLMProvider {
     const reader = (
       res.body as any
     ).getReader() as ReadableStreamDefaultReader<Uint8Array>;
-    const decoder = new TextDecoder();
-    let buffer = "";
+    let doneReason: string | null = null;
 
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const json = JSON.parse(line) as any;
-            const text = json.message?.content;
-            if (text) onChunk(text);
-            if (json.done) {
-              onDone();
-              return;
-            }
-          } catch {
-            // 忽略解析失败的行
+      await readStreamLines(reader, (line) => {
+        if (!line.trim()) return;
+        try {
+          const json = JSON.parse(line) as any;
+          const text = json.message?.content;
+          if (text) onChunk(text);
+          // thinking 模型：推理增量在 message.thinking 字段
+          if (json.message?.thinking) onChunk("", json.message.thinking);
+          if (json.done) {
+            // done_reason: "stop" | "length"（num_predict 用尽）| "cancel" 等
+            doneReason = json.done_reason ?? null;
+            return true; // Ollama 以 done 行结束，无需读满整个流
           }
+        } catch {
+          // 忽略解析失败的行
         }
-      }
-      onDone();
+      });
+      onDone(doneReason ?? undefined);
     } catch (e) {
       onError(e as Error);
     }

@@ -9,7 +9,7 @@ import type {
   LLMRequestOptions,
   ContentPart,
 } from "./provider";
-import { zhttp } from "./provider";
+import { zhttp, fetchWithHeaderTimeout, readStreamLines } from "./provider";
 
 function toAnthropicContent(content: string | ContentPart[]) {
   if (typeof content === "string") return content;
@@ -56,14 +56,14 @@ export class AnthropicProvider implements LLMProvider {
 
   async chatStream(
     options: LLMRequestOptions,
-    onChunk: (chunk: string) => void,
-    onDone: () => void,
+    onChunk: (chunk: string, reasoningDelta?: string) => void,
+    onDone: (finishReason?: string) => void,
     onError: (err: Error) => void,
   ): Promise<void> {
     // 流式输出需要 ReadableStream，Zotero.HTTP.request() 不支持，使用 fetch()
     let res: Response;
     try {
-      res = await fetch(`${BASE_URL}/v1/messages`, {
+      res = await fetchWithHeaderTimeout(`${BASE_URL}/v1/messages`, {
         method: "POST",
         headers: this.headers(),
         body: JSON.stringify(this.buildBody(options, true)),
@@ -82,24 +82,19 @@ export class AnthropicProvider implements LLMProvider {
     const reader = (
       res.body as any
     ).getReader() as ReadableStreamDefaultReader<Uint8Array>;
-    const decoder = new TextDecoder();
-    let buffer = "";
+    let stopReason: string | null = null;
 
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          const text = this.parseSSELine(line);
-          if (text) onChunk(text);
-        }
-      }
-      onDone();
+      await readStreamLines(reader, (line) => {
+        const parsed = this.parseSSELine(line);
+        if (parsed.reasoning) onChunk("", parsed.reasoning);
+        if (parsed.text) onChunk(parsed.text);
+        if (parsed.stopReason) stopReason = parsed.stopReason;
+      });
+      // Anthropic 用 "max_tokens" 表示因输出上限截断，规范化为 "length"
+      onDone(
+        stopReason === "max_tokens" ? "length" : (stopReason ?? undefined),
+      );
     } catch (e) {
       onError(e as Error);
     }
@@ -159,20 +154,45 @@ export class AnthropicProvider implements LLMProvider {
     return body;
   }
 
-  private parseSSELine(line: string): string | null {
-    if (!line.startsWith("data: ")) return null;
+  private parseSSELine(line: string): {
+    text: string | null;
+    reasoning: string | null;
+    stopReason: string | null;
+  } {
+    if (!line.startsWith("data: ")) {
+      return { text: null, reasoning: null, stopReason: null };
+    }
     try {
       const json = JSON.parse(line.slice(6)) as any;
-      // 只处理 content_block_delta 事件中的 text_delta
-      if (
-        json.type === "content_block_delta" &&
-        json.delta?.type === "text_delta"
-      ) {
-        return json.delta.text ?? null;
+      if (json.type === "content_block_delta" && json.delta) {
+        // 正文增量：text_delta
+        if (json.delta.type === "text_delta") {
+          return {
+            text: json.delta.text ?? null,
+            reasoning: null,
+            stopReason: null,
+          };
+        }
+        // 推理增量：thinking_delta（extended thinking 模式）
+        if (json.delta.type === "thinking_delta") {
+          return {
+            text: null,
+            reasoning: json.delta.thinking ?? null,
+            stopReason: null,
+          };
+        }
+      }
+      // 结束原因：message_delta 事件携带 stop_reason
+      if (json.type === "message_delta" && json.delta?.stop_reason) {
+        return {
+          text: null,
+          reasoning: null,
+          stopReason: json.delta.stop_reason,
+        };
       }
     } catch {
       // 忽略解析失败的行
     }
-    return null;
+    return { text: null, reasoning: null, stopReason: null };
   }
 }

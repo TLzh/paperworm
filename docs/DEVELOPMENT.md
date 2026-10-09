@@ -191,6 +191,42 @@ const resp = await zhttp("POST", url, { headers, body, successCodes: [200] });
 
 `zhttp()` 封装在 `src/modules/llm/provider.ts`，所有非流式调用均应使用它。
 
+### 流式请求必须走 `fetchWithHeaderTimeout()` + `readStreamLines()`
+
+裸 `fetch()` / `reader.read()` **没有任何超时**：连接停滞时 `onDone`/`onError` 永不触发，
+UI 光标闪烁不止且发送按钮锁死（`pw-disabled`），只能靠切 tab 重渲染面板恢复。
+`provider.ts` 提供的守护机制：
+
+| 机制                                | 超时 | 说明                                                  |
+| ----------------------------------- | ---- | ----------------------------------------------------- |
+| `fetchWithHeaderTimeout(url, init)` | 120s | fetch 发出后未收到响应头即报错（`Promise.race` 实现） |
+| `readStreamLines(reader, onLine)`   | 90s  | 流读取空闲看门狗；每收到新数据重置计时                |
+
+新增 Provider 时**不要手写** buffer/decode/split 循环，只需实现各自的 `parseSSELine`
+并接入 `readStreamLines`，参照 `openai.ts` 现有写法。
+
+两个关键陷阱：
+
+1. **`reader.cancel()` 不会让挂起的 `read()` reject**——按 Streams 规范它以 `{done: true}`
+   正常收场。看门狗必须靠 `timedOut` 标志在循环结束后补检，否则连接停滞会被误判为
+   正常完成（`readStreamLines` 已处理，勿在 Provider 内绕过它）。
+2. **AbortController 在 Zotero chrome 特权上下文不可用**（经验记录见
+   `mineru/client.ts` 头注释），所以超时中断一律用 `reader.cancel()` / Promise.race。
+
+### 流式结束原因（finish_reason）约定
+
+各家信号统一**规范化为 `"length"`** 后经 `onDone(finishReason)` 上报：
+
+| Provider 原始值                                                                     | 规范化     |
+| ----------------------------------------------------------------------------------- | ---------- |
+| OpenAI 系（含 DeepSeek/Kimi/Qwen/OpenRouter/MiMo/MiniMax）`finish_reason: "length"` | `"length"` |
+| Anthropic `message_delta.delta.stop_reason: "max_tokens"`                           | `"length"` |
+| Gemini `candidates[0].finishReason: "MAX_TOKENS"`                                   | `"length"` |
+| Ollama `done_reason: "length"`                                                      | `"length"` |
+
+UI 层（`readerPanel.ts` 的 `send()`）只在 `finishReason === "length"` 时显示截断提示；
+**截断但无提示** 即代表流被提前关闭或厂商侧问题——这是用户侧的诊断依据，勿破坏该语义。
+
 ---
 
 ## ⚠️ 截图捕获陷阱 — 每次碰 screenshot/视觉相关代码必读

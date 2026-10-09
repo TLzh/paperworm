@@ -6,15 +6,15 @@
 
 ## 快速选择
 
-| 使用场景     | 推荐模型          | 说明                       |
-| ------------ | ----------------- | -------------------------- |
-| **日常使用** | Claude Sonnet 5   | 最佳平衡，性价比高         |
-| **复杂任务** | Claude Fable 5    | 最新旗舰，能力最强         |
-| **长程任务** | MiMo V2.5-Pro     | 近千轮工具调用，超长上下文 |
-| **快速响应** | Claude Haiku 4.5  | 最快最便宜，适合简单问题   |
-| **中文优化** | Kimi K3           | 月之暗面，中文表现优秀     |
-| **代码生成** | GPT-5.6 Sol       | OpenAI 最新旗舰模型        |
-| **免费使用** | Gemini 3.7 Flash  | Google 免费 tier 可用      |
+| 使用场景     | 推荐模型         | 说明                       |
+| ------------ | ---------------- | -------------------------- |
+| **日常使用** | Claude Sonnet 5  | 最佳平衡，性价比高         |
+| **复杂任务** | Claude Fable 5   | 最新旗舰，能力最强         |
+| **长程任务** | MiMo V2.5-Pro    | 近千轮工具调用，超长上下文 |
+| **快速响应** | Claude Haiku 4.5 | 最快最便宜，适合简单问题   |
+| **中文优化** | Kimi K3          | 月之暗面，中文表现优秀     |
+| **代码生成** | GPT-5.6 Sol      | OpenAI 最新旗舰模型        |
+| **免费使用** | Gemini 3.7 Flash | Google 免费 tier 可用      |
 
 ---
 
@@ -24,13 +24,13 @@
 
 **最新模型系列**：Claude 5
 
-| 模型           | API ID             | 上下文      | 价格 (输入/输出) | 状态    |
-| -------------- | ------------------ | ----------- | ---------------- | ------- |
-| **Fable 5**    | `claude-fable-5`   | 1M tokens   | 见官方定价       | ✅ 最强 |
-| **Opus 5**     | `claude-opus-5`    | 1M tokens   | 见官方定价       | ✅ 最新 |
-| **Sonnet 5**   | `claude-sonnet-5`  | 1M tokens   | 见官方定价       | ✅ 活跃 |
-| **Haiku 4.5**  | `claude-haiku-4-5` | 200K tokens | 见官方定价       | ✅ 活跃 |
-| **Mythos 5**   | `claude-mythos-5`  | 1M tokens   | 邀请制预览       | ⏳ 预览 |
+| 模型          | API ID             | 上下文      | 价格 (输入/输出) | 状态    |
+| ------------- | ------------------ | ----------- | ---------------- | ------- |
+| **Fable 5**   | `claude-fable-5`   | 1M tokens   | 见官方定价       | ✅ 最强 |
+| **Opus 5**    | `claude-opus-5`    | 1M tokens   | 见官方定价       | ✅ 最新 |
+| **Sonnet 5**  | `claude-sonnet-5`  | 1M tokens   | 见官方定价       | ✅ 活跃 |
+| **Haiku 4.5** | `claude-haiku-4-5` | 200K tokens | 见官方定价       | ✅ 活跃 |
+| **Mythos 5**  | `claude-mythos-5`  | 1M tokens   | 邀请制预览       | ⏳ 预览 |
 
 **特点**：
 
@@ -51,11 +51,11 @@
 
 **模型系列**：GPT-5.6
 
-| 模型             | API ID         | 上下文      | 特点           |
-| ---------------- | -------------- | ----------- | -------------- |
-| **GPT-5.6 Sol**  | `gpt-5.6-sol`  | 见官方文档  | 旗舰·复杂推理/编码 |
-| **GPT-5.6 Terra**| `gpt-5.6-terra`| 见官方文档  | 均衡智能与成本 |
-| **GPT-5.6 Luna** | `gpt-5.6-luna` | 见官方文档  | 低成本高吞吐   |
+| 模型              | API ID          | 上下文     | 特点               |
+| ----------------- | --------------- | ---------- | ------------------ |
+| **GPT-5.6 Sol**   | `gpt-5.6-sol`   | 见官方文档 | 旗舰·复杂推理/编码 |
+| **GPT-5.6 Terra** | `gpt-5.6-terra` | 见官方文档 | 均衡智能与成本     |
+| **GPT-5.6 Luna**  | `gpt-5.6-luna`  | 见官方文档 | 低成本高吞吐       |
 
 **特点**：
 
@@ -69,12 +69,12 @@
 
 **模型系列**：Gemini 3.7（Flash）/ 3.1（Pro）
 
-| 模型                    | API ID                     | 上下文    | 价格           | 状态      |
-| ----------------------- | -------------------------- | --------- | -------------- | --------- |
-| **Gemini 3.7 Flash**    | `gemini-3.7-flash`         | 1M tokens | 免费 tier 可用 | ✅ 稳定版 |
-| **Gemini 3.6 Flash**    | `gemini-3.6-flash`         | 1M tokens | 见官方定价     | ✅ 稳定版 |
-| **Gemini 3.5 Flash**    | `gemini-3.5-flash`         | 1M tokens | 见官方定价     | ✅ 稳定版 |
-| **Gemini 3.1 Pro**      | `gemini-3.1-pro-preview`   | 2M tokens | 付费           | ✅ 预览版 |
+| 模型                 | API ID                   | 上下文    | 价格           | 状态      |
+| -------------------- | ------------------------ | --------- | -------------- | --------- |
+| **Gemini 3.7 Flash** | `gemini-3.7-flash`       | 1M tokens | 免费 tier 可用 | ✅ 稳定版 |
+| **Gemini 3.6 Flash** | `gemini-3.6-flash`       | 1M tokens | 见官方定价     | ✅ 稳定版 |
+| **Gemini 3.5 Flash** | `gemini-3.5-flash`       | 1M tokens | 见官方定价     | ✅ 稳定版 |
+| **Gemini 3.1 Pro**   | `gemini-3.1-pro-preview` | 2M tokens | 付费           | ✅ 预览版 |
 
 **特点**：
 
@@ -94,10 +94,10 @@
 
 **模型系列**：Kimi K3
 
-| 模型           | API ID      | 上下文      | 特点                        |
-| -------------- | ----------- | ----------- | --------------------------- |
-| **Kimi K3**    | `kimi-k3`   | 见官方文档  | 最新旗舰，开源（2.8T 参数） |
-| **Kimi K2.6**  | `kimi-k2.6` | 262K tokens | 原生多模态，可作视觉辅助    |
+| 模型          | API ID      | 上下文      | 特点                        |
+| ------------- | ----------- | ----------- | --------------------------- |
+| **Kimi K3**   | `kimi-k3`   | 见官方文档  | 最新旗舰，开源（2.8T 参数） |
+| **Kimi K2.6** | `kimi-k2.6` | 262K tokens | 原生多模态，可作视觉辅助    |
 
 **特点**：
 
@@ -231,13 +231,13 @@
 
 **概述**：[OpenRouter](https://openrouter.ai) 是模型聚合平台，通过**单一 API Key** 接入数百个模型，包括 OpenAI、Anthropic、Google、Meta、Mistral 等厂商的模型。
 
-| 模型              | API ID                            | 上下文      | 特点           |
-| ----------------- | --------------------------------- | ----------- | -------------- |
-| GPT-5.6 Sol       | `openai/gpt-5.6-sol`              | 见官方文档  | OpenAI 旗舰    |
-| Claude Sonnet 5   | `anthropic/claude-sonnet-5`       | 见官方文档  | Anthropic 旗舰 |
-| Gemini 3.7 Flash  | `google/gemini-3.7-flash`         | 1M tokens   | 高速低价       |
-| Llama 5           | `meta-llama/llama-5`              | 见官方文档  | 开源旗舰       |
-| DeepSeek V4       | `deepseek/deepseek-v4-pro`        | 1M tokens   | 推理增强       |
+| 模型             | API ID                      | 上下文     | 特点           |
+| ---------------- | --------------------------- | ---------- | -------------- |
+| GPT-5.6 Sol      | `openai/gpt-5.6-sol`        | 见官方文档 | OpenAI 旗舰    |
+| Claude Sonnet 5  | `anthropic/claude-sonnet-5` | 见官方文档 | Anthropic 旗舰 |
+| Gemini 3.7 Flash | `google/gemini-3.7-flash`   | 1M tokens  | 高速低价       |
+| Llama 5          | `meta-llama/llama-5`        | 见官方文档 | 开源旗舰       |
+| DeepSeek V4      | `deepseek/deepseek-v4-pro`  | 1M tokens  | 推理增强       |
 
 > 注：以上为示例模型，实际可用模型以 OpenRouter「获取模型」按钮拉取到的列表为准。
 
@@ -302,16 +302,16 @@
 
 **概述**：[MiniMax](https://platform.minimaxi.com) 是 MiniMax 推出的 AI 大模型，兼容 OpenAI API 格式，支持 `reasoning_split` 参数分离思考内容。
 
-| 模型                       | API ID                   | 上下文      | 特点                                |
-| -------------------------- | ------------------------ | ----------- | ----------------------------------- |
+| 模型                       | API ID                   | 上下文      | 特点                                  |
+| -------------------------- | ------------------------ | ----------- | ------------------------------------- |
 | **MiniMax-M3**             | `MiniMax-M3`             | 见官方文档  | 最新 M 系列，agentic 推理/编码/多模态 |
-| **MiniMax-M2.7**           | `MiniMax-M2.7`           | 204K tokens | 开启模型的自我迭代（~60 TPS）       |
-| **MiniMax-M2.7-highspeed** | `MiniMax-M2.7-highspeed` | 204K tokens | M2.7 极速版（~100 TPS）             |
-| **MiniMax-M2.5**           | `MiniMax-M2.5`           | 204K tokens | 顶尖性能与极致性价比                |
-| **MiniMax-M2.5-highspeed** | `MiniMax-M2.5-highspeed` | 204K tokens | M2.5 极速版（~100 TPS）             |
-| **MiniMax-M2.1**           | `MiniMax-M2.1`           | 204K tokens | 强大多语言编程能力                  |
-| **MiniMax-M2.1-highspeed** | `MiniMax-M2.1-highspeed` | 204K tokens | M2.1 极速版（~100 TPS）             |
-| **MiniMax-M2**             | `MiniMax-M2`             | 204K tokens | 专为高效编码与 Agent 工作流         |
+| **MiniMax-M2.7**           | `MiniMax-M2.7`           | 204K tokens | 开启模型的自我迭代（~60 TPS）         |
+| **MiniMax-M2.7-highspeed** | `MiniMax-M2.7-highspeed` | 204K tokens | M2.7 极速版（~100 TPS）               |
+| **MiniMax-M2.5**           | `MiniMax-M2.5`           | 204K tokens | 顶尖性能与极致性价比                  |
+| **MiniMax-M2.5-highspeed** | `MiniMax-M2.5-highspeed` | 204K tokens | M2.5 极速版（~100 TPS）               |
+| **MiniMax-M2.1**           | `MiniMax-M2.1`           | 204K tokens | 强大多语言编程能力                    |
+| **MiniMax-M2.1-highspeed** | `MiniMax-M2.1-highspeed` | 204K tokens | M2.1 极速版（~100 TPS）               |
+| **MiniMax-M2**             | `MiniMax-M2`             | 204K tokens | 专为高效编码与 Agent 工作流           |
 
 **特点**：
 
@@ -396,17 +396,17 @@ PaperWorm v0.7.0 新增框选区域截图功能：在 PDF 阅读时拖框选取�
 
 ## 更新日志
 
-| 日期       | 更新内容                                             |
-| ---------- | ---------------------------------------------------- |
-| 2026-04-08 | 新增 Claude 4.6 系列模型信息                         |
-| 2026-04-08 | 更新 GPT-5.4 系列模型信息                            |
-| 2026-04-08 | 更新 Gemini 3 系列模型信息                           |
-| 2026-04-20 | 新增 OpenRouter 服务商支持和文档                     |
-| 2026-04-21 | 新增 Xiaomi MiMo 服务商支持和文档                    |
-| 2026-04-21 | 更新 Claude 模型信息：新增 Opus 4.7，更新弃用通知    |
-| 2026-04-22 | 新增 MiniMax 服务商支持                              |
-| 2026-04-23 | 更新 Xiaomi MiMo：新增 V2.5 和 V2.5-Pro 模型         |
-| 2026-04-30 | 新增视觉辅助模型章节；Kimi k2.6 补充视觉理解特性说明 |
+| 日期       | 更新内容                                                                                                        |
+| ---------- | --------------------------------------------------------------------------------------------------------------- |
+| 2026-04-08 | 新增 Claude 4.6 系列模型信息                                                                                    |
+| 2026-04-08 | 更新 GPT-5.4 系列模型信息                                                                                       |
+| 2026-04-08 | 更新 Gemini 3 系列模型信息                                                                                      |
+| 2026-04-20 | 新增 OpenRouter 服务商支持和文档                                                                                |
+| 2026-04-21 | 新增 Xiaomi MiMo 服务商支持和文档                                                                               |
+| 2026-04-21 | 更新 Claude 模型信息：新增 Opus 4.7，更新弃用通知                                                               |
+| 2026-04-22 | 新增 MiniMax 服务商支持                                                                                         |
+| 2026-04-23 | 更新 Xiaomi MiMo：新增 V2.5 和 V2.5-Pro 模型                                                                    |
+| 2026-04-30 | 新增视觉辅助模型章节；Kimi k2.6 补充视觉理解特性说明                                                            |
 | 2026-08-14 | 全面更新各厂商最新模型：Claude 5（Fable/Opus/Sonnet）、GPT-5.6、Gemini 3.7 Flash、Kimi K3、Qwen 3.7、MiniMax M3 |
 
 ---

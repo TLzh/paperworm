@@ -10,6 +10,13 @@ export class ChatHistory {
     this.messages.push(message);
   }
 
+  /** 移除指定索引的消息（发送失败时撤回 user 消息，避免重发产生连续重复） */
+  remove(index: number) {
+    if (index >= 0 && index < this.messages.length) {
+      this.messages.splice(index, 1);
+    }
+  }
+
   getAll(): LLMMessage[] {
     return [...this.messages];
   }

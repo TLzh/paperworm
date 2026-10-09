@@ -764,11 +764,19 @@ async function send(
     // 注意：未入库历史，避免留下无 AI 响应的悬空消息
   }
 
+  const win = doc.defaultView!;
+
   // 构建 messages：system（含论文上下文 + 全文）+ 对话历史
+  // 阶段反馈 1：首条消息可能触发全文即时索引，耗时数十秒；
+  // 延迟 600ms 显示，缓存命中时不闪烁
   let systemContent: string;
+  const extractTimer = win.setTimeout(() => {
+    aiEl.textContent = "正在提取论文全文…";
+  }, 600);
   try {
     systemContent = await buildSystemContent(item);
   } catch (error: any) {
+    win.clearTimeout(extractTimer);
     aiEl.classList.remove("pw-msg-loading");
     aiEl.classList.add("pw-msg-error");
     aiEl.textContent = `PDF 提取失败：${error.message}`;
@@ -776,6 +784,8 @@ async function send(
     return;
     // 注意：未入库历史，避免留下无 AI 响应的悬空消息
   }
+  win.clearTimeout(extractTimer);
+  aiEl.textContent = ""; // 清除提取阶段提示
 
   // 构建发送给 LLM 的实际消息 content（可能含 ContentPart[]）
   // 历史存储始终用纯文本，图片替换为占位符
@@ -795,6 +805,8 @@ async function send(
       // text 模式：调用辅助视觉 LLM 获取描述（带会话级缓存）
       let desc = "(视觉模型未配置，请在设置中配置视觉辅助模型)";
       if (isVisionConfigured()) {
+        // 阶段反馈：视觉辅助调用可能耗时较久
+        aiEl.textContent = "正在分析截图…";
         try {
           desc = await describeImage(screenshotDataUrl, userText);
         } catch (e: any) {
@@ -807,7 +819,9 @@ async function send(
     userContent = finalText;
   }
 
-  // 提取成功后才将用户消息入库，防止异常时留下悬空历史
+  // 提取成功后才将用户消息入库，防止异常时留下悬空历史。
+  // 记录入库位置：流式失败/超时时撤回（C 修复），避免重发产生连续重复 user 消息
+  const userMsgIndex = history.getAll().length;
   history.add({ role: "user", content: historyContent });
 
   const messages = [
@@ -834,35 +848,89 @@ async function send(
 
   let fullResponse = "";
 
-  await manager.getProvider().chatStream(
-    { model, messages, temperature, maxTokens },
-    (chunk) => {
-      fullResponse += chunk;
-      // 流式输出时过滤 MiniMax 思维链标签（标签可能跨 chunk）
-      const displayText = fullResponse.replace(/<think>[\s\S]*?<\/think>/g, "");
-      aiEl.classList.remove("pw-msg-loading");
-      aiEl.textContent = displayText;
-      scrollToBottom(messagesEl);
-    },
-    () => {
-      aiEl.classList.remove("pw-msg-loading");
-      // 完成后再过滤一次，确保完整内容无思维链
-      fullResponse = fullResponse.replace(/<think>[\s\S]*?<\/think>/g, "");
-      if (fullResponse) {
-        setMarkdown(aiEl, fullResponse);
-        history.add({ role: "assistant", content: fullResponse });
-        void saveSession(item, history); // 自动保存到 Zotero 笔记
-      }
-      sendBtn.classList.remove("pw-disabled");
-      scrollToBottom(messagesEl);
-    },
-    (err) => {
-      aiEl.classList.remove("pw-msg-loading");
-      aiEl.classList.add("pw-msg-error");
-      aiEl.textContent = `错误：${err.message}`;
-      sendBtn.classList.remove("pw-disabled");
-    },
-  );
+  // 阶段反馈 2：连接建立后 5s 内无首个 chunk，显示"思考中"
+  // （思考模型的推理 delta 不展示原文，仅显示进度计数）
+  let firstChunkArrived = false;
+  let reasoningChars = 0;
+  const thinkTimer = win.setTimeout(() => {
+    if (!firstChunkArrived) aiEl.textContent = "模型思考中…";
+  }, 5000);
+
+  try {
+    await manager.getProvider().chatStream(
+      { model, messages, temperature, maxTokens },
+      (chunk, reasoningDelta) => {
+        if (reasoningDelta) {
+          // 推理增量：不展示原文（可能极长），仅更新进度提示
+          win.clearTimeout(thinkTimer);
+          reasoningChars += reasoningDelta.length;
+          aiEl.textContent = `模型思考中…（已推理 ${reasoningChars} 字）`;
+          return;
+        }
+        firstChunkArrived = true;
+        win.clearTimeout(thinkTimer);
+        fullResponse += chunk;
+        // 流式输出时过滤 MiniMax 思维链标签（标签可能跨 chunk）
+        const displayText = fullResponse.replace(
+          /<think>[\s\S]*?<\/think>/g,
+          "",
+        );
+        aiEl.classList.remove("pw-msg-loading");
+        aiEl.textContent = displayText;
+        scrollToBottom(messagesEl);
+      },
+      (finishReason) => {
+        win.clearTimeout(thinkTimer);
+        aiEl.classList.remove("pw-msg-loading");
+        // 完成后再过滤一次，确保完整内容无思维链
+        fullResponse = fullResponse.replace(/<think>[\s\S]*?<\/think>/g, "");
+        if (fullResponse) {
+          setMarkdown(aiEl, fullResponse);
+          history.add({ role: "assistant", content: fullResponse });
+          void saveSession(item, history); // 自动保存到 Zotero 笔记
+          // "length" = 因 Max Tokens 上限被截断；无提示而中断则说明是流/厂商问题
+          if (finishReason === "length") {
+            appendTruncationHint(doc, aiEl, maxTokens);
+          }
+        } else {
+          // 空响应：与 onError 一致撤回 user 消息，避免重发产生连续重复
+          history.remove(userMsgIndex);
+          aiEl.classList.add("pw-msg-error");
+          if (finishReason === "length") {
+            // 思考型模型：全部 Max Tokens 预算耗尽在推理上，正文未开始
+            aiEl.textContent = `模型将 Max Tokens 预算（${maxTokens}）全部消耗在推理上（${
+              reasoningChars > 0
+                ? `已推理约 ${reasoningChars} 字`
+                : "无正文输出"
+            }），未产生任何回答 — 请点上方 T 徽章调大 Max Tokens（建议 ≥8000），然后重新发送这条消息（原消息已自动撤回，不会重复）`;
+          } else {
+            aiEl.textContent = "模型未返回任何内容，请重试";
+          }
+        }
+        sendBtn.classList.remove("pw-disabled");
+        scrollToBottom(messagesEl);
+      },
+      (err) => {
+        win.clearTimeout(thinkTimer);
+        // 撤回本轮 user 消息：未获得 AI 回复的消息留在历史中，
+        // 会导致重发时向厂商发送连续两条相同 user 消息
+        history.remove(userMsgIndex);
+        aiEl.classList.remove("pw-msg-loading");
+        aiEl.classList.add("pw-msg-error");
+        aiEl.textContent = `错误：${err.message}`;
+        sendBtn.classList.remove("pw-disabled");
+      },
+    );
+  } catch (e) {
+    // 兜底：Provider 构造或流启动阶段的同步异常（如 prefs 损坏导致 Unknown provider）。
+    // 不捕获会逃逸为未处理的 Promise rejection，thinkTimer 悬挂、发送按钮永久锁死
+    win.clearTimeout(thinkTimer);
+    history.remove(userMsgIndex);
+    aiEl.classList.remove("pw-msg-loading");
+    aiEl.classList.add("pw-msg-error");
+    aiEl.textContent = `错误：${(e as Error).message}`;
+    sendBtn.classList.remove("pw-disabled");
+  }
 }
 
 // ── MinerU 精细提取 ───────────────────────────────────────────────────────────
@@ -984,6 +1052,21 @@ function appendMessage(
 
 function scrollToBottom(el: HTMLElement) {
   el.scrollTop = el.scrollHeight;
+}
+
+/**
+ * 回答因 Max Tokens 上限被截断时，在消息末尾追加提示。
+ * 仅 UI 展示，不入会话历史（用户输入"继续"即可从断点接着生成）。
+ */
+function appendTruncationHint(
+  doc: Document,
+  msgEl: HTMLElement,
+  maxTokens: number,
+): void {
+  const hint = doc.createElement("div");
+  hint.className = "pw-truncated-hint";
+  hint.textContent = `⚠ 回答因达到 Max Tokens 上限（${maxTokens}）被截断 — 输入"继续"可接着生成，或点上方 T 徽章调大 Max Tokens`;
+  msgEl.appendChild(hint);
 }
 
 /**
@@ -2296,6 +2379,14 @@ const CHAT_CSS = `
 .pw-msg-error {
   background: rgba(220,50,50,0.12);
   color: #c0392b;
+}
+.pw-truncated-hint {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(192,57,43,0.4);
+  font-size: 11px;
+  color: #c0392b;
+  line-height: 1.5;
 }
 .pw-input-area {
   display: flex;

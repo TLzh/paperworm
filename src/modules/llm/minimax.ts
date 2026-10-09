@@ -7,7 +7,7 @@
  */
 
 import type { LLMProvider, LLMRequestOptions } from "./provider";
-import { zhttp } from "./provider";
+import { zhttp, fetchWithHeaderTimeout, readStreamLines } from "./provider";
 
 const BASE_URL = "https://api.minimaxi.com/v1";
 
@@ -50,13 +50,13 @@ export class MiniMaxProvider implements LLMProvider {
 
   async chatStream(
     options: LLMRequestOptions,
-    onChunk: (chunk: string) => void,
-    onDone: () => void,
+    onChunk: (chunk: string, reasoningDelta?: string) => void,
+    onDone: (finishReason?: string) => void,
     onError: (err: Error) => void,
   ): Promise<void> {
     let res: Response;
     try {
-      res = await fetch(`${BASE_URL}/chat/completions`, {
+      res = await fetchWithHeaderTimeout(`${BASE_URL}/chat/completions`, {
         method: "POST",
         headers: this.headers(),
         body: JSON.stringify(this.buildBody(options, true)),
@@ -75,24 +75,15 @@ export class MiniMaxProvider implements LLMProvider {
     const reader = (
       res.body as any
     ).getReader() as ReadableStreamDefaultReader<Uint8Array>;
-    const decoder = new TextDecoder();
-    let buffer = "";
+    let finishReason: string | null = null;
 
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          const text = this.parseSSELine(line);
-          if (text) onChunk(text);
-        }
-      }
-      onDone();
+      await readStreamLines(reader, (line) => {
+        const parsed = this.parseSSELine(line);
+        if (parsed.text) onChunk(parsed.text);
+        if (parsed.finishReason) finishReason = parsed.finishReason;
+      });
+      onDone(finishReason ?? undefined);
     } catch (e) {
       onError(e as Error);
     }
@@ -150,19 +141,38 @@ export class MiniMaxProvider implements LLMProvider {
     };
   }
 
-  private parseSSELine(line: string): string | null {
-    if (!line.startsWith("data: ")) return null;
+  private parseSSELine(line: string): {
+    text: string | null;
+    reasoning: string | null;
+    finishReason: string | null;
+  } {
+    if (!line.startsWith("data: ")) {
+      return { text: null, reasoning: null, finishReason: null };
+    }
     const data = line.slice(6).trim();
-    if (data === "[DONE]") return null;
+    if (data === "[DONE]") {
+      return { text: null, reasoning: null, finishReason: null };
+    }
     try {
       const json = JSON.parse(data) as any;
-      const content = json.choices?.[0]?.delta?.content ?? null;
-      if (!content) return null;
+      const delta = json.choices?.[0]?.delta;
+      const content = delta?.content ?? null;
+      if (!content) {
+        return {
+          text: null,
+          reasoning: delta?.reasoning_content ?? delta?.reasoning ?? null,
+          finishReason: json.choices?.[0]?.finish_reason ?? null,
+        };
+      }
       // MiniMax 原生格式：思维链包裹在 <think>...</think> 标签中
       // 过滤掉思维链，只返回正式回答
-      return content.replace(/<think>[\s\S]*?<\/think>/g, "");
+      return {
+        text: content.replace(/<think>[\s\S]*?<\/think>/g, "") || null,
+        reasoning: null,
+        finishReason: json.choices?.[0]?.finish_reason ?? null,
+      };
     } catch {
-      return null;
+      return { text: null, reasoning: null, finishReason: null };
     }
   }
 }

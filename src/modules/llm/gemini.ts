@@ -10,7 +10,7 @@ import type {
   LLMRequestOptions,
   ContentPart,
 } from "./provider";
-import { zhttp } from "./provider";
+import { zhttp, fetchWithHeaderTimeout, readStreamLines } from "./provider";
 
 function toGeminiParts(content: string | ContentPart[]) {
   if (typeof content === "string") return [{ text: content }];
@@ -57,15 +57,15 @@ export class GeminiProvider implements LLMProvider {
 
   async chatStream(
     options: LLMRequestOptions,
-    onChunk: (chunk: string) => void,
-    onDone: () => void,
+    onChunk: (chunk: string, reasoningDelta?: string) => void,
+    onDone: (finishReason?: string) => void,
     onError: (err: Error) => void,
   ): Promise<void> {
     // 流式输出需要 ReadableStream，Zotero.HTTP.request() 不支持，使用 fetch()
     const url = `${BASE_URL}/models/${options.model}:streamGenerateContent?alt=sse`;
     let res: Response;
     try {
-      res = await fetch(url, {
+      res = await fetchWithHeaderTimeout(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -87,24 +87,19 @@ export class GeminiProvider implements LLMProvider {
     const reader = (
       res.body as any
     ).getReader() as ReadableStreamDefaultReader<Uint8Array>;
-    const decoder = new TextDecoder();
-    let buffer = "";
+    let finishReason: string | null = null;
 
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          const text = this.parseSSELine(line);
-          if (text) onChunk(text);
-        }
-      }
-      onDone();
+      await readStreamLines(reader, (line) => {
+        const parsed = this.parseSSELine(line);
+        if (parsed.reasoning) onChunk("", parsed.reasoning);
+        if (parsed.text) onChunk(parsed.text);
+        if (parsed.finishReason) finishReason = parsed.finishReason;
+      });
+      // Gemini 用 "MAX_TOKENS" 表示因输出上限截断，规范化为 "length"
+      onDone(
+        finishReason === "MAX_TOKENS" ? "length" : (finishReason ?? undefined),
+      );
     } catch (e) {
       onError(e as Error);
     }
@@ -173,13 +168,32 @@ export class GeminiProvider implements LLMProvider {
     return body;
   }
 
-  private parseSSELine(line: string): string | null {
-    if (!line.startsWith("data: ")) return null;
+  private parseSSELine(line: string): {
+    text: string | null;
+    reasoning: string | null;
+    finishReason: string | null;
+  } {
+    if (!line.startsWith("data: ")) {
+      return { text: null, reasoning: null, finishReason: null };
+    }
     try {
       const json = JSON.parse(line.slice(6)) as any;
-      return json.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+      const candidate = json.candidates?.[0];
+      // thinking 模型：thought:true 的 parts 是推理增量，其余为正文
+      let text: string | null = null;
+      let reasoning: string | null = null;
+      for (const part of candidate?.content?.parts ?? []) {
+        if (typeof part?.text !== "string") continue;
+        if (part.thought) reasoning = (reasoning ?? "") + part.text;
+        else text = (text ?? "") + part.text;
+      }
+      return {
+        text,
+        reasoning,
+        finishReason: candidate?.finishReason ?? null,
+      };
     } catch {
-      return null;
+      return { text: null, reasoning: null, finishReason: null };
     }
   }
 }

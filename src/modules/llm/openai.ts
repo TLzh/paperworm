@@ -4,7 +4,7 @@
  */
 
 import type { LLMProvider, LLMMessage, LLMRequestOptions } from "./provider";
-import { zhttp } from "./provider";
+import { zhttp, fetchWithHeaderTimeout, readStreamLines } from "./provider";
 
 export class OpenAIProvider implements LLMProvider {
   readonly name: string;
@@ -42,14 +42,14 @@ export class OpenAIProvider implements LLMProvider {
 
   async chatStream(
     options: LLMRequestOptions,
-    onChunk: (chunk: string) => void,
-    onDone: () => void,
+    onChunk: (chunk: string, reasoningDelta?: string) => void,
+    onDone: (finishReason?: string) => void,
     onError: (err: Error) => void,
   ): Promise<void> {
     // 流式输出需要 ReadableStream，Zotero.HTTP.request() 不支持，使用 fetch()
     let res: Response;
     try {
-      res = await fetch(`${this.baseUrl}/chat/completions`, {
+      res = await fetchWithHeaderTimeout(`${this.baseUrl}/chat/completions`, {
         method: "POST",
         headers: this.headers(),
         body: JSON.stringify(this.buildBody(options, true)),
@@ -68,24 +68,16 @@ export class OpenAIProvider implements LLMProvider {
     const reader = (
       res.body as any
     ).getReader() as ReadableStreamDefaultReader<Uint8Array>;
-    const decoder = new TextDecoder();
-    let buffer = "";
+    let finishReason: string | null = null;
 
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          const text = this.parseSSELine(line);
-          if (text) onChunk(text);
-        }
-      }
-      onDone();
+      await readStreamLines(reader, (line) => {
+        const parsed = this.parseSSELine(line);
+        if (parsed.reasoning) onChunk("", parsed.reasoning);
+        if (parsed.text) onChunk(parsed.text);
+        if (parsed.finishReason) finishReason = parsed.finishReason;
+      });
+      onDone(finishReason ?? undefined);
     } catch (e) {
       onError(e as Error);
     }
@@ -158,15 +150,29 @@ export class OpenAIProvider implements LLMProvider {
     };
   }
 
-  private parseSSELine(line: string): string | null {
-    if (!line.startsWith("data: ")) return null;
+  private parseSSELine(line: string): {
+    text: string | null;
+    reasoning: string | null;
+    finishReason: string | null;
+  } {
+    if (!line.startsWith("data: ")) {
+      return { text: null, reasoning: null, finishReason: null };
+    }
     const data = line.slice(6).trim();
-    if (data === "[DONE]") return null;
+    if (data === "[DONE]") {
+      return { text: null, reasoning: null, finishReason: null };
+    }
     try {
       const json = JSON.parse(data) as any;
-      return json.choices?.[0]?.delta?.content ?? null;
+      const delta = json.choices?.[0]?.delta;
+      return {
+        text: delta?.content ?? null,
+        // 思考型模型：推理增量走 reasoning_content（Kimi/DeepSeek）或 reasoning（OpenRouter 等）
+        reasoning: delta?.reasoning_content ?? delta?.reasoning ?? null,
+        finishReason: json.choices?.[0]?.finish_reason ?? null,
+      };
     } catch {
-      return null;
+      return { text: null, reasoning: null, finishReason: null };
     }
   }
 }
