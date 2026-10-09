@@ -13,6 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 完整历史：Generate Release Notes 步骤需要解析 tag 的父提交
+          # （浅克隆 depth=1 时 "git describe vX.Y.Z^" 报 Not a valid object name）
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
