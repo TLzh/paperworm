@@ -8,9 +8,19 @@
 
 ## [Unreleased]
 
+### Added
+
+- **推理强度控制（深度思考）** — 参数 popover（T 徽章）新增四档推理强度：**自动 / 低 / 高 / 关闭**（档位标准借鉴 HermesAgent/OpenRouter 的 effort 枚举），关闭或调低后推理不再挤占 Max Tokens 预算。按厂商官方参数就近映射：DeepSeek `reasoning_effort: low/max` + `thinking:{type:"disabled"}`、OpenAI `reasoning_effort: low/high`、Kimi/MiMo `thinking:{type:"disabled"}`（无档位，低≈关）、Qwen `enable_thinking:false`（同左）、Gemini `thinkingBudget:0`（低/高维持默认）、Ollama `think:false`（同左）、Anthropic 高档启用 extended thinking 并按 maxTokens 折算预算（Claude Code 预算制思路，仅预算充足时生效）；OpenRouter/MiniMax 暂无官方开关，安全忽略。T 徽章按档位显示"无思考/低思考/高思考"标识，下一条消息立即生效
+
 ---
 
-## [0.8.1] - 2026-10-15
+## [0.8.2] - 2026-10-15
+
+### Fixed
+
+- **修复 OpenAI 新模型 400 报错** — gpt-5 系模型不再接受 `max_tokens` 与自定义 `temperature`：真 OpenAI 请求改用 `max_completion_tokens` 并统一不发送 temperature（其余 OpenAI 兼容厂商仍按各自文档使用 `max_tokens`，不受影响）
+
+---
 
 ### Fixed
 

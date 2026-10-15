@@ -114,8 +114,6 @@ This means you can switch providers or models at any point during a conversation
 
 Each provider's API key and model are stored independently, so switching between providers never overwrites your other configurations.
 
----
-
 ## Gemini Model Guide
 
 Google Gemini offers a wide range of models through the Gemini API. Below is a guide to help you choose the right model for paper reading tasks.

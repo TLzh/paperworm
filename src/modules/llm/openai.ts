@@ -42,7 +42,7 @@ export class OpenAIProvider implements LLMProvider {
 
   async chatStream(
     options: LLMRequestOptions,
-    onChunk: (chunk: string, reasoningDelta?: string) => void,
+    onChunk: (chunk: string) => void,
     onDone: (finishReason?: string) => void,
     onError: (err: Error) => void,
   ): Promise<void> {
@@ -73,7 +73,6 @@ export class OpenAIProvider implements LLMProvider {
     try {
       await readStreamLines(reader, (line) => {
         const parsed = this.parseSSELine(line);
-        if (parsed.reasoning) onChunk("", parsed.reasoning);
         if (parsed.text) onChunk(parsed.text);
         if (parsed.finishReason) finishReason = parsed.finishReason;
       });
@@ -141,38 +140,36 @@ export class OpenAIProvider implements LLMProvider {
   }
 
   private buildBody(options: LLMRequestOptions, stream: boolean) {
-    return {
+    const body: Record<string, any> = {
       model: options.model,
       messages: options.messages,
       temperature: options.temperature ?? 0.7,
-      max_tokens: options.maxTokens ?? 2000,
+      // OpenAI 新一代模型（gpt-5 系）要求 max_completion_tokens（旧名 max_tokens 返回 400）；
+      // 其余 OpenAI 兼容厂商（DeepSeek/Kimi/Qwen/MiMo/OpenRouter/MiniMax）文档均为 max_tokens
+      [this.name === "openai" ? "max_completion_tokens" : "max_tokens"]:
+        options.maxTokens ?? 2000,
       stream,
     };
+    // OpenAI：gpt-5 系推理模型仅接受默认 temperature，统一不发送（T 设置对其余厂商正常生效）
+    if (this.name === "openai") delete body.temperature;
+    return body;
   }
 
   private parseSSELine(line: string): {
     text: string | null;
-    reasoning: string | null;
     finishReason: string | null;
   } {
-    if (!line.startsWith("data: ")) {
-      return { text: null, reasoning: null, finishReason: null };
-    }
+    if (!line.startsWith("data: ")) return { text: null, finishReason: null };
     const data = line.slice(6).trim();
-    if (data === "[DONE]") {
-      return { text: null, reasoning: null, finishReason: null };
-    }
+    if (data === "[DONE]") return { text: null, finishReason: null };
     try {
       const json = JSON.parse(data) as any;
-      const delta = json.choices?.[0]?.delta;
       return {
-        text: delta?.content ?? null,
-        // 思考型模型：推理增量走 reasoning_content（Kimi/DeepSeek）或 reasoning（OpenRouter 等）
-        reasoning: delta?.reasoning_content ?? delta?.reasoning ?? null,
+        text: json.choices?.[0]?.delta?.content ?? null,
         finishReason: json.choices?.[0]?.finish_reason ?? null,
       };
     } catch {
-      return { text: null, reasoning: null, finishReason: null };
+      return { text: null, finishReason: null };
     }
   }
 }
