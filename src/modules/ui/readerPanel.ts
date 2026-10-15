@@ -1672,7 +1672,18 @@ function showSessionList(
 
     const metaEl = doc.createElement("span");
     metaEl.className = "pw-session-date";
-    metaEl.textContent = sess.updated.slice(0, 10);
+    // 精确到分钟：updated 为每次 AI 回复完成时刷新的 ISO 时间戳（UTC），转本地时间
+    const d = new Date(sess.updated);
+    if (isNaN(d.getTime())) {
+      metaEl.textContent = sess.updated.slice(0, 10); // 容错：非法时间戳退回原显示
+    } else {
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const now = new Date();
+      metaEl.textContent =
+        d.getFullYear() === now.getFullYear()
+          ? `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}` // 当年：MM-DD HH:mm
+          : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; // 跨年：补全年份
+    }
     row.appendChild(metaEl);
 
     const delBtn = doc.createElement("span");
