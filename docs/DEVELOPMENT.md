@@ -227,8 +227,6 @@ UI 光标闪烁不止且发送按钮锁死（`pw-disabled`），只能靠切 tab
 UI 层（`readerPanel.ts` 的 `send()`）只在 `finishReason === "length"` 时显示截断提示；
 **截断但无提示** 即代表流被提前关闭或厂商侧问题——这是用户侧的诊断依据，勿破坏该语义。
 
----
-
 ## ⚠️ 截图捕获陷阱 — 每次碰 screenshot/视觉相关代码必读
 
 ### Zotero 主窗口是 XUL 文档，无法注入 HTML overlay

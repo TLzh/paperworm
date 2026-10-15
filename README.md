@@ -20,7 +20,7 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 - **Multiple sessions per paper** — start new conversations and switch between them via the **Session List** view
 - **Rich text rendering** — Markdown (headings, bold, lists, code blocks) and LaTeX math (via KaTeX MathML) rendered in AI responses
 - **Precise layout extraction (MinerU)** — optional layout-aware text extraction using [MinerU](https://github.com/opendatalab/mineru) to better handle tables, formulas, and structured content
-- **Multimodal screenshot analysis** — drag to draw a rectangle over any figure, chart, or equation in the PDF; the captured region is attached to your next message and analyzed by a vision-capable model
+- **Multimodal screenshot analysis** — drag to draw a rectangle over any figure, chart, or equation in the PDF, or paste an image directly from your clipboard; the image is attached to your next message and analyzed by a vision-capable model
 
 ## Requirements
 
@@ -69,6 +69,8 @@ PaperWorm can analyze figures, charts, equations, and any visible region of a PD
 3. A thumbnail chip appears above the input box showing your screenshot
 4. Type your question (or leave it blank) and press Send
 5. The AI will receive both the screenshot and your text
+
+**Clipboard paste:** you can also paste an image directly into the input box (e.g. a screenshot taken from another app). It appears as an attachment chip and goes through the same three-tier delivery pipeline described below.
 
 **Configuring the vision assistant model:**
 

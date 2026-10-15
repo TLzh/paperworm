@@ -161,8 +161,8 @@ ${CHAT_CSS}
       <div class="pw-chip-close pw-sel-chip-close" role="button" tabindex="0">×</div>
     </div>
     <div class="pw-screenshot-chip pw-hidden">
-      <span class="pw-chip-label">截图</span>
-      <img class="pw-screenshot-thumb" alt="截图预览" />
+      <span class="pw-chip-label">图片</span>
+      <img class="pw-screenshot-thumb" alt="图片预览" />
       <div class="pw-chip-close pw-img-chip-close" role="button" tabindex="0">×</div>
     </div>
     <textarea class="pw-input" rows="3" placeholder="输入问题… Enter 发送，Shift+Enter 换行"></textarea>
@@ -345,6 +345,37 @@ function bindEvents(
   textarea.addEventListener("input", () => {
     textarea.style.height = "auto";
     textarea.style.height = textarea.scrollHeight + "px";
+  });
+
+  // 粘贴图片：剪贴板含图片时挂到截图 chip（与框选区域共用后续投递链）
+  textarea.addEventListener("paste", (e: ClipboardEvent) => {
+    const cd = e.clipboardData;
+    if (!cd) return;
+    const items = Array.from(cd.items ?? []);
+    const imageItem = items.find(
+      (it) => it.kind === "file" && it.type.startsWith("image/"),
+    );
+    if (!imageItem) return; // 纯文本粘贴走默认行为
+
+    const file = imageItem.getAsFile();
+    if (!file) return;
+
+    // 图文混排（如从 Word 复制）时保留默认行为，文字照常插入，图片另行附加
+    const hasText = items.some(
+      (it) => it.kind === "string" && it.type === "text/plain",
+    );
+    if (!hasText) e.preventDefault();
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const raw = reader.result;
+      if (typeof raw !== "string") return;
+      void normalizeImageDataUrl(doc, raw).then((dataUrl) => {
+        showScreenshotChip(dataUrl);
+        textarea.focus();
+      });
+    };
+    reader.readAsDataURL(file);
   });
 
   panel.querySelectorAll(".pw-action-btn").forEach((btn: Element) => {
@@ -640,6 +671,46 @@ function captureFromPDFCanvas(
     Zotero.log(`PaperWorm: captureFromPDFCanvas failed — ${e}`, "error");
     return null;
   }
+}
+
+/**
+ * 归一化任意来源的图片 dataURL（粘贴板截图等）：长边超过 1024px 时等比压缩，
+ * 编码为 JPEG 0.9 控制 payload 与视觉 token 消耗；任何步骤失败均原样返回，
+ * 不阻塞发送。与 captureFromPDFCanvas 的压缩参数保持一致。
+ */
+function normalizeImageDataUrl(
+  doc: Document,
+  dataUrl: string,
+): Promise<string> {
+  return new Promise((resolve) => {
+    const img = doc.createElement("img");
+    img.onload = () => {
+      try {
+        const MAX_SIDE = 1024;
+        const longSide = Math.max(img.naturalWidth, img.naturalHeight);
+        if (longSide <= MAX_SIDE) {
+          resolve(dataUrl); // 已足够小，原样返回避免二次编码
+          return;
+        }
+        const scale = MAX_SIDE / longSide;
+        const canvas = doc.createElement("canvas");
+        canvas.width = Math.round(img.naturalWidth * scale);
+        canvas.height = Math.round(img.naturalHeight * scale);
+        const ctx = canvas.getContext("2d") as CanvasRenderingContext2D | null;
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.9));
+      } catch (e) {
+        Zotero.log(`PaperWorm: normalizeImageDataUrl failed — ${e}`, "error");
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
 }
 
 /**
