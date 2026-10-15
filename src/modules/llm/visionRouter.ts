@@ -1,13 +1,13 @@
 /**
- * 视觉路由模块 — Kimi 视觉辅助
+ * 视觉路由模块 — Kimi 视觉辅助（降级路径）
  *
- * 当前仅支持 Kimi 视觉模型（kimi-k2.6、kimi-k2.5、moonshot-v1-*-vision-preview）。
- * 其他 provider 将在各自文档完备后逐步接入。
+ * 截图投递策略（readerPanel.send 的三级降级链）：
+ * ① 主聊天模型直发图片（native，绝大多数现代模型支持）
+ * ② 被拒后调用本模块的 Kimi 视觉辅助转述（需配置 llm.vision.provider/model）
+ * ③ 仍未配置或失败 → 注入"图片识别失败"占位符，不阻塞主聊天
  *
  * API Key 直接复用 LLM 服务配置中已保存的 Kimi API Key（llm.kimi.apiKey），
- * 无需额外配置。
- *
- * 会话级缓存：相同截图只调用一次视觉 LLM。
+ * 无需额外配置。会话级缓存：相同截图只调用一次视觉 LLM。
  */
 
 import { config } from "../../../package.json";
@@ -27,12 +27,6 @@ function hashString(s: string): string {
 const descriptionCache = new Map<string, string>();
 
 const KIMI_BASE_URL = "https://api.moonshot.cn/v1";
-
-/** 读取 prefs，判断当前应使用哪种视觉模式 */
-export function getVisionMode(): "native" | "text" {
-  // 当前始终返回 text；native 模式留作后续按 model capability 扩展
-  return "text";
-}
 
 /** 是否已配置辅助视觉 LLM（provider = kimi，model 已填，Kimi API Key 已配置） */
 export function isVisionConfigured(): boolean {
@@ -102,7 +96,8 @@ export async function describeImage(
     body.max_tokens = 800;
   }
 
-  // 使用 successCodes: false 接受所有 HTTP 状态码，以便读取 Kimi 返回的错误 JSON
+  // 使用 successCodes: false 接受所有 HTTP 状态码，以便读取 Kimi 返回的错误 JSON；
+  // timeout 60s：视觉辅助不再是不限时的悬挂点（与主聊天看门狗同源的守护思路）
   const resp = await zhttp("POST", `${KIMI_BASE_URL}/chat/completions`, {
     headers: {
       "Content-Type": "application/json",
@@ -110,7 +105,7 @@ export async function describeImage(
     },
     body: JSON.stringify(body),
     successCodes: false,
-    timeout: 0,
+    timeout: 60_000,
   });
 
   if (resp.status !== 200) {

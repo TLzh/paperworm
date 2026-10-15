@@ -72,22 +72,13 @@ PaperWorm can analyze figures, charts, equations, and any visible region of a PD
 
 **Configuring the vision assistant model:**
 
-The vision assistant runs as a separate LLM call, independent of your main chat model. To configure it:
+Screenshots are delivered through a three-tier fallback chain:
 
-1. Open **Edit → Settings → PaperWorm**
-2. Scroll to the **视觉辅助模型** (Vision Assistant Model) section
-3. Select a provider and enter the vision model name (e.g. `kimi-k2.6` for Kimi)
-4. The vision assistant uses the same API key as the selected provider — no extra key needed
+1. **Native (default)** — the screenshot is sent directly to your main chat model. Works with any vision-capable model (GPT-5.6, Gemini, Claude, Kimi, …) with no extra configuration.
+2. **Vision assistant fallback** — if the main model rejects image input (e.g. a text-only model), PaperWorm automatically describes the screenshot with a dedicated vision model (Kimi) and relays the description as text. To enable, configure it under **视觉辅助模型** in Settings; it reuses your Kimi API key.
+3. **Placeholder** — if no vision assistant is configured (or it fails), a "[图片识别失败]" note is injected instead. The main conversation is never blocked.
 
-**Recommended vision models:**
-
-| Provider        | Model       | Notes                                                        |
-| --------------- | ----------- | ------------------------------------------------------------ |
-| Kimi (Moonshot) | `kimi-k2.6` | Supports native vision; API key shared with Kimi chat config |
-
-**Notes:**
-
-- If no vision assistant is configured, the screenshot is still described as "视觉模型未配置" and the message is sent with that placeholder — the main model will acknowledge it but cannot see the image
+- The fallback is automatic and transparent: you'll see a brief "视觉辅助模型转述中…" status while it runs
 - Screenshot descriptions are cached for the session: the same image region sent multiple times only calls the vision model once
 - Screenshot data stays in memory only; stored session notes use `[截图 📷]` as a placeholder instead of the raw image
 

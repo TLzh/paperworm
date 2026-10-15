@@ -10,7 +10,6 @@ import { ChatHistory } from "../chat/history";
 import { PaperExtractor } from "../paper/extractor";
 import { MinerUCacheManager } from "../paper/strategies/mineru";
 import {
-  getVisionMode,
   isVisionConfigured,
   describeImage,
   clearVisionCache,
@@ -789,46 +788,42 @@ async function send(
 
   // 构建发送给 LLM 的实际消息 content（可能含 ContentPart[]）
   // 历史存储始终用纯文本，图片替换为占位符
-  let userContent: string | ContentPart[];
+  // 历史存储始终用纯文本，图片替换为占位符
   const historyContent = screenshotDataUrl
     ? `[截图 📷]${finalText ? "\n\n" + finalText : ""}`
     : finalText;
 
-  if (screenshotDataUrl) {
-    const mode = getVisionMode();
-    if (mode === "native") {
-      userContent = [
+  // ── 图片投递三级降级：① 主模型直发(native) → ② 视觉辅助转述 → ③ 占位符提示 ──
+  // ②③ 在 ① 被 API 拒绝（主模型不支持图片输入等）时于下方重发循环中触发；
+  // 最终占位符仅提示识别失败，不阻塞主聊天输出
+  const resolveImageContent = async (
+    native: boolean,
+  ): Promise<string | ContentPart[]> => {
+    if (!screenshotDataUrl) return finalText;
+    if (native) {
+      return [
         { type: "text", text: finalText || "请分析这张截图" },
         { type: "image_url", image_url: { url: screenshotDataUrl } },
       ] as ContentPart[];
-    } else {
-      // text 模式：调用辅助视觉 LLM 获取描述（带会话级缓存）
-      let desc = "(视觉模型未配置，请在设置中配置视觉辅助模型)";
-      if (isVisionConfigured()) {
-        // 阶段反馈：视觉辅助调用可能耗时较久
-        aiEl.textContent = "正在分析截图…";
-        try {
-          desc = await describeImage(screenshotDataUrl, userText);
-        } catch (e: any) {
-          desc = `（视觉模型调用失败：${e.message}）`;
-        }
-      }
-      userContent = `[图片内容描述：\n${desc}]${finalText ? "\n\n" + finalText : ""}`;
     }
-  } else {
-    userContent = finalText;
-  }
+    if (isVisionConfigured()) {
+      aiEl.textContent = "主模型无法识别图片，视觉辅助模型转述中…";
+      try {
+        const desc = await describeImage(screenshotDataUrl, userText);
+        return `[图片内容描述：\n${desc}]${finalText ? `\n\n${finalText}` : ""}`;
+      } catch (e: any) {
+        return `[图片识别失败：视觉辅助调用出错（${e.message}）]${finalText ? `\n\n${finalText}` : ""}`;
+      }
+    }
+    return `[图片识别失败：主模型不支持图片输入，且未配置视觉辅助模型（设置 → 视觉辅助模型）]${finalText ? `\n\n${finalText}` : ""}`;
+  };
+
+  let userContent = await resolveImageContent(screenshotDataUrl != null);
 
   // 提取成功后才将用户消息入库，防止异常时留下悬空历史。
   // 记录入库位置：流式失败/超时时撤回（C 修复），避免重发产生连续重复 user 消息
   const userMsgIndex = history.getAll().length;
   history.add({ role: "user", content: historyContent });
-
-  const messages = [
-    { role: "system" as const, content: systemContent },
-    ...history.getAll().slice(0, -1), // 除最后一条（用 userContent 替代）
-    { role: "user" as const, content: userContent },
-  ];
 
   const model =
     (Zotero.Prefs.get(
@@ -852,84 +847,120 @@ async function send(
   // （思考模型的推理 delta 不展示原文，仅显示进度计数）
   let firstChunkArrived = false;
   let reasoningChars = 0;
-  const thinkTimer = win.setTimeout(() => {
+  let thinkTimer = win.setTimeout(() => {
     if (!firstChunkArrived) aiEl.textContent = "模型思考中…";
   }, 5000);
 
-  try {
-    await manager.getProvider().chatStream(
-      { model, messages, temperature, maxTokens },
-      (chunk, reasoningDelta) => {
-        if (reasoningDelta) {
-          // 推理增量：不展示原文（可能极长），仅更新进度提示
+  const buildMessages = (uc: string | ContentPart[]) => [
+    { role: "system" as const, content: systemContent },
+    ...history.getAll().slice(0, -1), // 除最后一条（用本轮 uc 替代）
+    { role: "user" as const, content: uc },
+  ];
+
+  // 图片消息重发循环：第 1 次尝试主模型直发(native)，被拒后降级为辅助转述/占位符再发
+  for (let attempt = 1; ; attempt++) {
+    const useNative = screenshotDataUrl != null && attempt === 1;
+    const messages = buildMessages(userContent);
+    let degrade = false; // native 被拒 → 降级重发
+
+    try {
+      await manager.getProvider().chatStream(
+        { model, messages, temperature, maxTokens },
+        (chunk, reasoningDelta) => {
+          if (reasoningDelta) {
+            // 推理增量：不展示原文（可能极长），仅更新进度提示
+            win.clearTimeout(thinkTimer);
+            reasoningChars += reasoningDelta.length;
+            aiEl.textContent = `模型思考中…（已推理 ${reasoningChars} 字）`;
+            return;
+          }
+          firstChunkArrived = true;
           win.clearTimeout(thinkTimer);
-          reasoningChars += reasoningDelta.length;
-          aiEl.textContent = `模型思考中…（已推理 ${reasoningChars} 字）`;
-          return;
-        }
-        firstChunkArrived = true;
-        win.clearTimeout(thinkTimer);
-        fullResponse += chunk;
-        // 流式输出时过滤 MiniMax 思维链标签（标签可能跨 chunk）
-        const displayText = fullResponse.replace(
-          /<think>[\s\S]*?<\/think>/g,
-          "",
-        );
-        aiEl.classList.remove("pw-msg-loading");
-        aiEl.textContent = displayText;
-        scrollToBottom(messagesEl);
-      },
-      (finishReason) => {
-        win.clearTimeout(thinkTimer);
-        aiEl.classList.remove("pw-msg-loading");
-        // 完成后再过滤一次，确保完整内容无思维链
-        fullResponse = fullResponse.replace(/<think>[\s\S]*?<\/think>/g, "");
-        if (fullResponse) {
-          setMarkdown(aiEl, fullResponse);
-          history.add({ role: "assistant", content: fullResponse });
-          void saveSession(item, history); // 自动保存到 Zotero 笔记
-          // "length" = 因 Max Tokens 上限被截断；无提示而中断则说明是流/厂商问题
-          if (finishReason === "length") {
-            appendTruncationHint(doc, aiEl, maxTokens);
-          }
-        } else {
-          // 空响应：与 onError 一致撤回 user 消息，避免重发产生连续重复
-          history.remove(userMsgIndex);
-          aiEl.classList.add("pw-msg-error");
-          if (finishReason === "length") {
-            // 思考型模型：全部 Max Tokens 预算耗尽在推理上，正文未开始
-            aiEl.textContent = `模型将 Max Tokens 预算（${maxTokens}）全部消耗在推理上（${
-              reasoningChars > 0
-                ? `已推理约 ${reasoningChars} 字`
-                : "无正文输出"
-            }），未产生任何回答 — 请点上方 T 徽章调大 Max Tokens（建议 ≥8000），然后重新发送这条消息（原消息已自动撤回，不会重复）`;
+          fullResponse += chunk;
+          // 流式输出时过滤 MiniMax 思维链标签（标签可能跨 chunk）
+          const displayText = fullResponse.replace(
+            /<think>[\s\S]*?<\/think>/g,
+            "",
+          );
+          aiEl.classList.remove("pw-msg-loading");
+          aiEl.textContent = displayText;
+          scrollToBottom(messagesEl);
+        },
+        (finishReason) => {
+          win.clearTimeout(thinkTimer);
+          aiEl.classList.remove("pw-msg-loading");
+          // 完成后再过滤一次，确保完整内容无思维链
+          fullResponse = fullResponse.replace(/<think>[\s\S]*?<\/think>/g, "");
+          if (fullResponse) {
+            setMarkdown(aiEl, fullResponse);
+            history.add({ role: "assistant", content: fullResponse });
+            void saveSession(item, history); // 自动保存到 Zotero 笔记
+            // "length" = 因 Max Tokens 上限被截断；无提示而中断则说明是流/厂商问题
+            if (finishReason === "length") {
+              appendTruncationHint(doc, aiEl, maxTokens);
+            }
           } else {
-            aiEl.textContent = "模型未返回任何内容，请重试";
+            // 空响应：与 onError 一致撤回 user 消息，避免重发产生连续重复
+            history.remove(userMsgIndex);
+            aiEl.classList.add("pw-msg-error");
+            if (finishReason === "length") {
+              // 思考型模型：全部 Max Tokens 预算耗尽在推理上，正文未开始
+              aiEl.textContent = `模型将 Max Tokens 预算（${maxTokens}）全部消耗在推理上（${
+                reasoningChars > 0
+                  ? `已推理约 ${reasoningChars} 字`
+                  : "无正文输出"
+              }），未产生任何回答 — 请点上方 T 徽章调大 Max Tokens（建议 ≥8000），然后重新发送这条消息（原消息已自动撤回，不会重复）`;
+            } else {
+              aiEl.textContent = "模型未返回任何内容，请重试";
+            }
           }
-        }
-        sendBtn.classList.remove("pw-disabled");
-        scrollToBottom(messagesEl);
-      },
-      (err) => {
+          sendBtn.classList.remove("pw-disabled");
+          scrollToBottom(messagesEl);
+        },
+        (err) => {
+          if (useNative) {
+            // 主模型直发图片被拒（典型：模型不支持图片输入）→ 降级重发，暂不报错
+            degrade = true;
+            return;
+          }
+          win.clearTimeout(thinkTimer);
+          // 撤回本轮 user 消息：未获得 AI 回复的消息留在历史中，
+          // 会导致重发时向厂商发送连续两条相同 user 消息
+          history.remove(userMsgIndex);
+          aiEl.classList.remove("pw-msg-loading");
+          aiEl.classList.add("pw-msg-error");
+          aiEl.textContent = `错误：${err.message}`;
+          sendBtn.classList.remove("pw-disabled");
+        },
+      );
+    } catch (e) {
+      // 兜底：Provider 构造或流启动阶段的同步异常（如 prefs 损坏导致 Unknown provider）。
+      // 不捕获会逃逸为未处理的 Promise rejection，thinkTimer 悬挂、发送按钮永久锁死
+      if (useNative) {
+        degrade = true;
+      } else {
         win.clearTimeout(thinkTimer);
-        // 撤回本轮 user 消息：未获得 AI 回复的消息留在历史中，
-        // 会导致重发时向厂商发送连续两条相同 user 消息
         history.remove(userMsgIndex);
         aiEl.classList.remove("pw-msg-loading");
         aiEl.classList.add("pw-msg-error");
-        aiEl.textContent = `错误：${err.message}`;
+        aiEl.textContent = `错误：${(e as Error).message}`;
         sendBtn.classList.remove("pw-disabled");
-      },
-    );
-  } catch (e) {
-    // 兜底：Provider 构造或流启动阶段的同步异常（如 prefs 损坏导致 Unknown provider）。
-    // 不捕获会逃逸为未处理的 Promise rejection，thinkTimer 悬挂、发送按钮永久锁死
+      }
+    }
+
+    if (!degrade) break;
+
+    // ── 降级重发：重置流式状态与阶段反馈，解析辅助/占位内容后进入第 2 轮 ──
     win.clearTimeout(thinkTimer);
-    history.remove(userMsgIndex);
-    aiEl.classList.remove("pw-msg-loading");
-    aiEl.classList.add("pw-msg-error");
-    aiEl.textContent = `错误：${(e as Error).message}`;
-    sendBtn.classList.remove("pw-disabled");
+    fullResponse = "";
+    firstChunkArrived = false;
+    reasoningChars = 0;
+    aiEl.textContent = "";
+    aiEl.classList.add("pw-msg-loading");
+    thinkTimer = win.setTimeout(() => {
+      if (!firstChunkArrived) aiEl.textContent = "模型思考中…";
+    }, 5000);
+    userContent = await resolveImageContent(false);
   }
 }
 

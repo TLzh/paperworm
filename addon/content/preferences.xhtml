@@ -444,8 +444,8 @@
 
   <vbox style="margin-left: 8px; margin-bottom: 8px">
     <description style="font-size: 0.9em; color: #666">
-      配置后，"框选区域"截图功能将调用此视觉模型描述图片内容，再交给主模型分析。
-      API Key 自动复用「LLM 服务配置」中已保存的对应提供商密钥，无需重复填写。
+      主聊天模型会优先直接识别截图；若其不支持图片输入，自动降级由此视觉模型转述后再交给主模型。未配置时以"图片识别失败"占位符提示，不影响主聊天。API
+      Key 自动复用「LLM 服务配置」中已保存的对应提供商密钥，无需重复填写。
     </description>
   </vbox>
 
