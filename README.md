@@ -24,7 +24,7 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 
 ## Requirements
 
-- Zotero 7, 8, or 9 (`strict_min_version: 6.999`)
+- Zotero 7, 8, 9, or 10 (`strict_min_version: 6.999`)
 - An API key for at least one supported LLM provider (or a local Ollama instance)
 
 ## Installation

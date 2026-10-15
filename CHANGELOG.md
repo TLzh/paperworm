@@ -10,6 +10,14 @@
 
 ---
 
+## [0.8.1] - 2026-10-15
+
+### Fixed
+
+- **兼容 Zotero 10** — `strict_max_version` 更新为 `10.0.*`（官方推荐值）。已对照《Zotero 10 for Developers》逐项核查 breaking changes：`Fulltext.getItemContent` 若被 FTS5 重写移除会自动降级到 PDFWorker 提取；其余变更（多选 API、ItemTree 重构、Search、CookieSandbox 等）本项目均未涉及
+
+---
+
 ## [0.8.0] - 2026-10-09
 
 ### Added

@@ -223,6 +223,8 @@ export class PaperExtractor {
     if (!attachment) return "";
 
     // 策略 1：尝试读取已有索引（最快）
+    // 注意：Zotero 10 将全文检索重写为 FTS5，Zotero.Fulltext 部分方法被移除/替换；
+    // getItemContent 若不可用会抛错，由下方策略 2（PDFWorker）接管
     try {
       const result = await (Zotero.Fulltext as any).getItemContent(attachment);
       const text =

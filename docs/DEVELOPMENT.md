@@ -11,7 +11,7 @@ PaperWorm 是一个 Zotero 8 插件，定位为**论文阅读 AI 助手**。
 - **插件 ID**: `paperworm@paperworm.dev`
 - **Namespace / addonRef**: `paperworm`
 - **Zotero 全局实例**: `Zotero.PaperWorm`
-- **目标平台**: Zotero 7/8/9（兼容 6.999+）
+- **目标平台**: Zotero 7/8/9/10（兼容 6.999+；Zotero 10 底座仍为 Firefox 140 ESR，`strict_max_version: 10.0.*`）
 - **构建工具**: zotero-plugin-scaffold + esbuild (target: firefox115)
 - **主语言**: TypeScript
 - **核心依赖**: zotero-plugin-toolkit ^5.x, zotero-types ^4.x
