@@ -595,6 +595,57 @@
   />
 </groupbox>
 
+<!-- ── Section 5: Custom Action Buttons ── -->
+<groupbox>
+  <label><html:h2>自定义快捷按钮</html:h2></label>
+
+  <vbox style="margin-left: 8px; margin-bottom: 8px">
+    <description style="font-size: 0.9em; color: #666">
+      添加后将在 PaperWorm 主面板的动作按钮区显示对应按钮（0
+      个不显示）；点击按钮会把提示词填入输入框（不自动发送）。支持变量：{title}
+      {authors} {year} {abstract} {doi}
+    </description>
+  </vbox>
+
+  <!-- 已配置按钮列表（动态渲染） -->
+  <vbox
+    id="__addonRef__-custom-btn-list"
+    style="margin-left: 8px; margin-bottom: 8px"
+  />
+
+  <!-- 添加表单 -->
+  <hbox align="center" style="margin-bottom: 4px">
+    <label value="按钮名称" style="width: 110px; min-width: 110px" />
+    <html:input
+      type="text"
+      id="__addonRef__-custom-btn-name"
+      placeholder="如：提取创新点（最多 16 字）"
+      style="flex: 1; padding: 2px 4px"
+    />
+  </hbox>
+  <label value="提示词" style="margin-bottom: 2px" />
+  <html:textarea
+    id="__addonRef__-custom-btn-prompt"
+    rows="3"
+    placeholder="点击按钮后填入输入框的提示词，可使用 {title} 等变量"
+    style="
+      width: 100%;
+      padding: 4px 6px;
+      font-size: 0.9em;
+      resize: vertical;
+      font-family: inherit;
+    "
+  ></html:textarea>
+  <hbox align="center" style="margin-top: 6px">
+    <button id="__addonRef__-custom-btn-save" label="添加按钮" />
+    <label
+      id="__addonRef__-custom-btn-error"
+      hidden="true"
+      style="color: red; margin-left: 10px; font-size: 0.9em"
+    />
+  </hbox>
+</groupbox>
+
 <!-- ── Footer ── -->
 <vbox>
   <label

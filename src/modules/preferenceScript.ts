@@ -147,6 +147,96 @@ function rebuildUserMenuItems(doc: Document): void {
   });
 }
 
+// ── 自定义快捷按钮持久化 ────────────────────────────────────────────────────
+
+interface CustomButton {
+  name: string;
+  prompt: string;
+}
+
+/** 按钮名称长度上限（防止主面板按钮过宽，配合 CSS 省略号兜底） */
+const MAX_CUSTOM_BTN_NAME = 16;
+
+/** XUL 元素命名空间（prefs 页面动态创建 XUL 控件用） */
+const XUL_NS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
+
+function loadCustomButtons(): CustomButton[] {
+  try {
+    const raw = Zotero.Prefs.get(
+      `${config.prefsPrefix}.action.customButtons`,
+      true,
+    ) as string;
+    const parsed = JSON.parse(raw || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (b) => b && typeof b.name === "string" && typeof b.prompt === "string",
+      )
+      .map((b) => ({ name: b.name, prompt: b.prompt }));
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomButtons(buttons: CustomButton[]): void {
+  Zotero.Prefs.set(
+    `${config.prefsPrefix}.action.customButtons`,
+    JSON.stringify(buttons),
+    true,
+  );
+}
+
+function rebuildCustomButtonList(doc: Document): void {
+  const list = doc.getElementById(`${ref}-custom-btn-list`);
+  if (!list) return;
+  while (list.firstChild) list.removeChild(list.firstChild);
+
+  const buttons = loadCustomButtons();
+  if (buttons.length === 0) {
+    const empty = doc.createElementNS(XUL_NS, "description");
+    empty.setAttribute("style", "opacity: 0.5; font-size: 0.9em;");
+    empty.textContent = "尚未添加自定义按钮";
+    list.appendChild(empty);
+    return;
+  }
+
+  buttons.forEach((btn, i) => {
+    const row = doc.createElementNS(XUL_NS, "hbox");
+    row.setAttribute("align", "center");
+    row.setAttribute("style", "margin-bottom: 4px;");
+
+    const nameEl = doc.createElementNS(XUL_NS, "label");
+    nameEl.setAttribute("value", btn.name);
+    nameEl.setAttribute("style", "font-weight: 600; min-width: 120px;");
+
+    const previewEl = doc.createElementNS(XUL_NS, "label");
+    previewEl.setAttribute(
+      "value",
+      btn.prompt.replace(/\n/g, " ").slice(0, 60) +
+        (btn.prompt.length > 60 ? "…" : ""),
+    );
+    previewEl.setAttribute(
+      "style",
+      "flex: 1; opacity: 0.55; font-size: 0.9em;",
+    );
+
+    const delBtn = doc.createElementNS(XUL_NS, "button");
+    delBtn.setAttribute("label", "删除");
+    delBtn.setAttribute("style", "margin-left: 8px;");
+    delBtn.addEventListener("command", () => {
+      const current = loadCustomButtons();
+      current.splice(i, 1);
+      saveCustomButtons(current);
+      rebuildCustomButtonList(doc);
+    });
+
+    row.appendChild(nameEl);
+    row.appendChild(previewEl);
+    row.appendChild(delBtn);
+    list.appendChild(row);
+  });
+}
+
 // ── 主入口 ──────────────────────────────────────────────────────────────────
 
 export function registerPrefsScripts(_window: Window) {
@@ -174,6 +264,9 @@ function initPrefsUI(win: Window) {
 
   // 初始化用户模板列表
   rebuildUserMenuItems(doc);
+
+  // 初始化自定义快捷按钮列表
+  rebuildCustomButtonList(doc);
 }
 
 function bindPrefsEvents(win: Window) {
@@ -334,6 +427,48 @@ function bindPrefsEvents(win: Window) {
   doc.getElementById(`${ref}-test-btn`)?.addEventListener("command", () => {
     testConnection(win);
   });
+
+  // 自定义快捷按钮：添加
+  doc
+    .getElementById(`${ref}-custom-btn-save`)
+    ?.addEventListener("command", () => {
+      const nameInput = doc.getElementById(
+        `${ref}-custom-btn-name`,
+      ) as HTMLInputElement;
+      const promptInput = doc.getElementById(
+        `${ref}-custom-btn-prompt`,
+      ) as HTMLTextAreaElement;
+      const errLabel = doc.getElementById(`${ref}-custom-btn-error`) as any;
+      if (!nameInput || !promptInput || !errLabel) return;
+
+      const showErr = (msg: string) => {
+        errLabel.setAttribute("value", msg);
+        errLabel.setAttribute("hidden", "false");
+      };
+
+      const name = nameInput.value.trim();
+      const prompt = promptInput.value.trim();
+
+      if (!name) return showErr("请输入按钮名称");
+      if (name.length > MAX_CUSTOM_BTN_NAME) {
+        return showErr(`名称过长（最多 ${MAX_CUSTOM_BTN_NAME} 字）`);
+      }
+      if (!prompt) return showErr("请输入提示词");
+
+      const buttons = loadCustomButtons();
+      if (buttons.some((b) => b.name === name)) {
+        return showErr(`名称"${name}"已存在，请使用其他名称`);
+      }
+
+      buttons.push({ name, prompt });
+      saveCustomButtons(buttons);
+      rebuildCustomButtonList(doc);
+
+      // 清空表单与错误提示
+      nameInput.value = "";
+      promptInput.value = "";
+      errLabel.setAttribute("hidden", "true");
+    });
 
   // 测试连接按钮（MinerU）
   doc

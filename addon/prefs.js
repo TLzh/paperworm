@@ -58,3 +58,6 @@ pref(
   "extensions.zotero.paperworm.action.summarizePrompt",
   "请对这篇论文做一个结构化总结，包括：研究问题、方法、主要发现、贡献和局限性。\n\n论文标题：{title}",
 );
+
+// 自定义快捷按钮（JSON 数组：[{name, prompt}]，按钮显示在主面板动作区）
+pref("extensions.zotero.paperworm.action.customButtons", "[]");

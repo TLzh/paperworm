@@ -37,6 +37,7 @@ declare namespace _ZoteroTypes {
       "llm.vision.provider": string;
       "llm.vision.model": string;
       "action.summarizePrompt": string;
+      "action.customButtons": string;
     };
   }
 }

@@ -174,6 +174,9 @@ ${CHAT_CSS}
   const panel = wrapper.querySelector(".pw-panel") as HTMLElement;
   const messagesEl = panel.querySelector(".pw-messages") as HTMLElement;
 
+  // 自定义快捷按钮：按 pref 动态渲染（0 个则不渲染任何额外按钮）
+  renderCustomActionButtons(doc, panel);
+
   if (getHistory(item).getAll().length > 0) {
     // 内存中有活跃对话，直接渲染（滚动位置由 onItemChange 统一处理）
     renderChatHistory(doc, messagesEl, item);
@@ -197,6 +200,9 @@ ${CHAT_CSS}
   const win = body.ownerDocument!.defaultView!;
   const badge = panel.querySelector(".pw-model-text") as HTMLElement;
   const tempBadge = panel.querySelector(".pw-temp-text") as HTMLElement;
+
+  // 自定义按钮 pref 基线（每秒比对，变更即重渲染）
+  let lastCustomButtonsRaw = getCustomButtonsRaw();
 
   const badgeTimer = win.setInterval(() => {
     if (dropdownState.open) return; // 下拉打开时跳过，避免干扰用户选择
@@ -226,6 +232,13 @@ ${CHAT_CSS}
     const mStr = mVal >= 1000 ? Math.round(mVal / 1000) + "k" : String(mVal);
     const tNext = `T: ${tVal} · ${mStr}`;
     if (tempBadge.textContent !== tNext) tempBadge.textContent = tNext;
+
+    // 自定义按钮实时同步：设置页修改后 1s 内重渲染
+    const curCustom = getCustomButtonsRaw();
+    if (curCustom !== lastCustomButtonsRaw) {
+      lastCustomButtonsRaw = curCustom;
+      renderCustomActionButtons(doc, panel);
+    }
   }, 1000);
 
   // 面板重建（initPanel 调用 body.textContent=""）时自动清理定时器
@@ -378,46 +391,58 @@ function bindEvents(
     reader.readAsDataURL(file);
   });
 
-  panel.querySelectorAll(".pw-action-btn").forEach((btn: Element) => {
-    btn.addEventListener("click", () => {
-      const action = (btn as HTMLElement).dataset.action ?? "";
+  // 动作按钮统一走容器级事件代理（自定义按钮动态增删不丢监听）
+  const actionsEl = panel.querySelector(".pw-actions") as HTMLElement;
+  actionsEl.addEventListener("click", (e: Event) => {
+    const btn = (e.target as Element).closest(
+      ".pw-action-btn",
+    ) as HTMLElement | null;
+    if (!btn) return;
 
-      if (action === "mineru") {
-        void handleMinerUExtraction(panel, item);
-        return;
+    // 自定义快捷按钮：把配置的提示词（含元数据占位符替换）填入输入框
+    const customPrompt = btn.dataset.prompt;
+    if (customPrompt !== undefined) {
+      fillTextareaWithPrompt(textarea, customPrompt, item);
+      return;
+    }
+
+    const action = btn.dataset.action ?? "";
+
+    if (action === "mineru") {
+      void handleMinerUExtraction(panel, item);
+      return;
+    }
+
+    if (action === "screenshot") {
+      startScreenshotCapture(doc, item, (dataUrl) => {
+        showScreenshotChip(dataUrl);
+        textarea.focus();
+      });
+      return;
+    }
+
+    if (action === "quote") {
+      // mouseup 阶段已更新 capturedSelection；若为空则降级实时读取
+      const sel =
+        capturedSelection.length >= 10
+          ? capturedSelection
+          : PaperExtractor.getSelectedText(item);
+      capturedSelection = ""; // 读取后立即清空，避免残留
+      if (sel.length >= 10) {
+        showChip(sel);
+        textarea.focus();
+      } else {
+        // 临时提示，2 秒后自动隐藏
+        chipTextEl.textContent = "请先在 PDF 中选中一段文字";
+        chip.classList.remove("pw-hidden");
+        setTimeout(() => {
+          if (!pendingSelection) chip.classList.add("pw-hidden");
+        }, 2000);
       }
+      return;
+    }
 
-      if (action === "screenshot") {
-        startScreenshotCapture(doc, item, (dataUrl) => {
-          showScreenshotChip(dataUrl);
-          textarea.focus();
-        });
-        return;
-      }
-
-      if (action === "quote") {
-        // mouseup 阶段已更新 capturedSelection；若为空则降级实时读取
-        const sel =
-          capturedSelection.length >= 10
-            ? capturedSelection
-            : PaperExtractor.getSelectedText(item);
-        capturedSelection = ""; // 读取后立即清空，避免残留
-        if (sel.length >= 10) {
-          showChip(sel);
-          textarea.focus();
-        } else {
-          // 临时提示，2 秒后自动隐藏
-          chipTextEl.textContent = "请先在 PDF 中选中一段文字";
-          chip.classList.remove("pw-hidden");
-          setTimeout(() => {
-            if (!pendingSelection) chip.classList.add("pw-hidden");
-          }, 2000);
-        }
-        return;
-      }
-
-      handleAction(action, textarea, item);
-    });
+    handleAction(action, textarea, item);
   });
 
   sessionsBtn.addEventListener("click", () => {
@@ -760,7 +785,6 @@ function handleAction(
   textarea: HTMLTextAreaElement,
   item: Zotero.Item,
 ) {
-  const meta = PaperExtractor.getItemMetadata(item);
   switch (action) {
     case "summarize": {
       const summarizePrompt =
@@ -769,20 +793,86 @@ function handleAction(
           true,
         ) as string) ||
         "请对这篇论文做一个结构化总结，包括：研究问题、方法、主要发现、贡献和局限性。\n\n论文标题：{title}";
-      textarea.value = summarizePrompt
-        .replaceAll("{title}", meta.title)
-        .replaceAll("{authors}", meta.authors.join(", "))
-        .replaceAll("{year}", meta.year)
-        .replaceAll("{abstract}", meta.abstract)
-        .replaceAll("{doi}", meta.doi);
-      break;
+      fillTextareaWithPrompt(textarea, summarizePrompt, item);
+      return;
     }
+    default:
+      // 未知动作：仅聚焦
+      textarea.focus();
   }
+}
+
+/**
+ * 将含元数据占位符的提示词模板填入输入框并聚焦。
+ * 供"总结全文"与自定义快捷按钮共用；支持 {title}/{authors}/{year}/{abstract}/{doi}。
+ */
+function fillTextareaWithPrompt(
+  textarea: HTMLTextAreaElement,
+  template: string,
+  item: Zotero.Item,
+): void {
+  const meta = PaperExtractor.getItemMetadata(item);
+  textarea.value = template
+    .replaceAll("{title}", meta.title)
+    .replaceAll("{authors}", meta.authors.join(", "))
+    .replaceAll("{year}", meta.year)
+    .replaceAll("{abstract}", meta.abstract)
+    .replaceAll("{doi}", meta.doi);
   textarea.focus();
   textarea.setSelectionRange(textarea.value.length, textarea.value.length);
   // 触发高度调整
   textarea.style.height = "auto";
   textarea.style.height = textarea.scrollHeight + "px";
+}
+
+// ── 自定义快捷按钮 ────────────────────────────────────────────────────────────
+
+/** 读取自定义按钮的 prefs 原始 JSON（供轮询比对与解析共用） */
+function getCustomButtonsRaw(): string {
+  return (
+    (Zotero.Prefs.get(
+      `${config.prefsPrefix}.action.customButtons`,
+      true,
+    ) as string) ?? "[]"
+  );
+}
+
+/**
+ * 按 action.customButtons 配置动态渲染自定义快捷按钮到 .pw-actions。
+ * 0 个配置时不渲染任何额外按钮；名称过长由 CSS 省略号约束，不会挤压/堆叠。
+ */
+function renderCustomActionButtons(doc: Document, panel: HTMLElement): void {
+  const actionsEl = panel.querySelector(".pw-actions");
+  if (!actionsEl) return;
+
+  // 清除旧的动态按钮（固定按钮无 data-custom-btn，不受影响）
+  actionsEl
+    .querySelectorAll("[data-custom-btn]")
+    .forEach((el: Element) => el.remove());
+
+  let buttons: Array<{ name: string; prompt: string }> = [];
+  try {
+    const parsed = JSON.parse(getCustomButtonsRaw());
+    if (Array.isArray(parsed)) {
+      buttons = parsed.filter(
+        (b) => b && typeof b.name === "string" && typeof b.prompt === "string",
+      );
+    }
+  } catch {
+    // 配置损坏视为无自定义按钮
+  }
+
+  for (const btn of buttons) {
+    const el = doc.createElement("div");
+    el.className = "pw-action-btn pw-custom-btn";
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("data-custom-btn", "true");
+    el.dataset.prompt = btn.prompt;
+    el.textContent = btn.name;
+    el.title = btn.prompt; // hover 预览完整提示词
+    actionsEl.appendChild(el);
+  }
 }
 
 // ── 发送 & 流式输出 ───────────────────────────────────────────────────────────
@@ -2414,6 +2504,12 @@ const CHAT_CSS = `
   white-space: nowrap;
 }
 .pw-action-btn:hover { background: rgba(26,127,212,0.1); }
+/* 自定义快捷按钮：超长名称省略号，避免挤压换行/堆叠（.pw-actions 已 flex-wrap） */
+.pw-custom-btn {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .pw-action-btn--disabled {
   opacity: 0.35;
   cursor: not-allowed;
