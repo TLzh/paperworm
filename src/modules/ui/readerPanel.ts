@@ -18,6 +18,9 @@ import {
   isVisionConfigured,
   describeImage,
   clearVisionCache,
+  isVisionRejected,
+  markVisionRejected,
+  isVisionRelatedError,
 } from "../llm/visionRouter";
 import katex from "katex";
 
@@ -1051,27 +1054,48 @@ async function send(
   // 最终占位符仅提示识别失败，不阻塞主聊天输出
   const resolveImageContent = async (
     native: boolean,
-  ): Promise<string | ContentPart[]> => {
-    if (!screenshotDataUrl) return finalText;
+  ): Promise<{ content: string | ContentPart[]; visionError?: string }> => {
+    if (!screenshotDataUrl) return { content: finalText };
     if (native) {
-      return [
-        { type: "text", text: finalText || "请分析这张截图" },
-        { type: "image_url", image_url: { url: screenshotDataUrl } },
-      ] as ContentPart[];
+      return {
+        content: [
+          { type: "text", text: finalText || "请分析这张截图" },
+          { type: "image_url", image_url: { url: screenshotDataUrl } },
+        ] as ContentPart[],
+      };
     }
     if (isVisionConfigured()) {
       aiEl.textContent = "主模型无法识别图片，视觉辅助模型转述中…";
       try {
         const desc = await describeImage(screenshotDataUrl, userText);
-        return `[图片内容描述：\n${desc}]${finalText ? `\n\n${finalText}` : ""}`;
+        return {
+          content: `[图片内容描述：\n${desc}]${finalText ? `\n\n${finalText}` : ""}`,
+        };
       } catch (e: any) {
-        return `[图片识别失败：视觉辅助调用出错（${e.message}）]${finalText ? `\n\n${finalText}` : ""}`;
+        // 失败原因此前只注入模型上下文（用户不可见）——同时以可见警告呈现
+        return {
+          content: `[图片识别失败：视觉辅助调用出错（${e.message}）]${finalText ? `\n\n${finalText}` : ""}`,
+          visionError: e?.message ?? String(e),
+        };
       }
     }
-    return `[图片识别失败：主模型不支持图片输入，且未配置视觉辅助模型（设置 → 视觉辅助模型）]${finalText ? `\n\n${finalText}` : ""}`;
+    return {
+      content: `[图片识别失败：主模型不支持图片输入，且未配置视觉辅助模型（设置 → 视觉辅助模型）]${finalText ? `\n\n${finalText}` : ""}`,
+    };
   };
 
-  let userContent = await resolveImageContent(screenshotDataUrl != null);
+  // 视觉辅助失败的可见警告（插在 AI 回复气泡之前，不打断对话）
+  const showVisionError = (msg: string) => {
+    const warn = doc.createElement("div");
+    warn.className = "pw-msg pw-msg-error";
+    warn.textContent = `⚠ 视觉辅助模型调用失败：${msg}`;
+    messagesEl.insertBefore(warn, aiEl);
+    scrollToBottom(messagesEl);
+  };
+
+  let resolved = await resolveImageContent(screenshotDataUrl != null);
+  if (resolved.visionError) showVisionError(resolved.visionError);
+  let userContent = resolved.content;
 
   // 提取成功后才将用户消息入库，防止异常时留下悬空历史。
   // 记录入库位置：流式失败/超时时撤回（C 修复），避免重发产生连续重复 user 消息
@@ -1165,7 +1189,11 @@ async function send(
 
   // 图片消息重发循环：第 1 次尝试主模型直发(native)，被拒后降级为辅助转述/占位符再发
   for (let attempt = 1; ; attempt++) {
-    const useNative = screenshotDataUrl != null && attempt === 1;
+    // 若该模型曾被记录"拒绝图片"（30 天 TTL），跳过注定失败的直发，直接走辅助
+    const useNative =
+      screenshotDataUrl != null &&
+      attempt === 1 &&
+      !isVisionRejected(providerName, model);
     const messages = buildMessages(userContent);
     let degrade = false; // native 被拒 → 降级重发
 
@@ -1270,7 +1298,11 @@ async function send(
         },
         (err) => {
           if (useNative) {
-            // 主模型直发图片被拒（典型：模型不支持图片输入）→ 降级重发，暂不报错
+            // 主模型直发图片被拒（典型：模型不支持图片输入）→ 降级重发，暂不报错。
+            // 仅当错误明确命中视觉语义时才记录能力缓存（防 429/网络错误误判）
+            if (isVisionRelatedError(err)) {
+              markVisionRejected(providerName, model);
+            }
             degrade = true;
             return;
           }
@@ -1327,7 +1359,9 @@ async function send(
     thinkTimer = win.setTimeout(() => {
       if (!firstChunkArrived) aiEl.textContent = thinkingPlaceholder;
     }, 5000);
-    userContent = await resolveImageContent(false);
+    resolved = await resolveImageContent(false);
+    if (resolved.visionError) showVisionError(resolved.visionError);
+    userContent = resolved.content;
   }
 }
 

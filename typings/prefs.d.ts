@@ -62,6 +62,7 @@ declare namespace _ZoteroTypes {
       "systemPrompt.userTemplates": string;
       "llm.vision.provider": string;
       "llm.vision.model": string;
+      "llm.vision.maxTokens": string;
       "action.summarizePrompt": string;
       "action.customButtons": string;
     };

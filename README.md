@@ -83,6 +83,7 @@ Screenshots are delivered through a three-tier fallback chain:
 3. **Placeholder** — if no vision assistant is configured (or it fails), a "[图片识别失败]" note is injected instead. The main conversation is never blocked.
 
 - The fallback is automatic and transparent: you'll see a brief "视觉辅助模型转述中…" status while it runs
+- The vision assistant uses its **own configurable Max Tokens budget** (default 8000, adjustable under Settings → 视觉辅助模型), independent of your global Max Tokens setting — a small global budget will not starve image descriptions. If that budget is exhausted (e.g. very long reasoning), an explicit visible error is shown instead of a silent empty description
 - Screenshot descriptions are cached for the session: the same image region sent multiple times only calls the vision model once
 - Screenshot data stays in memory only; stored session notes use `[截图 📷]` as a placeholder instead of the raw image
 

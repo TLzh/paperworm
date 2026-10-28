@@ -131,10 +131,11 @@ export class OllamaProvider implements LLMProvider {
   }
 
   private buildBody(options: LLMRequestOptions, stream: boolean) {
-    const images: string[] = [];
+    // Ollama /api/chat 的图片挂在 message.images（不是顶层），逐消息内联转换
     const messages = options.messages.map((m) => {
       if (typeof m.content === "string") return m;
       const parts = m.content as ContentPart[];
+      const images: string[] = [];
       parts
         .filter((p) => p.type === "image_url")
         .forEach((p) => {
@@ -146,7 +147,11 @@ export class OllamaProvider implements LLMProvider {
         .filter((p) => p.type === "text")
         .map((p) => (p as any).text)
         .join("\n");
-      return { ...m, content: text };
+      return {
+        ...m,
+        content: text,
+        ...(images.length > 0 ? { images } : {}),
+      };
     });
     // 推理档位：think 支持布尔或 low/medium/high/max 档位字符串（官方 docs/api.md）
     let think: boolean | string | undefined;
@@ -156,7 +161,6 @@ export class OllamaProvider implements LLMProvider {
     return {
       model: options.model,
       messages,
-      ...(images.length > 0 ? { images } : {}),
       stream,
       ...(think !== undefined ? { think } : {}),
       options: {

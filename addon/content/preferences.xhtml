@@ -17,6 +17,19 @@
     />
   </hbox>
 
+  <hbox align="center" style="margin-top: 4px">
+    <html:a
+      id="__addonRef__-mineru-site-link"
+      style="
+        cursor: pointer;
+        color: #1a7fd2;
+        text-decoration: underline;
+        font-size: 11px;
+      "
+      >mineru.net · 申请 / 更新 API Token</html:a
+    >
+  </hbox>
+
   <hbox align="center" style="margin-top: 6px">
     <button id="__addonRef__-mineru-test-btn" label="测试连接" />
     <label id="__addonRef__-mineru-test-result" style="margin-left: 10px" />
@@ -606,7 +619,18 @@
     >
       <menupopup>
         <menuitem value="" label="不启用" />
+        <menuitem value="openai" label="OpenAI" />
+        <menuitem value="openai-siwc" label="OpenAI（ChatGPT 订阅）" />
+        <menuitem value="anthropic" label="Anthropic (Claude)" />
+        <menuitem value="gemini" label="Google Gemini" />
         <menuitem value="kimi" label="Kimi（月之暗面）" />
+        <menuitem value="qwen" label="阿里云百炼（Qwen）" />
+        <menuitem value="deepseek" label="DeepSeek" />
+        <menuitem value="mimo" label="MiMo（小米）" />
+        <menuitem value="minimax" label="MiniMax" />
+        <menuitem value="zhipu" label="智谱 GLM" />
+        <menuitem value="openrouter" label="OpenRouter" />
+        <menuitem value="ollama" label="Ollama（本地）" />
       </menupopup>
     </menulist>
   </hbox>
@@ -618,9 +642,37 @@
       id="__addonRef__-vision-model"
       preference="extensions.zotero.paperworm.llm.vision.model"
       style="flex: 1; padding: 2px 4px"
-      placeholder="如 kimi-k2.6、moonshot-v1-128k-vision-preview"
+      placeholder="留空或自定义（切换提供商时自动填充推荐模型）"
     />
   </hbox>
+  <description style="font-size: 11px; color: gray; margin-top: 2px">
+    推荐视觉模型：OpenAI gpt-6.1-sol · Claude claude-sonnet-5.5 · Gemini
+    gemini-3.8-flash · Kimi kimi-k2.6 · Qwen qwen3.8-flash · DeepSeek
+    deepseek-flash · MiMo mimo-v2.6-flash · MiniMax MiniMax-M3 · GLM
+    glm-5.3-flash · Ollama 本地视觉模型
+  </description>
+  <hbox align="center" style="margin-top: 4px">
+    <label style="width: 110px; min-width: 110px">视觉 Max Tokens</label>
+    <html:input
+      type="number"
+      min="100"
+      max="32000"
+      step="100"
+      id="__addonRef__-vision-maxtokens"
+      preference="extensions.zotero.paperworm.llm.vision.maxTokens"
+      style="width: 120px; padding: 2px 4px"
+    />
+  </hbox>
+  <description style="font-size: 11px; color: gray; margin-top: 2px">
+    视觉辅助调用使用独立的 Max Tokens 预算（默认 8000），与主界面的全局 Max
+    Tokens 设置（T 徽章）无关——全局设置过小不会影响图片转述；思考型模型 建议保持
+    ≥4000，若预算被思考耗尽会显示明确错误提示。
+  </description>
+  <description
+    id="__addonRef__-vision-warning"
+    style="font-size: 11px; color: #c0392b; margin-top: 2px"
+    hidden="true"
+  ></description>
 </groupbox>
 
 <!-- ── Section 4: Prompts ── -->

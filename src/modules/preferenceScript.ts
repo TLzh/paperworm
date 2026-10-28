@@ -4,6 +4,7 @@
 import { config } from "../../package.json";
 import { LLMManager } from "./llm/manager";
 import { SiwcAuth } from "./llm/siwcAuth";
+import { VISION_MODEL_DEFAULTS } from "./llm/visionRouter";
 import { MinerUTestClient } from "./paper/strategies/mineru/testClient";
 
 const ref = config.addonRef;
@@ -405,6 +406,61 @@ function setupSiwcSection(win: Window) {
 function bindPrefsEvents(win: Window) {
   const doc = win.document;
 
+  // 视觉提供商切换 → 自动填充该厂商的推荐视觉模型
+  const visionProviderList = doc.getElementById(
+    `${ref}-vision-provider`,
+  ) as any;
+  const visionModelInput = doc.getElementById(
+    `${ref}-vision-model`,
+  ) as HTMLInputElement | null;
+  const visionWarning = doc.getElementById(
+    `${ref}-vision-warning`,
+  ) as HTMLElement | null;
+
+  /** 已知纯文本模型的即时警告（避免把文本模型选进视觉辅助） */
+  const KNOWN_TEXT_ONLY_HINTS: Array<{
+    provider: string;
+    pattern: RegExp;
+    hint: string;
+  }> = [
+    {
+      provider: "zhipu",
+      pattern: /^glm-(5\.3|5\.2|5\.1|5|4\.7|4\.6|4\.5)$/i,
+      hint: "⚠ glm-5.3/5.2/5.1/5/4.x 仅支持文本，无法读图；请改用 glm-5.3-flash 或 glm-5v-turbo",
+    },
+    {
+      provider: "minimax",
+      pattern: /^minimax-m2/i,
+      hint: "⚠ MiniMax M2.x 系列不支持图片输入；请改用 MiniMax-M3",
+    },
+    {
+      provider: "mimo",
+      pattern: /^mimo-v2\.5-pro$/i,
+      hint: "⚠ MiMo V2.5-Pro 仅支持文本；请改用 mimo-v2.6-flash / mimo-v2.6-pro",
+    },
+  ];
+  const refreshVisionWarning = () => {
+    if (!visionWarning) return;
+    const provider = visionProviderList?.value ?? "";
+    const modelName = visionModelInput?.value ?? "";
+    const hit = KNOWN_TEXT_ONLY_HINTS.find(
+      (r) => r.provider === provider && r.pattern.test(modelName.trim()),
+    );
+    visionWarning.textContent = hit ? hit.hint : "";
+    visionWarning.setAttribute("hidden", hit ? "false" : "true");
+  };
+  visionProviderList?.addEventListener("command", () => {
+    const recommended = VISION_MODEL_DEFAULTS[visionProviderList.value];
+    if (recommended && visionModelInput) {
+      visionModelInput.value = recommended;
+      visionModelInput.dispatchEvent(new win.Event("change"));
+    }
+    refreshVisionWarning();
+  });
+  visionModelInput?.addEventListener("change", refreshVisionWarning);
+  visionModelInput?.addEventListener("input", refreshVisionWarning);
+  refreshVisionWarning();
+
   // Provider 切换 → 显示对应配置区域
   doc
     .getElementById(`${ref}-provider`)
@@ -601,6 +657,13 @@ function bindPrefsEvents(win: Window) {
       nameInput.value = "";
       promptInput.value = "";
       errLabel.setAttribute("hidden", "true");
+    });
+
+  // MinerU 官网链接：Token 过期后一键前往申请/更新
+  doc
+    .getElementById(`${ref}-mineru-site-link`)
+    ?.addEventListener("click", () => {
+      Zotero.launchURL("https://mineru.net/apiManage");
     });
 
   // 测试连接按钮（MinerU）

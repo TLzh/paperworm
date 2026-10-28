@@ -82,7 +82,9 @@ pref("extensions.zotero.paperworm.systemPrompt.userTemplates", "[]");
 
 // 视觉辅助模型（框选区域截图分析）
 pref("extensions.zotero.paperworm.llm.vision.provider", "");
-pref("extensions.zotero.paperworm.llm.vision.model", "kimi-k2.6");
+pref("extensions.zotero.paperworm.llm.vision.model", "");
+// 视觉辅助调用预算（独立于全局 Max Tokens；思考型模型需要足够空间完成描述）
+pref("extensions.zotero.paperworm.llm.vision.maxTokens", "8000");
 
 // 操作提示词
 pref(
