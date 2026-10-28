@@ -535,6 +535,7 @@ function showProviderSection(doc: Document, provider: string) {
     "openrouter",
     "mimo",
     "minimax",
+    "zhipu",
   ];
   for (const p of providers) {
     const el = doc.getElementById(`${ref}-section-${p}`);

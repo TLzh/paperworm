@@ -130,6 +130,23 @@ function streamIdleError(): Error {
 export interface LLMMessage {
   role: "system" | "user" | "assistant";
   content: string | ContentPart[];
+  /**
+   * 仅 UI/持久化元数据：该条助手消息的推理字数摘要（思考流折叠块头部显示用）。
+   * 推理原文不落盘；发送请求前必须剥离此字段（buildMessages 中 map 为裸消息）。
+   */
+  reasoningLen?: number;
+}
+
+/**
+ * 推理档位（per-vendor）：value 为厂商原生枚举值，"" 表示默认（不下发任何推理参数，
+ * 即厂商默认行为，永远最安全）。label 用于 popover 显示，short 用于 T 徽章后缀。
+ * 依据：docs/vendors.md（2026-10-16 各家官方文档实拉核实）。
+ */
+export interface ReasoningLevel {
+  value: string;
+  label: string;
+  short?: string;
+  hint?: string;
 }
 
 export interface LLMRequestOptions {
@@ -138,6 +155,12 @@ export interface LLMRequestOptions {
   temperature?: number;
   maxTokens?: number;
   stream?: boolean;
+  /**
+   * 推理档位：厂商原生枚举值（如 DeepSeek "max"、OpenAI "xhigh"、Ollama "medium"），
+   * 由各 Provider 的 getReasoningLevels() 定义合法集合；undefined = 默认（不下发参数）。
+   * 各 Provider 在 buildBody 中按官方文档映射为原生参数，无文档依据的厂商忽略。
+   */
+  reasoning?: string;
 }
 
 export interface LLMProvider {
@@ -145,6 +168,14 @@ export interface LLMProvider {
   readonly name: string;
   /** 发送请求，返回完整回复文本 */
   chat(options: LLMRequestOptions): Promise<string>;
+  /**
+   * 该厂商支持的推理档位表（per-vendor，UI 据此动态渲染选项）。
+   * model 传入当前模型名：仅思考模型（如 kimi-k3、qwen3.8-2.4t-a95b、
+   * MiniMax M2.x）无法关闭思考，只返回默认档。
+   * 返回空数组表示暂不支持推理配置（如 Anthropic 官方参数待确认），
+   * UI 显示"暂不支持"而非硬编码近似档位。
+   */
+  getReasoningLevels(model?: string): ReasoningLevel[];
   /**
    * 流式发送请求，逐 chunk 回调。
    * onChunk 收到两类增量：正文 chunk（第一参数）、推理增量 reasoningDelta（第二参数，

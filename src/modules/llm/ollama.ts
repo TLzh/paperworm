@@ -4,8 +4,23 @@
  * 无需 API Key，通过 baseUrl 指向本地服务
  */
 
-import type { LLMProvider, LLMRequestOptions, ContentPart } from "./provider";
+import type {
+  LLMProvider,
+  LLMRequestOptions,
+  ContentPart,
+  ReasoningLevel,
+} from "./provider";
 import { zhttp, fetchWithHeaderTimeout, readStreamLines } from "./provider";
+
+/** Ollama think：布尔或档位字符串（官方 docs/api.md：low/medium/high/max） */
+const OLLAMA_REASONING_LEVELS: ReasoningLevel[] = [
+  { value: "", label: "默认", hint: "模型自身默认" },
+  { value: "off", label: "关闭", short: "关" },
+  { value: "low", label: "低" },
+  { value: "medium", label: "中", short: "medium" },
+  { value: "high", label: "高" },
+  { value: "max", label: "最高", short: "max" },
+];
 
 export class OllamaProvider implements LLMProvider {
   readonly name = "ollama";
@@ -13,6 +28,10 @@ export class OllamaProvider implements LLMProvider {
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
+  }
+
+  getReasoningLevels(_model?: string): ReasoningLevel[] {
+    return [...OLLAMA_REASONING_LEVELS];
   }
 
   async chat(options: LLMRequestOptions): Promise<string> {
@@ -129,11 +148,17 @@ export class OllamaProvider implements LLMProvider {
         .join("\n");
       return { ...m, content: text };
     });
+    // 推理档位：think 支持布尔或 low/medium/high/max 档位字符串（官方 docs/api.md）
+    let think: boolean | string | undefined;
+    if (options.reasoning === "off") think = false;
+    else if (options.reasoning) think = options.reasoning;
+
     return {
       model: options.model,
       messages,
       ...(images.length > 0 ? { images } : {}),
       stream,
+      ...(think !== undefined ? { think } : {}),
       options: {
         temperature: options.temperature ?? 0.7,
         num_predict: options.maxTokens ?? 2000,

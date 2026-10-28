@@ -8,9 +8,21 @@
 
 ## [Unreleased]
 
+---
+
+## [0.9.0] - 2026-10-28
+
 ### Added
 
-- **推理强度控制（深度思考）** — 参数 popover（T 徽章）新增四档推理强度：**自动 / 低 / 高 / 关闭**（档位标准借鉴 HermesAgent/OpenRouter 的 effort 枚举），关闭或调低后推理不再挤占 Max Tokens 预算。按厂商官方参数就近映射：DeepSeek `reasoning_effort: low/max` + `thinking:{type:"disabled"}`、OpenAI `reasoning_effort: low/high`、Kimi/MiMo `thinking:{type:"disabled"}`（无档位，低≈关）、Qwen `enable_thinking:false`（同左）、Gemini `thinkingBudget:0`（低/高维持默认）、Ollama `think:false`（同左）、Anthropic 高档启用 extended thinking 并按 maxTokens 折算预算（Claude Code 预算制思路，仅预算充足时生效）；OpenRouter/MiniMax 暂无官方开关，安全忽略。T 徽章按档位显示"无思考/低思考/高思考"标识，下一条消息立即生效
+- **推理档位控制（per-vendor 原生档位）** — 参数 popover（T 徽章）的深度思考区改为按当前厂商**及其模型**动态渲染官方原生档位（忠实厂商 > 统一近似）：DeepSeek `none/low/high/max`、OpenAI `none/low/medium/high/xhigh`、Gemini `minimal/low/medium/high`、Ollama `off/low/medium/high/max`、OpenRouter 六档、GLM-5.3 三档 / GLM-5.2 全档 / 旧系开关、Kimi K3 `low/high/max` 三档 + K2.6/K2.5 开关、Qwen/MiMo 开关、MiniMax 自适应/关闭；**仅思考模型**（kimi-k3/k2.7-code、qwen3.8-2.4t、MiniMax M2.x 等）自动过滤为仅默认档；每家独立记忆（`llm.<provider>.reasoning`），默认 = 不下发参数（厂商默认行为）；Anthropic 官方参数核实中暂显示"暂不支持"
+- **推理思考流可视** — 思考模型的推理原文在消息顶部折叠块中**滚动实时展示**（可手动收起），正文开始后自动收起为「已深度思考 · N 字 · Xs」摘要头（用时在思考结束时定格），点击可回看；推理原文不落盘（重启后仅显示字数摘要）
+- **思考预算防呆** — Max Tokens 新增滑条（与输入框双向同步）；非关闭类档位（含默认——DeepSeek 等默认思考开、gpt-5/6 无法关推理）且 Max Tokens < 8000 时实时显示挤占预警；Kimi（全系固定温度）与 GLM（区间 (0,1)）的温度硬约束在发送层自动剥离/钳制并在 UI 说明
+- **智谱 GLM 接入（第 11 家厂商）** — 标准 API（OpenAI 兼容，按量计费）：GLM-5.3 / 5.3-Flash / 5.2 / 5V-Turbo / 4.x，推理档位按模型自动分流；流式思维链 reasoning_content 全支持
+
+### Changed
+
+- **默认模型换代**（2026-10 全网核实）：OpenAI `gpt-6.1-sol`、Anthropic `claude-sonnet-5.5`、Gemini `gemini-3.8-flash`、Qwen `qwen3.8-plus`、MiMo `mimo-v2.6-pro`；已保存的模型配置不受影响；`docs/models.md` 同步全面更新（Claude 5.5/Fable 5.1、GPT-6.1、Gemini 4 Argon、Qwen 3.8 Max Prime、MiMo V2.6）
+- OpenAI 参数兼容扩展至 gpt-6 系（`max_completion_tokens` + 不发送 temperature）
 
 ---
 

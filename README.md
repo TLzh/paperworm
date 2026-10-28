@@ -108,6 +108,29 @@ This means you can switch providers or models at any point during a conversation
 
 Each provider's API key and model are stored independently, so switching between providers never overwrites your other configurations.
 
+### Reasoning Control (Thinking Models)
+
+PaperWorm treats reasoning as a first-class capability for critical paper reading. The **T badge** popover exposes each provider's **native reasoning levels** — no lossy unified mapping:
+
+| Provider         | Levels available                          |
+| ---------------- | ----------------------------------------- |
+| DeepSeek         | 默认 / off / low / high / max             |
+| OpenAI           | 默认 / none / low / medium / high / xhigh |
+| Gemini           | 默认 / minimal / low / medium / high      |
+| Kimi, Qwen, MiMo | 默认 / off                                |
+| MiniMax          | 默认 (adaptive) / off                     |
+| Ollama           | 默认 / off / low / medium / high / max    |
+| OpenRouter       | 默认 + six levels (none…xhigh)            |
+
+Notes:
+
+- Levels are remembered **per provider** — switching providers never overwrites another provider's setting
+- **默认 (default)** sends no parameter at all — the provider's own default behavior, always the safest choice
+- The T badge shows the active level as a suffix (e.g. `T: 0.7 · 4k · max`)
+- While a thinking model reasons, its **chain of thought streams live** in a collapsible block; once the answer starts, the block auto-collapses into a "已深度思考 · N 字 · Xs" header you can re-expand (reasoning text is not persisted across restarts — only the summary is)
+
+---
+
 ## Gemini Model Guide
 
 Google Gemini offers a wide range of models through the Gemini API. Below is a guide to help you choose the right model for paper reading tasks.

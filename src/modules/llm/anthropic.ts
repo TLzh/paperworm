@@ -8,6 +8,7 @@ import type {
   LLMMessage,
   LLMRequestOptions,
   ContentPart,
+  ReasoningLevel,
 } from "./provider";
 import { zhttp, fetchWithHeaderTimeout, readStreamLines } from "./provider";
 
@@ -36,6 +37,15 @@ export class AnthropicProvider implements LLMProvider {
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
+  }
+
+  /**
+   * Claude 5 系推理参数（output_config.effort / adaptive thinking）官方文档被
+   * 区域墙，无法核实 —— 返回空表，UI 显示"暂不支持"，不下发任何未确认参数。
+   * 补全入口：docs/vendors.md 缺口清单。
+   */
+  getReasoningLevels(_model?: string): ReasoningLevel[] {
+    return [];
   }
 
   async chat(options: LLMRequestOptions): Promise<string> {
@@ -146,6 +156,7 @@ export class AnthropicProvider implements LLMProvider {
       max_tokens: options.maxTokens ?? 2000,
       stream,
     };
+    // 注：extended thinking 相关参数待官方文档核实（区域墙），不下发任何未确认参数
     if (options.temperature !== undefined)
       body.temperature = options.temperature;
     if (systemMsg)

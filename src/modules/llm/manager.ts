@@ -19,7 +19,8 @@ export type ProviderName =
   | "qwen"
   | "openrouter"
   | "mimo"
-  | "minimax";
+  | "minimax"
+  | "zhipu";
 
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
@@ -27,6 +28,7 @@ const KIMI_BASE_URL = "https://api.moonshot.cn/v1";
 const QWEN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 const MIMO_BASE_URL = "https://api.xiaomimimo.com/v1";
+const ZHIPU_BASE_URL = "https://open.bigmodel.cn/api/paas/v4";
 
 export class LLMManager {
   private static instance: LLMManager;
@@ -109,6 +111,13 @@ export class LLMManager {
         const apiKey =
           (Zotero.Prefs.get(`${p}.llm.minimax.apiKey`, true) as string) ?? "";
         return new MiniMaxProvider(apiKey);
+      }
+      case "zhipu": {
+        // 智谱 GLM 标准 API（按量计费，OpenAI 兼容；Coding Plan 套餐另有限定工具
+        // 的专用端点，协议禁止非指定工具使用，勿指向——见 docs/vendors.md §6.3）
+        const apiKey =
+          (Zotero.Prefs.get(`${p}.llm.zhipu.apiKey`, true) as string) ?? "";
+        return new OpenAIProvider("zhipu", apiKey, ZHIPU_BASE_URL);
       }
       default:
         throw new Error(`Unknown provider: ${name}`);

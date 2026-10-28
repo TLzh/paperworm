@@ -2,16 +2,16 @@
 pref("extensions.zotero.paperworm.llm.provider", "openai");
 
 pref("extensions.zotero.paperworm.llm.openai.apiKey", "");
-pref("extensions.zotero.paperworm.llm.openai.model", "gpt-5.6-sol");
+pref("extensions.zotero.paperworm.llm.openai.model", "gpt-6.1-sol");
 
 pref("extensions.zotero.paperworm.llm.deepseek.apiKey", "");
 pref("extensions.zotero.paperworm.llm.deepseek.model", "deepseek-v4-pro");
 
 pref("extensions.zotero.paperworm.llm.anthropic.apiKey", "");
-pref("extensions.zotero.paperworm.llm.anthropic.model", "claude-sonnet-5");
+pref("extensions.zotero.paperworm.llm.anthropic.model", "claude-sonnet-5.5");
 
 pref("extensions.zotero.paperworm.llm.gemini.apiKey", "");
-pref("extensions.zotero.paperworm.llm.gemini.model", "gemini-3.7-flash");
+pref("extensions.zotero.paperworm.llm.gemini.model", "gemini-3.8-flash");
 
 pref(
   "extensions.zotero.paperworm.llm.ollama.baseUrl",
@@ -23,16 +23,32 @@ pref("extensions.zotero.paperworm.llm.kimi.apiKey", "");
 pref("extensions.zotero.paperworm.llm.kimi.model", "kimi-k3");
 
 pref("extensions.zotero.paperworm.llm.qwen.apiKey", "");
-pref("extensions.zotero.paperworm.llm.qwen.model", "qwen3.7-plus");
+pref("extensions.zotero.paperworm.llm.qwen.model", "qwen3.8-plus");
 
 pref("extensions.zotero.paperworm.llm.mimo.apiKey", "");
-pref("extensions.zotero.paperworm.llm.mimo.model", "mimo-v2-pro");
+pref("extensions.zotero.paperworm.llm.mimo.model", "mimo-v2.6-pro");
 
 pref("extensions.zotero.paperworm.llm.minimax.apiKey", "");
 pref("extensions.zotero.paperworm.llm.minimax.model", "MiniMax-M3");
 
+pref("extensions.zotero.paperworm.llm.zhipu.apiKey", "");
+pref("extensions.zotero.paperworm.llm.zhipu.model", "glm-5.3");
+
 pref("extensions.zotero.paperworm.llm.openrouter.apiKey", "");
 pref("extensions.zotero.paperworm.llm.openrouter.model", "");
+
+// 推理档位（per-vendor：存厂商原生枚举值，空 = 默认不下发参数；档位表见各 Provider）
+pref("extensions.zotero.paperworm.llm.openai.reasoning", "");
+pref("extensions.zotero.paperworm.llm.deepseek.reasoning", "");
+pref("extensions.zotero.paperworm.llm.anthropic.reasoning", "");
+pref("extensions.zotero.paperworm.llm.gemini.reasoning", "");
+pref("extensions.zotero.paperworm.llm.ollama.reasoning", "");
+pref("extensions.zotero.paperworm.llm.kimi.reasoning", "");
+pref("extensions.zotero.paperworm.llm.qwen.reasoning", "");
+pref("extensions.zotero.paperworm.llm.mimo.reasoning", "");
+pref("extensions.zotero.paperworm.llm.minimax.reasoning", "");
+pref("extensions.zotero.paperworm.llm.openrouter.reasoning", "");
+pref("extensions.zotero.paperworm.llm.zhipu.reasoning", "");
 
 // PDF 提取设置
 pref("extensions.zotero.paperworm.pdf.extractionMode", "zotero");

@@ -227,6 +227,33 @@ UI 光标闪烁不止且发送按钮锁死（`pw-disabled`），只能靠切 tab
 UI 层（`readerPanel.ts` 的 `send()`）只在 `finishReason === "length"` 时显示截断提示；
 **截断但无提示** 即代表流被提前关闭或厂商侧问题——这是用户侧的诊断依据，勿破坏该语义。
 
+### 推理档位约定（per-vendor，`llm.<provider>.reasoning` pref）
+
+**设计哲学**：忠实厂商 > 统一抽象。推理档位是**厂商相关参数**，不做插件层统一近似映射——UI 档位表由各 Provider 的 `getReasoningLevels()` 提供（`ReasoningLevel{value,label,short,hint}`），popover 按当前厂商动态渲染；pref 存**厂商原生枚举值**（`llm.<provider>.reasoning`，空 = 默认 = 不下发参数，永远最安全）。各 Provider 在 buildBody 中将原生值直接映射为官方参数。调查依据：工作区 `docs/vendors.md`（2026-10-16 各家官方文档实拉）。
+
+| Provider   | 档位（value）                             | 请求参数                                     | temperature 规则                                                                      |
+| ---------- | ----------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------- |
+| DeepSeek   | `""`/`none`/`low`/`high`/`max`            | `reasoning_effort`（单参数控制开关+力度）    | 思考模式忽略（不报错，仍发送）                                                        |
+| OpenAI     | `""`/`none`/`low`/`medium`/`high`/`xhigh` | `reasoning_effort`                           | gpt-5/6 系**不发送**（max_completion_tokens 同步使用）                                |
+| Kimi       | `""`/`disabled`                           | `thinking:{type}`                            | **K2.5 系固定值（思考 1.0/非思考 0.6，传错 400）→ buildBody 按 `kimi-k2.5` 前缀剥离** |
+| Qwen       | `""`/`disabled`                           | `enable_thinking`                            | 常规                                                                                  |
+| MiMo       | `""`/`disabled`                           | `thinking:{type}`                            | 常规 [0,1.5]                                                                          |
+| MiniMax    | `""`/`disabled`                           | `thinking: "disabled"`（**字符串非对象**）   | 未核实                                                                                |
+| Gemini     | `""`/`minimal`/`low`/`medium`/`high`      | `thinkingConfig.thinkingLevel`（3 系等级制） | 官方建议 1.0（低值可能循环，UI 提示）                                                 |
+| Ollama     | `""`/`off`/`low`/`medium`/`high`/`max`    | `think`（布尔或档位字符串）                  | 常规                                                                                  |
+| OpenRouter | `""` + 六档 `none~xhigh`                  | `reasoning_effort`                           | 透传                                                                                  |
+| Anthropic  | **空表（暂不支持）**                      | 不下发任何未确认参数                         | 待官方文档（区域墙）                                                                  |
+
+规则与陷阱：
+
+- **档位表与映射同源**：改档位先改 Provider 内 `*_REASONING_LEVELS` 常量，UI 自动跟随；不存在 UI 硬编码档位
+- **默认值是一片雷区**：DeepSeek/Kimi(月暗)/Qwen(3.5+) 默认思考开、MiMo 按模型不同、Gemini 按模型两端分布——`""` 档永远不下发参数，规避全部默认值假设
+- **新增厂商必须先取得官方文档确认**，无文档返回空档位表（UI 显示"暂不支持"），宁可不生效，不可发未知参数
+- **temperature 硬约束在发送层拦截**（Kimi K2.5 剥离）+ popover 提示层告知；不要指望用户记住各家规则
+- **思考流显示**：`onChunk(chunk, reasoningDelta?)` 双通道；UI 思考块（`.pw-thinking`）思考中滚动展示 → 首个正文 chunk 自动收起为摘要头（用户手动展开过则尊重）。**推理原文不落盘**，仅 `reasoningLen` 摘要随会话持久化（`LLMMessage.reasoningLen` 为 UI 元数据，**buildMessages 发送前必须剥离**，否则未知字段进入厂商请求体可能 400）
+- **OpenAI 直连无推理原文**（Chat Completions 不透出思维链），思考块自动退化为不出现；DeepSeek/Kimi/Qwen/MiMo 走 `reasoning_content`、OpenRouter 走 `reasoning`
+- 思考型模型推理耗尽全部 Max Tokens 时正文为空（`finish_reason="length"` + 空 content），UI 有专门诊断文案 + 思考块保留供查看推理进度，勿当作普通空响应处理
+
 ---
 
 ## ⚠️ 截图捕获陷阱 — 每次碰 screenshot/视觉相关代码必读

@@ -118,22 +118,7 @@ ${CHAT_CSS}
           <span class="pw-dropdown-arrow">▼</span>
         </div>
         <div class="pw-temp-trigger" role="button" tabindex="0" title="Temperature &amp; Max Tokens">
-          <span class="pw-temp-text">${(() => {
-            const t = parseFloat(
-              (Zotero.Prefs.get(
-                `${config.prefsPrefix}.llm.temperature`,
-                true,
-              ) as string) ?? "0.7",
-            ).toFixed(1);
-            const m = parseInt(
-              (Zotero.Prefs.get(
-                `${config.prefsPrefix}.llm.maxTokens`,
-                true,
-              ) as string) ?? "2000",
-            );
-            const mk = m >= 1000 ? Math.round(m / 1000) + "k" : String(m);
-            return `T: ${t} · ${mk}`;
-          })()}</span>
+          <span class="pw-temp-text">${getParamsBadgeText()}</span>
           <span class="pw-dropdown-arrow">▼</span>
         </div>
       </div>
@@ -217,20 +202,7 @@ ${CHAT_CSS}
     const next = `${displayName} · ${mName}`;
     if (badge.textContent !== next) badge.textContent = next;
 
-    const tVal = parseFloat(
-      (Zotero.Prefs.get(
-        `${config.prefsPrefix}.llm.temperature`,
-        true,
-      ) as string) ?? "0.7",
-    ).toFixed(1);
-    const mVal = parseInt(
-      (Zotero.Prefs.get(
-        `${config.prefsPrefix}.llm.maxTokens`,
-        true,
-      ) as string) ?? "2000",
-    );
-    const mStr = mVal >= 1000 ? Math.round(mVal / 1000) + "k" : String(mVal);
-    const tNext = `T: ${tVal} · ${mStr}`;
+    const tNext = getParamsBadgeText();
     if (tempBadge.textContent !== tNext) tempBadge.textContent = tNext;
 
     // 自定义按钮实时同步：设置页修改后 1s 内重渲染
@@ -990,7 +962,7 @@ async function send(
     (Zotero.Prefs.get(
       `${config.prefsPrefix}.llm.${providerName}.model`,
       true,
-    ) as string) ?? "gpt-4o";
+    ) as string) ?? "gpt-6.1-sol";
   const temperature = parseFloat(
     (Zotero.Prefs.get(
       `${config.prefsPrefix}.llm.temperature`,
@@ -1001,20 +973,68 @@ async function send(
     (Zotero.Prefs.get(`${config.prefsPrefix}.llm.maxTokens`, true) as string) ??
       "2000",
   );
+  // 推理档位：per-provider pref，存厂商原生枚举值（空 = 默认，不下发参数）
+  const reasoning =
+    (Zotero.Prefs.get(
+      `${config.prefsPrefix}.llm.${providerName}.reasoning`,
+      true,
+    ) as string) ?? "";
 
   let fullResponse = "";
 
   // 阶段反馈 2：连接建立后 5s 内无首个 chunk，显示"思考中"
-  // （思考模型的推理 delta 不展示原文，仅显示进度计数）
   let firstChunkArrived = false;
   let reasoningChars = 0;
   let thinkTimer = win.setTimeout(() => {
     if (!firstChunkArrived) aiEl.textContent = "模型思考中…";
   }, 5000);
 
+  // 思考流折叠块状态机：首个推理 delta 创建 → 正文开始自动收起（用户手动操作过则尊重）
+  let thinkWrap: HTMLElement | null = null;
+  let thinkBodyEl: HTMLElement | null = null;
+  let thinkHeaderEl: HTMLElement | null = null;
+  let thinkUserToggled = false;
+  let thinkStartTs = 0;
+  let thinkFinalized = false;
+
+  const setThinkOpen = (open: boolean) => {
+    thinkWrap?.classList.toggle("pw-open", open);
+  };
+
+  const ensureThinkingBlock = () => {
+    if (thinkWrap) return;
+    thinkWrap = doc.createElement("div");
+    thinkWrap.className = "pw-thinking pw-open";
+    thinkHeaderEl = doc.createElement("div");
+    thinkHeaderEl.className = "pw-thinking-header";
+    thinkBodyEl = doc.createElement("div");
+    thinkBodyEl.className = "pw-thinking-body";
+    thinkWrap.appendChild(thinkHeaderEl);
+    thinkWrap.appendChild(thinkBodyEl);
+    thinkHeaderEl.addEventListener("click", () => {
+      thinkUserToggled = true;
+      setThinkOpen(!thinkWrap!.classList.contains("pw-open"));
+    });
+    messagesEl.insertBefore(thinkWrap, aiEl);
+  };
+
+  const removeThinkingBlock = () => {
+    thinkWrap?.remove();
+    thinkWrap = null;
+    thinkBodyEl = null;
+    thinkHeaderEl = null;
+    thinkUserToggled = false;
+    thinkStartTs = 0;
+    thinkFinalized = false;
+  };
+
   const buildMessages = (uc: string | ContentPart[]) => [
     { role: "system" as const, content: systemContent },
-    ...history.getAll().slice(0, -1), // 除最后一条（用本轮 uc 替代）
+    // 剥离 reasoningLen 等持久化元数据，避免未知字段进入厂商请求体
+    ...history
+      .getAll()
+      .slice(0, -1)
+      .map((m) => ({ role: m.role, content: m.content })),
     { role: "user" as const, content: uc },
   ];
 
@@ -1026,17 +1046,52 @@ async function send(
 
     try {
       await manager.getProvider().chatStream(
-        { model, messages, temperature, maxTokens },
+        {
+          model,
+          messages,
+          temperature,
+          maxTokens,
+          reasoning: reasoning || undefined,
+        },
         (chunk, reasoningDelta) => {
           if (reasoningDelta) {
-            // 推理增量：不展示原文（可能极长），仅更新进度提示
+            // 推理增量：滚动显示于思考流折叠块（可点击收起）
             win.clearTimeout(thinkTimer);
+            ensureThinkingBlock();
+            if (reasoningChars === 0) {
+              thinkStartTs = Date.now();
+              aiEl.textContent = ""; // 思考块已可见，清掉"思考中"占位文案
+            }
             reasoningChars += reasoningDelta.length;
-            aiEl.textContent = `模型思考中…（已推理 ${reasoningChars} 字）`;
+            if (thinkHeaderEl)
+              thinkHeaderEl.textContent = `思考中 · 已推理 ${reasoningChars} 字`;
+            if (thinkBodyEl) {
+              // 仅当用户停留在底部时自动滚动（向上翻阅时不打扰）
+              const nearBottom =
+                thinkBodyEl.scrollHeight -
+                  thinkBodyEl.scrollTop -
+                  thinkBodyEl.clientHeight <
+                40;
+              thinkBodyEl.textContent += reasoningDelta;
+              if (nearBottom) thinkBodyEl.scrollTop = thinkBodyEl.scrollHeight;
+            }
+            scrollToBottom(messagesEl);
             return;
           }
           firstChunkArrived = true;
           win.clearTimeout(thinkTimer);
+          // 正文开始：思考块收起为摘要头（仅首个正文 chunk 执行一次，
+          // 思考用时定格于思考结束时刻——正文输出耗时另计，不并入思考时间）
+          if (thinkWrap && thinkHeaderEl && !thinkFinalized) {
+            thinkFinalized = true;
+            const secs = thinkStartTs
+              ? Math.max(1, Math.round((Date.now() - thinkStartTs) / 1000))
+              : 0;
+            thinkHeaderEl.textContent = `已深度思考 · ${reasoningChars} 字${
+              secs ? ` · ${secs}s` : ""
+            }`;
+            if (!thinkUserToggled) setThinkOpen(false);
+          }
           fullResponse += chunk;
           // 流式输出时过滤 MiniMax 思维链标签（标签可能跨 chunk）
           const displayText = fullResponse.replace(
@@ -1054,7 +1109,12 @@ async function send(
           fullResponse = fullResponse.replace(/<think>[\s\S]*?<\/think>/g, "");
           if (fullResponse) {
             setMarkdown(aiEl, fullResponse);
-            history.add({ role: "assistant", content: fullResponse });
+            history.add({
+              role: "assistant",
+              content: fullResponse,
+              // 推理摘要元数据（原文不落盘，重载会话后仅显示"已深度思考 N 字"）
+              ...(reasoningChars > 0 ? { reasoningLen: reasoningChars } : {}),
+            });
             void saveSession(item, history); // 自动保存到 Zotero 笔记
             // "length" = 因 Max Tokens 上限被截断；无提示而中断则说明是流/厂商问题
             if (finishReason === "length") {
@@ -1064,6 +1124,11 @@ async function send(
             // 空响应：与 onError 一致撤回 user 消息，避免重发产生连续重复
             history.remove(userMsgIndex);
             aiEl.classList.add("pw-msg-error");
+            if (thinkWrap && thinkHeaderEl) {
+              // 预算耗尽在推理上：思考块保留并收起，供用户查看推理到了哪里
+              thinkHeaderEl.textContent = `已推理 ${reasoningChars} 字`;
+              setThinkOpen(false);
+            }
             if (finishReason === "length") {
               // 思考型模型：全部 Max Tokens 预算耗尽在推理上，正文未开始
               aiEl.textContent = `模型将 Max Tokens 预算（${maxTokens}）全部消耗在推理上（${
@@ -1116,6 +1181,7 @@ async function send(
     fullResponse = "";
     firstChunkArrived = false;
     reasoningChars = 0;
+    removeThinkingBlock(); // 清除第 1 轮可能产生的思考块，避免重发后出现两块
     aiEl.textContent = "";
     aiEl.classList.add("pw-msg-loading");
     thinkTimer = win.setTimeout(() => {
@@ -1595,7 +1661,12 @@ interface SessionData {
   title: string;
   created: string; // ISO 8601
   updated: string; // ISO 8601
-  messages: Array<{ role: string; content: string }>;
+  messages: Array<{
+    role: string;
+    content: string;
+    /** 可选：该条助手消息的推理字数摘要（推理原文不落盘） */
+    reasoningLen?: number;
+  }>;
 }
 
 /**
@@ -1698,6 +1769,9 @@ async function saveSession(
   const stringMessages = msgs.map((m) => ({
     role: m.role,
     content: typeof m.content === "string" ? m.content : "[截图 📷]",
+    ...(m.role === "assistant" && m.reasoningLen
+      ? { reasoningLen: m.reasoningLen }
+      : {}),
   }));
   const stringVisibleMsgs = stringMessages.filter((m) => m.role !== "system");
 
@@ -1769,13 +1843,23 @@ function renderChatHistory(
   for (const msg of getHistory(item).getAll()) {
     if (msg.role !== "system") {
       const text = typeof msg.content === "string" ? msg.content : "[截图 📷]";
-      appendMessage(
+      const el = appendMessage(
         doc,
         messagesEl,
         msg.role as "user" | "assistant",
         text,
         msg.role === "assistant",
       );
+      // 历史会话：推理原文未落盘，仅渲染不可展开的摘要行
+      if (msg.role === "assistant" && msg.reasoningLen) {
+        const summary = doc.createElement("div");
+        summary.className = "pw-thinking";
+        const head = doc.createElement("div");
+        head.className = "pw-thinking-header";
+        head.textContent = `已深度思考 · ${msg.reasoningLen} 字 · 原文未保存`;
+        summary.appendChild(head);
+        messagesEl.insertBefore(summary, el);
+      }
     }
   }
   scrollToBottom(messagesEl);
@@ -1859,9 +1943,11 @@ function showSessionList(
       const history = getHistory(item);
       history.clear();
       for (const msg of sess.data.messages) {
-        history.add(
-          msg as { role: "user" | "assistant" | "system"; content: string },
-        );
+        history.add({
+          role: msg.role as "user" | "assistant" | "system",
+          content: msg.content,
+          ...(msg.reasoningLen ? { reasoningLen: msg.reasoningLen } : {}),
+        });
       }
       activeNoteIDs.set(getItemKey(item), sess.noteID);
       renderChatHistory(doc, messagesEl, item);
@@ -1915,6 +2001,7 @@ function getProviderDisplayName(providerId: string): string {
     openrouter: "OpenRouter",
     mimo: "MiMo",
     minimax: "MiniMax",
+    zhipu: "智谱 GLM",
   };
   return displayNames[providerId] || providerId;
 }
@@ -1942,6 +2029,7 @@ function getConfiguredProviders(): ConfiguredProvider[] {
     { id: "openrouter", keyPref: "apiKey" },
     { id: "mimo", keyPref: "apiKey" },
     { id: "minimax", keyPref: "apiKey" },
+    { id: "zhipu", keyPref: "apiKey" },
     { id: "ollama", keyPref: "baseUrl" },
   ];
 
@@ -1979,7 +2067,44 @@ function getConfiguredProviders(): ConfiguredProvider[] {
   return providers;
 }
 
-// 显示请求参数 popover（Temperature + Max Tokens）
+/** T 徽章文本：温度 · MaxTokens（· 推理档位后缀，per-vendor 原生档位的 short 标签） */
+function getParamsBadgeText(): string {
+  const t = parseFloat(
+    (Zotero.Prefs.get(
+      `${config.prefsPrefix}.llm.temperature`,
+      true,
+    ) as string) ?? "0.7",
+  ).toFixed(1);
+  const m = parseInt(
+    (Zotero.Prefs.get(`${config.prefsPrefix}.llm.maxTokens`, true) as string) ??
+      "2000",
+  );
+  const mk = m >= 1000 ? Math.round(m / 1000) + "k" : String(m);
+  const manager = LLMManager.getInstance();
+  const pName = manager.getActiveProviderName();
+  const raw =
+    (Zotero.Prefs.get(
+      `${config.prefsPrefix}.llm.${pName}.reasoning`,
+      true,
+    ) as string) ?? "";
+  let suffix = "";
+  if (raw) {
+    // 档位标签由 provider 档位表定义（无匹配时兜底显示原生值）
+    const model =
+      (Zotero.Prefs.get(
+        `${config.prefsPrefix}.llm.${pName}.model`,
+        true,
+      ) as string) ?? undefined;
+    const level = manager
+      .getProvider()
+      .getReasoningLevels(model)
+      .find((l) => l.value === raw);
+    suffix = ` · ${level?.short ?? raw}`;
+  }
+  return `T: ${t} · ${mk}${suffix}`;
+}
+
+// 显示请求参数 popover（Temperature + Max Tokens + 深度思考）
 function showParamsPopover(
   doc: Document,
   panel: HTMLElement,
@@ -2006,6 +2131,10 @@ function showParamsPopover(
 
   const popover = doc.createElement("div");
   popover.className = "pw-temp-popover";
+
+  // 预算挤占提示的刷新钩子：由下方"深度思考"区块赋值实现（无档位表时保持空操作），
+  // Max Tokens 滑条/输入实时变化时即时联动，无需重开 popover
+  let refreshBudgetHint: () => void = () => {};
 
   function makeSectionTitle(text: string) {
     const el = doc.createElement("div");
@@ -2048,6 +2177,24 @@ function showParamsPopover(
   popover.appendChild(tempRow);
   popover.appendChild(makeHint("0 = 精准稳定   2 = 随机创意   推荐 0.1–0.7"));
 
+  // Kimi temperature 为确定值/不可修改（K2.5 传错报 400；K2.6+ 官方明言勿传）—— 发送层已全系剥离
+  // GLM temperature 区间 (0,1)—— 发送层已自动钳制到 (0,1]
+  {
+    const manager = LLMManager.getInstance();
+    const pName = manager.getActiveProviderName();
+    if (pName === "kimi") {
+      popover.appendChild(
+        makeHint(
+          "Kimi 各系温度为固定值（官方明言请勿传入），此设置不生效，请求中已自动省略",
+        ),
+      );
+    } else if (pName === "zhipu") {
+      popover.appendChild(
+        makeHint("GLM 温度区间为 (0,1)，超出部分发送时自动就近钳制"),
+      );
+    }
+  }
+
   // ── 分隔线 ──
   const divider = doc.createElement("div");
   divider.className = "pw-params-divider";
@@ -2059,6 +2206,14 @@ function showParamsPopover(
   const tokensRow = doc.createElement("div");
   tokensRow.className = "pw-temp-row";
 
+  const tokensSlider = doc.createElement("input") as HTMLInputElement;
+  tokensSlider.type = "range";
+  tokensSlider.className = "pw-temp-slider";
+  tokensSlider.min = "100";
+  tokensSlider.max = "32000";
+  tokensSlider.step = "100";
+  tokensSlider.value = String(curTokens);
+
   const tokensInput = doc.createElement("input") as HTMLInputElement;
   tokensInput.type = "number";
   tokensInput.className = "pw-tokens-input";
@@ -2067,9 +2222,96 @@ function showParamsPopover(
   tokensInput.step = "100";
   tokensInput.value = String(curTokens);
 
+  tokensRow.appendChild(tokensSlider);
   tokensRow.appendChild(tokensInput);
   popover.appendChild(tokensRow);
-  popover.appendChild(makeHint("100–32000   推荐 2000–4000"));
+  popover.appendChild(makeHint("100–32000   思考模型建议 ≥8000"));
+
+  // ── 深度思考 ──
+  const divider2 = doc.createElement("div");
+  divider2.className = "pw-params-divider";
+  popover.appendChild(divider2);
+
+  popover.appendChild(makeSectionTitle("深度思考"));
+
+  {
+    const manager = LLMManager.getInstance();
+    const pName = manager.getActiveProviderName();
+    const model =
+      (Zotero.Prefs.get(
+        `${config.prefsPrefix}.llm.${pName}.model`,
+        true,
+      ) as string) ?? "";
+    const levels = manager.getProvider().getReasoningLevels(model || undefined);
+    const reasoningKey = `${config.prefsPrefix}.llm.${pName}.reasoning`;
+
+    if (levels.length === 0) {
+      // 无档位表（如 Anthropic 官方参数待核实）：诚实告知而非近似映射
+      popover.appendChild(
+        makeHint(
+          "该厂商推理配置即将支持（官方参数核实中），当前使用厂商默认行为",
+        ),
+      );
+    } else {
+      const thinkRow = doc.createElement("div");
+      thinkRow.className = "pw-thinking-row";
+
+      // 预算挤占提示：非显式关闭类档位（含默认——DeepSeek 等厂商默认思考开、
+      // gpt-5/6 无法完全关闭推理）且 Max Tokens 偏低时动态显示
+      const budgetHint = doc.createElement("div");
+      budgetHint.className = "pw-temp-hint";
+      refreshBudgetHint = () => {
+        const cur =
+          (Zotero.Prefs.get(
+            `${config.prefsPrefix}.llm.${pName}.reasoning`,
+            true,
+          ) as string) ?? "";
+        const tokens = parseInt(
+          (Zotero.Prefs.get(
+            `${config.prefsPrefix}.llm.maxTokens`,
+            true,
+          ) as string) ?? "2000",
+        );
+        const isThinking = !["none", "disabled", "off"].includes(cur);
+        budgetHint.textContent =
+          isThinking && tokens < 8000
+            ? `⚠ 当前 Max Tokens（${tokens}）偏低，思考 token 会分享此预算（含厂商默认开启思考的模型），可能挤占正文导致回答被截断，建议 ≥8000`
+            : "";
+      };
+
+      for (const lv of levels) {
+        const el = doc.createElement("div");
+        el.className = "pw-thinking-opt";
+        el.setAttribute("role", "button");
+        el.setAttribute("tabindex", "0");
+        el.textContent = lv.label;
+        if (lv.hint) el.title = lv.hint;
+        if (
+          ((Zotero.Prefs.get(reasoningKey, true) as string) ?? "") === lv.value
+        ) {
+          el.classList.add("pw-thinking-active");
+        }
+        el.addEventListener("click", () => {
+          Zotero.Prefs.set(reasoningKey, lv.value, true);
+          thinkRow
+            .querySelectorAll(".pw-thinking-opt")
+            .forEach((o: Element) => o.classList.remove("pw-thinking-active"));
+          el.classList.add("pw-thinking-active");
+          refreshBudgetHint();
+          updateBadge();
+        });
+        thinkRow.appendChild(el);
+      }
+      popover.appendChild(thinkRow);
+      popover.appendChild(
+        makeHint(
+          "档位为该厂商官方原生枚举（每家独立记忆）；默认 = 不下发参数，使用厂商默认行为。立即生效",
+        ),
+      );
+      popover.appendChild(budgetHint);
+      refreshBudgetHint();
+    }
+  }
 
   // ── 定位 ──
   panel.appendChild(popover);
@@ -2079,9 +2321,8 @@ function showParamsPopover(
   popover.style.left = `${rect.left - panelRect.left}px`;
 
   // ── 更新徽章文字 ──
-  function updateBadge(t: string, m: number) {
-    const mStr = m >= 1000 ? Math.round(m / 1000) + "k" : String(m);
-    badge.textContent = `T: ${t} · ${mStr}`;
+  function updateBadge() {
+    badge.textContent = getParamsBadgeText();
   }
 
   // Temperature 联动
@@ -2091,7 +2332,7 @@ function showParamsPopover(
     slider.value = str;
     tempInput.value = str;
     Zotero.Prefs.set(`${config.prefsPrefix}.llm.temperature`, str, true);
-    updateBadge(str, parseInt(tokensInput.value) || curTokens);
+    updateBadge();
   }
   slider.addEventListener("input", () => applyTemp(parseFloat(slider.value)));
   tempInput.addEventListener("change", () =>
@@ -2102,13 +2343,18 @@ function showParamsPopover(
   function applyTokens(v: number) {
     const clamped = Math.min(32000, Math.max(100, v));
     tokensInput.value = String(clamped);
+    tokensSlider.value = String(clamped);
     Zotero.Prefs.set(
       `${config.prefsPrefix}.llm.maxTokens`,
       String(clamped),
       true,
     );
-    updateBadge(tempInput.value, clamped);
+    updateBadge();
+    refreshBudgetHint(); // 预算提示随 Max Tokens 实时更新
   }
+  tokensSlider.addEventListener("input", () =>
+    applyTokens(parseInt(tokensSlider.value) || 2000),
+  );
   tokensInput.addEventListener("change", () =>
     applyTokens(parseInt(tokensInput.value) || 2000),
   );
@@ -2407,6 +2653,27 @@ const CHAT_CSS = `
   background: Canvas;
   color: inherit;
 }
+/* 深度思考开关 */
+.pw-thinking-row {
+  display: flex;
+  gap: 6px;
+}
+.pw-thinking-opt {
+  flex: 1;
+  text-align: center;
+  padding: 4px 0;
+  border-radius: 4px;
+  border: 1px solid rgba(128,128,128,0.3);
+  cursor: pointer;
+  font-size: 12px;
+  user-select: none;
+}
+.pw-thinking-opt:hover { background: rgba(26,127,212,0.08); }
+.pw-thinking-active {
+  border-color: #1a7fd4;
+  color: #1a7fd4;
+  font-weight: 600;
+}
 /* 提供商下拉菜单 */
 .pw-provider-dropdown {
   position: absolute;
@@ -2597,6 +2864,33 @@ const CHAT_CSS = `
   color: #c0392b;
   line-height: 1.5;
 }
+/* 推理思考流折叠块（思考中滚动展示 → 正文开始自动收起为摘要头） */
+.pw-thinking {
+  max-width: 92%;
+  margin: 2px 0 6px;
+  border-left: 2px solid rgba(26,127,212,0.35);
+  background: rgba(128,128,128,0.08);
+  border-radius: 4px;
+}
+.pw-thinking-header {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: rgba(128,128,128,0.9);
+  cursor: pointer;
+  user-select: none;
+}
+.pw-thinking-header:hover { color: rgba(26,127,212,0.9); }
+.pw-thinking-body {
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 0 10px 6px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: rgba(128,128,128,0.85);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.pw-thinking:not(.pw-open) .pw-thinking-body { display: none; }
 .pw-input-area {
   display: flex;
   flex-direction: column;

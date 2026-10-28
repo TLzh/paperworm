@@ -9,8 +9,23 @@ import type {
   LLMMessage,
   LLMRequestOptions,
   ContentPart,
+  ReasoningLevel,
 } from "./provider";
 import { zhttp, fetchWithHeaderTimeout, readStreamLines } from "./provider";
+
+/** Gemini 3 起为等级制 thinkingLevel（minimal≈无思考；分模型支持矩阵，如 3.1 Pro 无 minimal） */
+const GEMINI_REASONING_LEVELS: ReasoningLevel[] = [
+  { value: "", label: "默认", hint: "按模型默认（high 或 minimal）" },
+  {
+    value: "minimal",
+    label: "极低",
+    short: "minimal",
+    hint: "≈无思考，最低延迟",
+  },
+  { value: "low", label: "低" },
+  { value: "medium", label: "中", short: "medium" },
+  { value: "high", label: "高" },
+];
 
 function toGeminiParts(content: string | ContentPart[]) {
   if (typeof content === "string") return [{ text: content }];
@@ -33,6 +48,10 @@ export class GeminiProvider implements LLMProvider {
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
+  }
+
+  getReasoningLevels(_model?: string): ReasoningLevel[] {
+    return [...GEMINI_REASONING_LEVELS];
   }
 
   async chat(options: LLMRequestOptions): Promise<string> {
@@ -152,6 +171,14 @@ export class GeminiProvider implements LLMProvider {
         maxOutputTokens: options.maxTokens ?? 2000,
       },
     };
+
+    // 推理档位：Gemini 3 起为 thinkingLevel 等级制（官方 Gemini 3 开发者指南，
+    // refs/gemini_docs；等级是"相对配额"而非严格 token 保证）
+    if (options.reasoning) {
+      (body.generationConfig as any).thinkingConfig = {
+        thinkingLevel: options.reasoning,
+      };
+    }
 
     if (systemMsg) {
       const sysText =
