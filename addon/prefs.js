@@ -4,6 +4,21 @@ pref("extensions.zotero.paperworm.llm.provider", "openai");
 pref("extensions.zotero.paperworm.llm.openai.apiKey", "");
 pref("extensions.zotero.paperworm.llm.openai.model", "gpt-6.1-sol");
 
+// ChatGPT 订阅通道（SIWC）：凭据类 pref 由 OAuth 流程写入，默认全部为空
+pref("extensions.zotero.paperworm.llm.openai-siwc.model", "gpt-6.1-sol");
+pref("extensions.zotero.paperworm.llm.openai-siwc.clientId", "");
+pref("extensions.zotero.paperworm.llm.openai-siwc.email", "");
+pref("extensions.zotero.paperworm.llm.openai-siwc.subject", "");
+pref("extensions.zotero.paperworm.llm.openai-siwc.hostId", "");
+pref("extensions.zotero.paperworm.llm.openai-siwc.idToken", "");
+pref("extensions.zotero.paperworm.llm.openai-siwc.accessToken", "");
+pref("extensions.zotero.paperworm.llm.openai-siwc.refreshToken", "");
+pref("extensions.zotero.paperworm.llm.openai-siwc.expiresAt", "");
+pref("extensions.zotero.paperworm.llm.openai-siwc.scopes", "");
+pref("extensions.zotero.paperworm.llm.openai-siwc.welcomed", "");
+pref("extensions.zotero.paperworm.llm.openai-siwc.reauth", "");
+pref("extensions.zotero.paperworm.llm.openai-siwc.reasoning", "");
+
 pref("extensions.zotero.paperworm.llm.deepseek.apiKey", "");
 pref("extensions.zotero.paperworm.llm.deepseek.model", "deepseek-v4-pro");
 

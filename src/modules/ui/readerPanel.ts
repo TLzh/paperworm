@@ -6,6 +6,11 @@
 import { config } from "../../../package.json";
 import { LLMManager } from "../llm/manager";
 import type { ContentPart } from "../llm/provider";
+import {
+  SiwcAuth,
+  SiwcUsageLimitError,
+  ReauthRequiredError,
+} from "../llm/siwcAuth";
 import { ChatHistory } from "../chat/history";
 import { PaperExtractor } from "../paper/extractor";
 import { MinerUCacheManager } from "../paper/strategies/mineru";
@@ -83,7 +88,27 @@ export function registerReaderPanel() {
         body.textContent = "";
         return;
       }
-      void initPanel(body, item);
+      // 自诊断：渲染异常不再静默空白，错误直接显示在面板中并落盘
+      void initPanel(body, item).catch((e) => {
+        try {
+          const msg = `${(e as Error)?.message ?? e}`;
+          const stack = (e as Error)?.stack ?? "";
+          const doc = body.ownerDocument as Document;
+          body.textContent = "";
+          const box = doc.createElement("div");
+          box.style.cssText =
+            "padding:12px;font-size:12px;color:#c0392b;white-space:pre-wrap;word-break:break-all;";
+          box.textContent = `[PaperWorm] 面板初始化失败：\n${msg}\n${stack}`;
+          body.appendChild(box);
+          Zotero.Prefs.set(
+            `${config.prefsPrefix}.debug.lastPanelError`,
+            `${msg}\n${stack}`,
+            true,
+          );
+        } catch {
+          /* ignore */
+        }
+      });
     },
   });
 }
@@ -103,6 +128,22 @@ async function initPanel(body: HTMLElement, item: Zotero.Item) {
       true,
     ) as string) ?? "unknown";
 
+  // 徽章文本安全计算：任何异常都不应导致整个面板空白
+  let badgeText = "T: ?";
+  try {
+    badgeText = getParamsBadgeText();
+  } catch (e) {
+    try {
+      Zotero.Prefs.set(
+        `${config.prefsPrefix}.debug.badgeError`,
+        String((e as Error)?.stack ?? e),
+        true,
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
   // 用一个容器包裹 <style> + 面板，避免 CSS 作用域问题
   const wrapper = doc.createElement("div");
   wrapper.innerHTML = `
@@ -118,9 +159,11 @@ ${CHAT_CSS}
           <span class="pw-dropdown-arrow">▼</span>
         </div>
         <div class="pw-temp-trigger" role="button" tabindex="0" title="Temperature &amp; Max Tokens">
-          <span class="pw-temp-text">${getParamsBadgeText()}</span>
+          <span class="pw-temp-text">${badgeText}</span>
           <span class="pw-dropdown-arrow">▼</span>
         </div>
+        <span class="pw-siwc-chip" role="button" tabindex="0" hidden="true"
+          title="Using ChatGPT plan — 点击管理用量">ChatGPT 订阅</span>
       </div>
       <div class="pw-sessions-btn" role="button" tabindex="0">会话列表</div>
     </div>
@@ -150,7 +193,7 @@ ${CHAT_CSS}
       <img class="pw-screenshot-thumb" alt="图片预览" />
       <div class="pw-chip-close pw-img-chip-close" role="button" tabindex="0">×</div>
     </div>
-    <textarea class="pw-input" rows="3" placeholder="输入问题… Enter 发送，Shift+Enter 换行"></textarea>
+    <textarea class="pw-input" rows="3" placeholder="输入问题… Enter 发送，Shift+Enter 换行，↑ 回填上一条"></textarea>
     <div class="pw-send-btn" role="button" tabindex="0">发送 ↑ (Enter)</div>
   </div>
 </div>`;
@@ -205,6 +248,10 @@ ${CHAT_CSS}
     const tNext = getParamsBadgeText();
     if (tempBadge.textContent !== tNext) tempBadge.textContent = tNext;
 
+    // ChatGPT 订阅通道：常驻"Using ChatGPT plan"标识（官方 UI 规范），点击管理用量
+    const siwcChip = panel.querySelector(".pw-siwc-chip") as HTMLElement | null;
+    if (siwcChip) siwcChip.hidden = pName !== "openai-siwc";
+
     // 自定义按钮实时同步：设置页修改后 1s 内重渲染
     const curCustom = getCustomButtonsRaw();
     if (curCustom !== lastCustomButtonsRaw) {
@@ -237,6 +284,19 @@ function bindEvents(
   const modelTrigger = panel.querySelector(
     ".pw-model-dropdown-trigger",
   ) as HTMLElement;
+
+  // ChatGPT 订阅标识：点击打开官方用量管理页（官方 UI 规范 Manage usage）
+  const siwcChip = panel.querySelector(".pw-siwc-chip") as HTMLElement | null;
+  siwcChip?.addEventListener("click", () => {
+    Zotero.launchURL("https://chatgpt.com/settings/usage");
+  });
+
+  // 首次登录确认 overlay（官方 UI 规范：仅首次 sign-in 后展示一次）
+  try {
+    maybeShowSiwcWelcome(doc, panel);
+  } catch {
+    /* overlay 失败不影响主面板 */
+  }
 
   // capturedSelection：短暂变量，在 mouseup 阶段捕获 PDF 选区，
   // "选择文本"按钮读取后立即清空，避免残留到下次操作。
@@ -313,7 +373,16 @@ function bindEvents(
 
   sendBtn.addEventListener("click", doSend);
 
+  // 回填写入并同步高度/光标
+  const setTextareaValue = (v: string) => {
+    textarea.value = v;
+    textarea.setSelectionRange(v.length, v.length);
+    textarea.style.height = "auto";
+    textarea.style.height = textarea.scrollHeight + "px";
+  };
+
   // capture:true 防止 Reader 层吞掉 Enter
+  let historyIndex = -1; // -1 = 未在浏览历史
   textarea.addEventListener(
     "keydown",
     (e: KeyboardEvent) => {
@@ -321,13 +390,47 @@ function bindEvents(
         e.preventDefault();
         e.stopPropagation();
         doSend();
+        return;
+      }
+      // 上/下键回填发送历史：仅在空框或光标位于开头时接管，避免干扰多行编辑
+      if (
+        (e.key === "ArrowUp" || e.key === "ArrowDown") &&
+        !e.shiftKey &&
+        !e.altKey &&
+        !e.ctrlKey &&
+        !e.metaKey
+      ) {
+        const len = sentPromptHistory.length;
+        if (len === 0) return;
+        const atStart =
+          textarea.selectionStart === 0 && textarea.selectionEnd === 0;
+        if (e.key === "ArrowUp") {
+          if (!atStart && textarea.value !== "") return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (historyIndex < 0) historyIndex = len - 1;
+          else if (historyIndex > 0) historyIndex--;
+          setTextareaValue(sentPromptHistory[historyIndex]);
+        } else if (historyIndex >= 0) {
+          // ArrowDown：仅在已进入历史浏览时接管；越过最新一条则清空退出
+          e.preventDefault();
+          e.stopPropagation();
+          if (historyIndex < len - 1) {
+            historyIndex++;
+            setTextareaValue(sentPromptHistory[historyIndex]);
+          } else {
+            historyIndex = -1;
+            setTextareaValue("");
+          }
+        }
       }
     },
     true,
   );
 
-  // 输入框高度自动增长
+  // 输入框高度自动增长；用户编辑后重置历史浏览位置
   textarea.addEventListener("input", () => {
+    historyIndex = -1;
     textarea.style.height = "auto";
     textarea.style.height = textarea.scrollHeight + "px";
   });
@@ -849,6 +952,19 @@ function renderCustomActionButtons(doc: Document, panel: HTMLElement): void {
 
 // ── 发送 & 流式输出 ───────────────────────────────────────────────────────────
 
+// ── 发送历史（输入框按"上"键回填，便于失败后重发）──────────────────────────
+const sentPromptHistory: string[] = [];
+const MAX_PROMPT_HISTORY = 50;
+
+function pushPromptHistory(text: string): void {
+  const t = text.trim();
+  if (!t) return;
+  // 连续重复不重复记录
+  if (sentPromptHistory[sentPromptHistory.length - 1] === t) return;
+  sentPromptHistory.push(t);
+  if (sentPromptHistory.length > MAX_PROMPT_HISTORY) sentPromptHistory.shift();
+}
+
 async function send(
   doc: Document,
   messagesEl: HTMLElement,
@@ -859,6 +975,7 @@ async function send(
   sendBtn: HTMLElement,
 ) {
   sendBtn.classList.add("pw-disabled");
+  pushPromptHistory(userText);
   const history = getHistory(item);
 
   // 若有选中文字，将其作为引用块前置到用户消息中
@@ -890,7 +1007,10 @@ async function send(
   if (!isConfigured) {
     aiEl.classList.remove("pw-msg-loading");
     aiEl.classList.add("pw-msg-error");
-    aiEl.textContent = `错误：${getProviderDisplayName(providerName)} 未配置。请在 PaperWorm 设置中添加 API Key。`;
+    aiEl.textContent =
+      providerName === "openai-siwc"
+        ? `错误：${getProviderDisplayName(providerName)} 未登录。请在 PaperWorm 设置中点击 "Continue with ChatGPT" 登录。`
+        : `错误：${getProviderDisplayName(providerName)} 未配置。请在 PaperWorm 设置中添加 API Key。`;
     sendBtn.classList.remove("pw-disabled");
     return;
     // 注意：未入库历史，避免留下无 AI 响应的悬空消息
@@ -985,8 +1105,13 @@ async function send(
   // 阶段反馈 2：连接建立后 5s 内无首个 chunk，显示"思考中"
   let firstChunkArrived = false;
   let reasoningChars = 0;
+  // 订阅通道（SIWC）不推送推理摘要事件：等待文案如实说明
+  const thinkingPlaceholder =
+    providerName === "openai-siwc"
+      ? "模型思考中…（订阅通道不提供推理过程，请耐心等待）"
+      : "模型思考中…";
   let thinkTimer = win.setTimeout(() => {
-    if (!firstChunkArrived) aiEl.textContent = "模型思考中…";
+    if (!firstChunkArrived) aiEl.textContent = thinkingPlaceholder;
   }, 5000);
 
   // 思考流折叠块状态机：首个推理 delta 创建 → 正文开始自动收起（用户手动操作过则尊重）
@@ -1155,7 +1280,22 @@ async function send(
           history.remove(userMsgIndex);
           aiEl.classList.remove("pw-msg-loading");
           aiEl.classList.add("pw-msg-error");
-          aiEl.textContent = `错误：${err.message}`;
+          if (err instanceof SiwcUsageLimitError) {
+            // 订阅额度受限：官方 UI 规范 —— 主操作 = Manage usage（打开 ChatGPT 用量设置）
+            aiEl.textContent =
+              "ChatGPT 订阅额度已用尽（Usage limit reached）— 可在 ChatGPT 设置中查看与调整额度，或切换其他厂商后重试";
+            const manageBtn = doc.createElement("div");
+            manageBtn.className = "pw-manage-usage-btn";
+            manageBtn.setAttribute("role", "button");
+            manageBtn.setAttribute("tabindex", "0");
+            manageBtn.textContent = "Manage usage →";
+            manageBtn.addEventListener("click", () => {
+              Zotero.launchURL("https://chatgpt.com/settings/usage");
+            });
+            aiEl.appendChild(manageBtn);
+          } else {
+            aiEl.textContent = `错误：${err.message}`;
+          }
           sendBtn.classList.remove("pw-disabled");
         },
       );
@@ -1185,7 +1325,7 @@ async function send(
     aiEl.textContent = "";
     aiEl.classList.add("pw-msg-loading");
     thinkTimer = win.setTimeout(() => {
-      if (!firstChunkArrived) aiEl.textContent = "模型思考中…";
+      if (!firstChunkArrived) aiEl.textContent = thinkingPlaceholder;
     }, 5000);
     userContent = await resolveImageContent(false);
   }
@@ -1992,6 +2132,7 @@ function escapeHtml(s: string): string {
 function getProviderDisplayName(providerId: string): string {
   const displayNames: Record<string, string> = {
     openai: "OpenAI",
+    "openai-siwc": "OpenAI 订阅",
     deepseek: "DeepSeek",
     anthropic: "Claude",
     gemini: "Gemini",
@@ -2021,6 +2162,7 @@ function getConfiguredProviders(): ConfiguredProvider[] {
 
   const providerConfigs = [
     { id: "openai", keyPref: "apiKey" },
+    { id: "openai-siwc", keyPref: "refreshToken" }, // 登录后凭据存在即视为已配置
     { id: "deepseek", keyPref: "apiKey" },
     { id: "anthropic", keyPref: "apiKey" },
     { id: "gemini", keyPref: "apiKey" },
@@ -2049,22 +2191,64 @@ function getConfiguredProviders(): ConfiguredProvider[] {
         .map((s) => s.trim())
         .filter(Boolean);
 
-      if (modelsList.length > 0) {
-        // 当前激活模型；若未配置则默认为列表第一个
-        const activeModel =
-          (Zotero.Prefs.get(`${p}.llm.${cfg.id}.model`, true) as string) ||
-          modelsList[0];
+      // 已配置即出现在下拉中：models 列表为空时用当前 model pref 兜底
+      // （如 ChatGPT 订阅登录后未点"获取模型"，或 API key 厂商未拉列表）
+      const currentModel =
+        (Zotero.Prefs.get(`${p}.llm.${cfg.id}.model`, true) as string) || "";
+      const effectiveModels =
+        modelsList.length > 0 ? modelsList : currentModel ? [currentModel] : [];
+      if (effectiveModels.length > 0) {
         providers.push({
           name: getProviderDisplayName(cfg.id),
           providerId: cfg.id,
-          model: activeModel,
-          modelsList,
+          model: currentModel || effectiveModels[0],
+          modelsList: effectiveModels,
         });
       }
     }
   }
 
   return providers;
+}
+
+/**
+ * ChatGPT 订阅首次登录确认 overlay（官方 UI 规范：仅首次 sign-in 后展示一次，
+ * "You're using your ChatGPT plan" + Got it；之后不再出现）。
+ */
+function maybeShowSiwcWelcome(doc: Document, panel: HTMLElement): void {
+  const pName = LLMManager.getInstance().getActiveProviderName();
+  if (
+    pName !== "openai-siwc" ||
+    !SiwcAuth.isSignedIn() ||
+    SiwcAuth.isWelcomed()
+  ) {
+    return;
+  }
+  const overlay = doc.createElement("div");
+  overlay.className = "pw-siwc-welcome";
+  const card = doc.createElement("div");
+  card.className = "pw-siwc-welcome-card";
+  const title = doc.createElement("div");
+  title.className = "pw-siwc-welcome-title";
+  title.textContent = "You're using your ChatGPT plan";
+  const desc = doc.createElement("div");
+  desc.className = "pw-siwc-welcome-desc";
+  desc.textContent =
+    "PaperWorm 中的 AI 请求将使用你的 ChatGPT 订阅额度，可在 ChatGPT 设置中查看与管理用量。";
+  const btn = doc.createElement("div");
+  btn.className = "pw-siwc-welcome-btn";
+  btn.setAttribute("role", "button");
+  btn.setAttribute("tabindex", "0");
+  btn.textContent = "Got it";
+  btn.addEventListener("click", () => {
+    SiwcAuth.markWelcomed();
+    overlay.remove();
+  });
+  card.appendChild(title);
+  card.appendChild(desc);
+  card.appendChild(btn);
+  overlay.appendChild(card);
+  panel.appendChild(overlay);
 }
 
 /** T 徽章文本：温度 · MaxTokens（· 推理档位后缀，per-vendor 原生档位的 short 标签） */
@@ -2089,17 +2273,16 @@ function getParamsBadgeText(): string {
     ) as string) ?? "";
   let suffix = "";
   if (raw) {
-    // 档位标签由 provider 档位表定义（无匹配时兜底显示原生值）
+    // 档位标签由 provider 档位表定义；若该模型已被学习为"不支持此档位"
+    // （档位表已过滤掉它），则徽章回退为"默认"，避免显示实际未下发的值
     const model =
       (Zotero.Prefs.get(
         `${config.prefsPrefix}.llm.${pName}.model`,
         true,
       ) as string) ?? undefined;
-    const level = manager
-      .getProvider()
-      .getReasoningLevels(model)
-      .find((l) => l.value === raw);
-    suffix = ` · ${level?.short ?? raw}`;
+    const levels = manager.getProvider().getReasoningLevels(model);
+    const level = levels.find((l) => l.value === raw);
+    suffix = level ? ` · ${level.short ?? raw}` : "";
   }
   return `T: ${t} · ${mk}${suffix}`;
 }
@@ -2128,6 +2311,9 @@ function showParamsPopover(
     (Zotero.Prefs.get(`${config.prefsPrefix}.llm.maxTokens`, true) as string) ??
       "2000",
   );
+  // ChatGPT 订阅通道（SIWC）：温度与 MaxTokens 被官方禁用 → 控件置灰 + 说明（诚实 UI）
+  const siwcChannel =
+    LLMManager.getInstance().getActiveProviderName() === "openai-siwc";
 
   const popover = doc.createElement("div");
   popover.className = "pw-temp-popover";
@@ -2175,7 +2361,17 @@ function showParamsPopover(
   tempRow.appendChild(slider);
   tempRow.appendChild(tempInput);
   popover.appendChild(tempRow);
-  popover.appendChild(makeHint("0 = 精准稳定   2 = 随机创意   推荐 0.1–0.7"));
+  popover.appendChild(
+    makeHint(
+      siwcChannel
+        ? "订阅通道不支持温度调节（ChatGPT 订阅通道官方限制），此项不生效"
+        : "0 = 精准稳定   2 = 随机创意   推荐 0.1–0.7",
+    ),
+  );
+  if (siwcChannel) {
+    slider.disabled = true;
+    tempInput.disabled = true;
+  }
 
   // Kimi temperature 为确定值/不可修改（K2.5 传错报 400；K2.6+ 官方明言勿传）—— 发送层已全系剥离
   // GLM temperature 区间 (0,1)—— 发送层已自动钳制到 (0,1]
@@ -2225,7 +2421,17 @@ function showParamsPopover(
   tokensRow.appendChild(tokensSlider);
   tokensRow.appendChild(tokensInput);
   popover.appendChild(tokensRow);
-  popover.appendChild(makeHint("100–32000   思考模型建议 ≥8000"));
+  popover.appendChild(
+    makeHint(
+      siwcChannel
+        ? "订阅通道由 ChatGPT 套餐管理输出长度，此项不生效"
+        : "100–32000   思考模型建议 ≥8000",
+    ),
+  );
+  if (siwcChannel) {
+    tokensSlider.disabled = true;
+    tokensInput.disabled = true;
+  }
 
   // ── 深度思考 ──
   const divider2 = doc.createElement("div");
@@ -2261,6 +2467,11 @@ function showParamsPopover(
       const budgetHint = doc.createElement("div");
       budgetHint.className = "pw-temp-hint";
       refreshBudgetHint = () => {
+        // 订阅通道：MaxTokens 不适用，预算提示恒空
+        if (pName === "openai-siwc") {
+          budgetHint.textContent = "";
+          return;
+        }
         const cur =
           (Zotero.Prefs.get(
             `${config.prefsPrefix}.llm.${pName}.reasoning`,
@@ -2863,6 +3074,79 @@ const CHAT_CSS = `
   font-size: 11px;
   color: #c0392b;
   line-height: 1.5;
+}
+/* ChatGPT 订阅标识（官方 Using ChatGPT plan 规范）：常驻徽章，点击管理用量 */
+.pw-siwc-chip {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.08);
+  color: inherit;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.pw-siwc-chip:hover {
+  background: rgba(26, 127, 212, 0.15);
+}
+/* 订阅额度受限时的 Manage usage 按钮（官方 UI 规范：主操作） */
+.pw-manage-usage-btn {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: #000;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.pw-manage-usage-btn:hover {
+  opacity: 0.85;
+}
+/* 首次登录确认 overlay（官方 welcome 规范：仅首次，Got it 关闭） */
+.pw-siwc-welcome {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+.pw-siwc-welcome-card {
+  max-width: 300px;
+  margin: 16px;
+  padding: 20px;
+  border-radius: 8px;
+  background: Canvas;
+  color: CanvasText;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+.pw-siwc-welcome-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.pw-siwc-welcome-desc {
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(128, 128, 128, 0.95);
+  margin-bottom: 14px;
+}
+.pw-siwc-welcome-btn {
+  display: inline-block;
+  padding: 5px 18px;
+  border-radius: 5px;
+  background: #000;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+.pw-siwc-welcome-btn:hover {
+  opacity: 0.85;
 }
 /* 推理思考流折叠块（思考中滚动展示 → 正文开始自动收起为摘要头） */
 .pw-thinking {

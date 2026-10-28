@@ -1,5 +1,6 @@
 import { getString, initLocale } from "./utils/locale";
 import { registerPrefsScripts } from "./modules/preferenceScript";
+import { SiwcAuth } from "./modules/llm/siwcAuth";
 import { registerReaderPanel } from "./modules/ui/readerPanel";
 import { createZToolkit } from "./utils/ztoolkit";
 import { config } from "../package.json";
@@ -109,6 +110,12 @@ async function onMainWindowUnload(win: Window): Promise<void> {
 }
 
 function onShutdown(): void {
+  // 关闭可能仍在运行的 OAuth 回调监听器（避免端口占用/热重载残留）
+  try {
+    SiwcAuth.stopListener();
+  } catch {
+    /* ignore */
+  }
   ztoolkit.unregisterAll();
   addon.data.alive = false;
   // @ts-expect-error - Plugin instance is not typed

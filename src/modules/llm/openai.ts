@@ -10,6 +10,7 @@ import type {
   ReasoningLevel,
 } from "./provider";
 import { zhttp, fetchWithHeaderTimeout, readStreamLines } from "./provider";
+import { config } from "../../../package.json";
 
 /**
  * 各厂商推理档位表（per-vendor，UI 直接渲染；依据各家官方文档，见 docs/vendors.md）
@@ -67,6 +68,74 @@ const REASONING_LEVELS: Record<string, ReasoningLevel[]> = {
     { value: "disabled", label: "关闭", short: "关" },
   ],
 };
+
+/** OpenAI 档位表（供订阅通道 openaiResponses.ts 复用——SIWC 未禁用 reasoning_effort） */
+export const OPENAI_REASONING_LEVELS: ReasoningLevel[] =
+  REASONING_LEVELS.openai;
+
+// ── 推理档位的运行时学习（OpenAI 系模型支持矩阵不可静态穷举）────────────────
+// 400 错误信息自带支持列表（"Supported values are: 'low', 'medium', ..."）：
+// 解析 → 按 provider+model 缓存 → UI 档位表自动过滤 / 发送层安全降级。
+
+/** 解析 400 错误文本中的档位支持列表；非该类型错误返回 null */
+export function parseSupportedReasoningValues(
+  errorText: string,
+): string[] | null {
+  const m = /Supported values are:\s*([^"]+?)(?:"|$)/i.exec(errorText);
+  if (!m) return null;
+  const values = [...m[1].matchAll(/'([a-z]+)'/g)].map((x) => x[1]);
+  return values.length > 0 ? values : null;
+}
+
+function reasoningCacheKey(provider: string, model: string): string {
+  return `${config.prefsPrefix}.cache.reasoning.${provider}.${model.replace(/[.\s]/g, "_")}`;
+}
+
+/** 读取某 provider+model 已学到的档位支持列表（null=未知，按全表处理） */
+export function getReasoningSupportCache(
+  provider: string,
+  model: string | undefined,
+): string[] | null {
+  if (!model) return null;
+  try {
+    const raw = Zotero.Prefs.get(reasoningCacheKey(provider, model), true) as
+      | string
+      | undefined;
+    if (!raw) return null;
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) && arr.length > 0 ? arr : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 缓存某 provider+model 的合法档位列表 */
+export function saveReasoningSupportCache(
+  provider: string,
+  model: string,
+  values: string[],
+): void {
+  try {
+    Zotero.Prefs.set(
+      reasoningCacheKey(provider, model),
+      JSON.stringify(values),
+      true,
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 是否允许下发该档位（缓存未知时不限制；默认档 "" 永远允许） */
+export function isReasoningValueSupported(
+  provider: string,
+  model: string | undefined,
+  value: string,
+): boolean {
+  if (!value) return true;
+  const supported = getReasoningSupportCache(provider, model);
+  return !supported || supported.includes(value);
+}
 
 export class OpenAIProvider implements LLMProvider {
   readonly name: string;
@@ -169,6 +238,18 @@ export class OpenAIProvider implements LLMProvider {
 
     if (!res.ok) {
       const err = await res.text();
+      if (this.name === "openai") {
+        const supported = parseSupportedReasoningValues(err);
+        if (supported) {
+          saveReasoningSupportCache(this.name, options.model, supported);
+          onError(
+            new Error(
+              `该模型不支持所选推理档位。可用档位：${supported.join(" / ")}（已自动更新该模型的档位列表，重新打开参数面板即可看到）`,
+            ),
+          );
+          return;
+        }
+      }
       onError(new Error(`${this.name} API error ${res.status}: ${err}`));
       return;
     }
@@ -270,7 +351,13 @@ export class OpenAIProvider implements LLMProvider {
       body.temperature = Math.min(1, Math.max(0.01, body.temperature));
     }
     // 推理档位：按厂商原生枚举直出（依据各家官方文档，docs/vendors.md）
-    const lvl = options.reasoning;
+    // OpenAI：若该模型已被缓存标记为不支持当前档位（历史 400 学习结果），安全降级为不下发
+    const lvl =
+      this.name === "openai" &&
+      options.reasoning &&
+      !isReasoningValueSupported(this.name, options.model, options.reasoning)
+        ? undefined
+        : options.reasoning;
     if (lvl) {
       switch (this.name) {
         case "deepseek":

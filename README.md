@@ -16,7 +16,8 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 - **Reliability guards** — stalled streams are detected and interrupted automatically (idle watchdog + request timeout), staged progress is shown while the full text is being extracted or the model is thinking, and replies truncated by the Max Tokens limit get an explicit notice so you can tell your settings apart from provider issues
 - **Quick actions** — one-click to summarize the paper, or select text from the PDF as context for your questions
 - **Custom quick-action buttons** — define your own prompt buttons in Settings (name + prompt with `{title}`, `{authors}`, `{year}`, `{abstract}`, `{doi}` variables); they appear in the panel toolbar (0–N, live-synced) and fill the input box on click
-- **Multi-provider** — supports OpenAI, DeepSeek, Anthropic (Claude), Google Gemini, Kimi (Moonshot), Qwen (Alibaba Cloud), OpenRouter, Xiaomi MiMo, MiniMax, and Ollama (local). See [Model Guide](docs/models.md) for details
+- **Multi-provider** — supports OpenAI, DeepSeek, Anthropic (Claude), Google Gemini, Kimi (Moonshot), Qwen (Alibaba Cloud), OpenRouter, Xiaomi MiMo, MiniMax, Zhipu GLM, and Ollama (local). OpenAI can also run on your **ChatGPT subscription** (sign in with ChatGPT — no API key). See [Model Guide](docs/models.md) for details
+- **Input history** — press ↑ in the input box to recall previous prompts (including ones from a failed send), ↓ to move forward; editing exits history mode
 - **Persistent sessions with cross-device sync** — every conversation is automatically saved as a Zotero child note attached to the paper; sessions survive Zotero restarts and sync to other devices via your free Zotero account
 - **Multiple sessions per paper** — start new conversations and switch between them via the **Session List** view
 - **Rich text rendering** — Markdown (headings, bold, lists, code blocks) and LaTeX math (via KaTeX MathML) rendered in AI responses
@@ -87,18 +88,20 @@ Screenshots are delivered through a three-tier fallback chain:
 
 ## Supported Providers
 
-| Provider              | Recommended Model                     | Notes                                                                                                              |
-| --------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| OpenAI                | `gpt-5.6-sol`                         | Requires API key. See [OpenAI Model Guide](#openai-model-guide) below                                              |
-| DeepSeek              | `deepseek-v4-pro`                     | Requires API key. Supports thinking mode and tool calling                                                          |
-| Anthropic             | `claude-sonnet-5`                     | Requires API key. See [Claude Model Guide](#claude-model-guide) below                                              |
-| Google Gemini         | `gemini-3.7-flash` (free)             | Recommended for most tasks; free tier available. See [Gemini Model Guide](#gemini-model-guide) below               |
-| Kimi (Moonshot)       | `kimi-k3`                             | Requires API key from [platform.moonshot.cn](https://platform.moonshot.cn)                                         |
-| Alibaba Cloud Bailian | `qwen3.7-plus`                        | Model aggregation platform; requires API key from [bailian.console.aliyun.com](https://bailian.console.aliyun.com) |
-| OpenRouter            | any model (e.g. `openai/gpt-5.6-sol`) | Access hundreds of models via a single API key from [openrouter.ai](https://openrouter.ai)                         |
-| Xiaomi MiMo           | `mimo-v2-pro`                         | Requires API key from [platform.xiaomimimo.com](https://platform.xiaomimimo.com)                                   |
-| MiniMax               | `MiniMax-M3`                          | Requires API key from [platform.minimaxi.com](https://platform.minimaxi.com)                                       |
-| Ollama                | any local model                       | No API key needed; set base URL (default: `http://localhost:11434`)                                                |
+| Provider                      | Recommended Model                     | Notes                                                                                                                                                               |
+| ----------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenAI                        | `gpt-6.1-sol`                         | Requires API key. See [OpenAI Model Guide](#openai-model-guide) below                                                                                               |
+| OpenAI (ChatGPT subscription) | `gpt-6.1-sol`                         | **No API key** — sign in with your ChatGPT account in Settings (uses your plan's usage). Reasoning levels work; temperature & Max Tokens are managed by the channel |
+| DeepSeek                      | `deepseek-v4-pro`                     | Requires API key. Supports thinking mode and tool calling                                                                                                           |
+| Anthropic                     | `claude-sonnet-5.5`                   | Requires API key. See [Claude Model Guide](#claude-model-guide) below                                                                                               |
+| Google Gemini                 | `gemini-3.8-flash` (free)             | Recommended for most tasks; free tier available. See [Gemini Model Guide](#gemini-model-guide) below                                                                |
+| Kimi (Moonshot)               | `kimi-k3`                             | Requires API key from [platform.moonshot.cn](https://platform.moonshot.cn)                                                                                          |
+| Alibaba Cloud Bailian         | `qwen3.8-plus`                        | Model aggregation platform; requires API key from [bailian.console.aliyun.com](https://bailian.console.aliyun.com)                                                  |
+| OpenRouter                    | any model (e.g. `openai/gpt-6.1-sol`) | Access hundreds of models via a single API key from [openrouter.ai](https://openrouter.ai)                                                                          |
+| Xiaomi MiMo                   | `mimo-v2.6-pro`                       | Requires API key from [platform.xiaomimimo.com](https://platform.xiaomimimo.com)                                                                                    |
+| MiniMax                       | `MiniMax-M3`                          | Requires API key from [platform.minimaxi.com](https://platform.minimaxi.com)                                                                                        |
+| Zhipu GLM                     | `glm-5.3`                             | Requires API key from [open.bigmodel.cn](https://open.bigmodel.cn). Standard API (pay-per-token)                                                                    |
+| Ollama                        | any local model                       | No API key needed; set base URL (default: `http://localhost:11434`)                                                                                                 |
 
 ## Switching Providers Mid-Conversation
 
@@ -112,15 +115,16 @@ Each provider's API key and model are stored independently, so switching between
 
 PaperWorm treats reasoning as a first-class capability for critical paper reading. The **T badge** popover exposes each provider's **native reasoning levels** — no lossy unified mapping:
 
-| Provider         | Levels available                          |
-| ---------------- | ----------------------------------------- |
-| DeepSeek         | 默认 / off / low / high / max             |
-| OpenAI           | 默认 / none / low / medium / high / xhigh |
-| Gemini           | 默认 / minimal / low / medium / high      |
-| Kimi, Qwen, MiMo | 默认 / off                                |
-| MiniMax          | 默认 (adaptive) / off                     |
-| Ollama           | 默认 / off / low / medium / high / max    |
-| OpenRouter       | 默认 + six levels (none…xhigh)            |
+| Provider         | Levels available                                                      |
+| ---------------- | --------------------------------------------------------------------- |
+| DeepSeek         | 默认 / off / low / high / max                                         |
+| OpenAI           | 默认 / none / low / medium / high / xhigh                             |
+| Gemini           | 默认 / minimal / low / medium / high                                  |
+| Kimi, Qwen, MiMo | 默认 / off                                                            |
+| MiniMax          | 默认 (adaptive) / off                                                 |
+| Ollama           | 默认 / off / low / medium / high / max                                |
+| OpenRouter       | 默认 + six levels (none…xhigh)                                        |
+| Zhipu GLM        | 5.3 series: 默认/低/高/最高 · 5.2: 默认 + none…max · older: 默认/关闭 |
 
 Notes:
 
@@ -128,6 +132,8 @@ Notes:
 - **默认 (default)** sends no parameter at all — the provider's own default behavior, always the safest choice
 - The T badge shows the active level as a suffix (e.g. `T: 0.7 · 4k · max`)
 - While a thinking model reasons, its **chain of thought streams live** in a collapsible block; once the answer starts, the block auto-collapses into a "已深度思考 · N 字 · Xs" header you can re-expand (reasoning text is not persisted across restarts — only the summary is)
+- Some models support only a subset of levels (e.g. `gpt-6-astra` rejects `none`). Unsupported values are learned automatically from the provider's error response and hidden from the picker; sending is guarded as well
+- **ChatGPT subscription channel**: reasoning levels work, but the channel does not stream reasoning summaries (OpenAI never exposes the raw chain of thought) — the panel shows a waiting indicator instead
 
 ---
 

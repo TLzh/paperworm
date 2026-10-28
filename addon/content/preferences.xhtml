@@ -51,6 +51,7 @@
     >
       <menupopup>
         <menuitem value="openai" label="OpenAI" />
+        <menuitem value="openai-siwc" label="OpenAI（ChatGPT 订阅）" />
         <menuitem value="deepseek" label="DeepSeek" />
         <menuitem value="anthropic" label="Anthropic (Claude)" />
         <menuitem value="gemini" label="Google Gemini" />
@@ -98,6 +99,117 @@
         style="margin-left: 4px; min-width: 0"
       />
     </hbox>
+  </vbox>
+
+  <!-- OpenAI（ChatGPT 订阅，SIWC：OAuth 登录，无 API Key）-->
+  <vbox
+    id="__addonRef__-section-openai-siwc"
+    style="margin-left: 8px"
+    hidden="true"
+  >
+    <!-- 态④：登录已过期横幅 -->
+    <hbox
+      id="__addonRef__-siwc-reauth-banner"
+      hidden="true"
+      align="center"
+      style="margin-bottom: 6px"
+    >
+      <description flex="1" style="color: #c0392b">
+        ⚠ 登录已过期，请重新登录
+      </description>
+      <button id="__addonRef__-siwc-reauth-btn" label="重新登录" />
+    </hbox>
+    <!-- 态①：未登录 -->
+    <vbox id="__addonRef__-siwc-signed-out">
+      <description style="margin-bottom: 8px; max-width: 46em">
+        使用你的 ChatGPT 订阅额度（Plus/Pro 等），无需 API Key；与上方
+        "OpenAI"（按量 API）互不影响。登录将在浏览器中完成。
+      </description>
+      <html:button
+        id="__addonRef__-siwc-login-btn"
+        class="pw-siwc-login-btn"
+        style="
+          background: #000;
+          color: #fff;
+          border: none;
+          border-radius: 5px;
+          padding: 7px 16px;
+          font-size: 13px;
+          cursor: pointer;
+        "
+        >Continue with ChatGPT</html:button
+      >
+    </vbox>
+    <!-- 态②：等待授权 -->
+    <vbox id="__addonRef__-siwc-pending" hidden="true">
+      <description style="margin-bottom: 6px">
+        ⟳ 已在浏览器打开授权页面，完成后将自动返回 Zotero…（10 分钟内有效）
+      </description>
+      <button
+        id="__addonRef__-siwc-cancel-btn"
+        label="取消"
+        style="max-width: 90px"
+      />
+      <vbox style="margin-top: 8px">
+        <description style="margin-bottom: 4px; font-size: 11px; color: gray">
+          若浏览器显示“无法访问此页面 /
+          未发送任何数据”：请勿关闭该页面，复制地址栏中的完整链接，粘贴到下方完成登录（链接一次性有效）。
+        </description>
+        <hbox align="center">
+          <html:input
+            type="text"
+            id="__addonRef__-siwc-manual-input"
+            placeholder="http://127.0.0.1:23120/paperworm/auth-callback?code=…"
+            style="flex: 1; padding: 2px 4px"
+          />
+          <button
+            id="__addonRef__-siwc-manual-btn"
+            label="完成登录"
+            style="margin-left: 4px; min-width: 80px"
+          />
+        </hbox>
+      </vbox>
+    </vbox>
+    <!-- 态③：已登录 -->
+    <vbox id="__addonRef__-siwc-signed-in" hidden="true">
+      <hbox align="center" style="margin-bottom: 6px">
+        <description flex="1" id="__addonRef__-siwc-account"
+          >● 已登录</description
+        >
+        <button id="__addonRef__-siwc-logout-btn" label="断开连接" />
+      </hbox>
+      <hbox align="center">
+        <label
+          data-l10n-id="pref-model-label"
+          style="width: 110px; min-width: 110px"
+        />
+        <html:input
+          type="text"
+          id="__addonRef__-openai-siwc-models"
+          preference="extensions.zotero.paperworm.llm.openai-siwc.models"
+          placeholder="逗号分隔的模型列表"
+          style="flex: 1; padding: 2px 4px"
+        />
+        <button
+          class="pw-fetch-models-btn"
+          data-provider="openai-siwc"
+          data-l10n-id="pref-fetch-models-btn"
+          style="margin-left: 4px; min-width: 0"
+        />
+      </hbox>
+      <html:div style="margin-top: 6px; font-size: 11px; color: gray">
+        用量与额度管理：
+        <html:a
+          id="__addonRef__-siwc-manage-link"
+          style="cursor: pointer; text-decoration: underline"
+          >Manage usage</html:a
+        >
+      </html:div>
+    </vbox>
+    <html:div
+      id="__addonRef__-siwc-status"
+      style="margin-top: 6px; font-size: 11px; color: #c0392b"
+    ></html:div>
   </vbox>
 
   <!-- DeepSeek（兼容 OpenAI 格式，Base URL 不同）-->

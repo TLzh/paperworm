@@ -131,6 +131,18 @@ btn.style.cursor = "pointer";
 将 `<style>` 标签放在面板 wrapper div 内部（随内容一起注入），
 不要尝试注入到 `doc.head`（XUL 文档的 CSS 作用域可能隔离）。
 
+### 面板模板必须是严格合法的 XML（v0.9.1 事故）
+
+reader 面板通过 `wrapper.innerHTML = \`模板\``注入，**Zotero 的 reader 文档按 XML 严格解析**（不是宽松 HTML）。任何 HTML 容错写法都会抛`NS_ERROR_DOM_SYNTAX_ERR`（"An invalid or illegal string was specified"），**且异常表现为整个面板空白**（v0.9.1 开发中 `<span ... hidden>` 裸布尔属性导致面板全空白，排查多轮才定位）。
+
+必须遵守：
+
+- **布尔属性必须带值**：`hidden="true"`（❌ `hidden`）、`disabled="true"`（❌ `disabled`）、`checked="true"`
+- **void 元素必须自闭合**：`<br/>`、`<input ... />`、`<img ... />`
+- **属性值必须加引号**（单双均可）
+- 面板渲染失败时 `onRender` 的 catch 会把错误显示在面板中（`[PaperWorm] 面板初始化失败`）+ 落盘 `paperworm.debug.lastPanelError`；`getParamsBadgeText` 等模板插值已有独立降级，勿删除
+- 新增模板标记后，立即在 Zotero 里重开面板验证一次（不能只跑 build）
+
 ---
 
 ## ⚠️ Zotero Prefs 开发陷阱 — 每次写设置相关代码必读
@@ -243,6 +255,25 @@ UI 层（`readerPanel.ts` 的 `send()`）只在 `finishReason === "length"` 时�
 - **思考流显示**：`onChunk(chunk, reasoningDelta?)` 双通道；UI 思考块（`.pw-thinking`）思考中滚动展示 → 首个正文 chunk 自动收起为摘要头（仅执行一次，**用时定格于思考结束时刻**；用户手动展开过则尊重）。**推理原文不落盘**，仅 `reasoningLen` 摘要随会话持久化（`LLMMessage.reasoningLen` 为 UI 元数据，**buildMessages 发送前必须剥离**，否则未知字段进入厂商请求体可能 400）
 - **OpenAI 直连无推理原文**（Chat Completions 不透出思维链），思考块自动退化为不出现；DeepSeek/Kimi/Qwen/MiMo/GLM 走 `reasoning_content`、OpenRouter 走 `reasoning`、Gemini 走 thought parts
 - 思考型模型推理耗尽全部 Max Tokens 时正文为空（`finish_reason="length"` + 空 content），UI 有专门诊断文案 + 思考块保留供查看推理进度，勿当作普通空响应处理
+
+### OpenAI 系档位的运行时学习（v0.9.1）
+
+OpenAI 模型太多且从 `/v1/models` 动态拉取，档位支持矩阵不可静态穷举。机制（`openai.ts` 的 helpers）：
+
+- 400 错误消息自带 `Supported values are: 'low', ...` → `parseSupportedReasoningValues()` 解析
+- 按 provider+model 缓存到 pref `cache.reasoning.<provider>.<model>`（模型名中的 `.` 替换为 `_`）
+- `getReasoningLevels()` 按缓存过滤（默认档 `""` 永远保留）；`buildBody()` 发送前用 `isReasoningValueSupported()` 兜底降级（不下发不支持的值）
+- 徽章：档位被过滤后不再显示残留值（回退为无后缀）
+- 新厂商接入若出现同类"逐模型枚举差异"，优先复用该机制而不是维护静态矩阵
+
+### ChatGPT 订阅通道（SIWC）开发约定（v0.9.1）
+
+- Provider 名 `openai-siwc`；OAuth 核心在 `siwcAuth.ts`，推理在 `openaiResponses.ts`（Responses API 事件流）
+- **回调监听不要用 `Zotero.Server`**：部分环境插件注册的端点不派发/不响应（浏览器访问空响应，而内置 connector 端点正常；Run JavaScript 直接调用却正常）。改用插件自建 loopback 监听（`nsIServerSocket`，23120–23125，SIWC 允许端口可变）；另有手动粘贴兜底（completeManual）
+- 凭据存 prefs（与 API key 实践一致），永不写日志；reauth 标记生命周期：refresh 失败置位 → 刷新成功/登录成功清除 → 登出清除
+- 通道限制：禁 temperature/top_p/max_output_tokens/system role（用 `instructions`）；`reasoning.effort` 可用；`reasoning.summary:"auto"` 已请求但**实测无 reasoning 事件**（OpenAI 不暴露原始 CoT；summary 需组织验证，订阅通道不适用）→ UI 显示诚实等待提示
+- 监听器安全：loopback only、仅 GET、64KB 上限、state 校验、回调后 1.5s 自关（只关自己那个 server，防重关联赛）、onShutdown 清理
+- 手动流程的 code_verifier 在内存 pending 中，10 分钟有效；重启 Zotero 后必须重新登录
 
 ---
 

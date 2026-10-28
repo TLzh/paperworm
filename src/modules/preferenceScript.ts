@@ -3,6 +3,7 @@
 
 import { config } from "../../package.json";
 import { LLMManager } from "./llm/manager";
+import { SiwcAuth } from "./llm/siwcAuth";
 import { MinerUTestClient } from "./paper/strategies/mineru/testClient";
 
 const ref = config.addonRef;
@@ -267,6 +268,138 @@ function initPrefsUI(win: Window) {
 
   // 初始化自定义快捷按钮列表
   rebuildCustomButtonList(doc);
+
+  // 初始化 ChatGPT 订阅（SIWC）四态区块
+  setupSiwcSection(win);
+}
+
+// ── ChatGPT 订阅（SIWC）设置区：四态状态机 + 登录编排 ─────────────────────────
+
+const SIWC_LOGIN_TIMEOUT_MS = 10 * 60 * 1000;
+
+function setupSiwcSection(win: Window) {
+  const doc = win.document;
+  const $ = (id: string) => doc.getElementById(`${ref}-${id}`);
+  const show = (el: Element | null, visible: boolean) =>
+    el?.setAttribute("hidden", visible ? "false" : "true");
+
+  let pollTimer: number | undefined;
+  let timeoutTimer: number | undefined;
+  const stopPolling = () => {
+    if (pollTimer !== undefined) win.clearInterval(pollTimer);
+    if (timeoutTimer !== undefined) win.clearTimeout(timeoutTimer);
+    pollTimer = undefined;
+    timeoutTimer = undefined;
+  };
+
+  const setStatus = (msg: string) => {
+    const el = $("siwc-status") as any;
+    if (el) el.textContent = msg;
+  };
+
+  /** 按凭据/事务状态刷新四态可见性（每次状态变化与窗口重开时调用） */
+  const refresh = () => {
+    const signedIn = SiwcAuth.isSignedIn();
+    show($("siwc-signed-out"), !signedIn && !SiwcAuth.hasPendingAuth());
+    show($("siwc-pending"), !signedIn && SiwcAuth.hasPendingAuth());
+    show($("siwc-signed-in"), signedIn);
+    show($("siwc-reauth-banner"), SiwcAuth.isReauthNeeded());
+    if (signedIn) {
+      const { email } = SiwcAuth.getAccountInfo();
+      const accountEl = $("siwc-account") as any;
+      if (accountEl) accountEl.textContent = `● 已登录 ${email}`;
+    }
+  };
+
+  /** 发起登录：系统浏览器授权 → 轮询回调结果（同进程内存事务）→ 超时取消 */
+  const startLogin = async () => {
+    setStatus("");
+    try {
+      const url = await SiwcAuth.beginSignIn();
+      Zotero.launchURL(url);
+      refresh();
+      stopPolling();
+      pollTimer = win.setInterval(() => {
+        if (!SiwcAuth.hasPendingAuth()) {
+          // 回调已处理（成功进入登录态 / 失败回到未登录态，原因见浏览器回调页）
+          stopPolling();
+          refresh();
+        }
+      }, 1000);
+      timeoutTimer = win.setTimeout(() => {
+        if (SiwcAuth.hasPendingAuth()) {
+          SiwcAuth.cancelSignIn();
+          stopPolling();
+          refresh();
+          setStatus("授权超时（10 分钟未完成），请重试");
+        }
+      }, SIWC_LOGIN_TIMEOUT_MS);
+    } catch (e) {
+      setStatus((e as Error).message);
+    }
+  };
+
+  /**
+   * 手动完成登录：浏览器回调页无法访问时（loopback 被代理/防火墙拦截等），
+   * 用户从地址栏复制完整回调 URL 粘贴回来，绕过本地 HTTP 层直接完成 code 交换。
+   * 注意：code_verifier 存在内存 pending 中，须在本次登录的 10 分钟有效期内完成。
+   */
+  const completeManual = async () => {
+    const input = $("siwc-manual-input") as any;
+    const raw = String(input?.value ?? "").trim();
+    if (!raw) {
+      setStatus("请先粘贴浏览器地址栏中的完整回调链接");
+      return;
+    }
+    setStatus("");
+    try {
+      let params: URLSearchParams;
+      try {
+        params = new URL(raw).searchParams;
+      } catch {
+        // 容错：允许只粘贴 "?code=..." 或裸 query
+        const q = raw.includes("?") ? raw.slice(raw.indexOf("?") + 1) : raw;
+        params = new URLSearchParams(q);
+      }
+      await SiwcAuth.handleCallback(params);
+      SiwcAuth.stopListener(); // 手动完成：关闭本地回调监听
+      stopPolling();
+      refresh();
+      setStatus("");
+    } catch (e) {
+      setStatus((e as Error).message);
+    }
+  };
+
+  // html:button 触发 click；XUL <button> 触发 command（各绑其一，避免双触发）
+  ($("siwc-login-btn") as any)?.addEventListener(
+    "click",
+    () => void startLogin(),
+  );
+  ($("siwc-reauth-btn") as any)?.addEventListener(
+    "command",
+    () => void startLogin(),
+  );
+  ($("siwc-cancel-btn") as any)?.addEventListener("command", () => {
+    SiwcAuth.cancelSignIn();
+    stopPolling();
+    refresh();
+  });
+  ($("siwc-manual-btn") as any)?.addEventListener(
+    "command",
+    () => void completeManual(),
+  );
+  ($("siwc-logout-btn") as any)?.addEventListener("command", () => {
+    SiwcAuth.signOut();
+    stopPolling();
+    refresh();
+    setStatus("已断开连接");
+  });
+  ($("siwc-manage-link") as any)?.addEventListener("click", () => {
+    Zotero.launchURL("https://chatgpt.com/settings/usage");
+  });
+
+  refresh();
 }
 
 function bindPrefsEvents(win: Window) {
@@ -526,6 +659,7 @@ function fetchModels(win: Window, providerName: string, btn: HTMLElement) {
 function showProviderSection(doc: Document, provider: string) {
   const providers = [
     "openai",
+    "openai-siwc",
     "deepseek",
     "anthropic",
     "gemini",

@@ -7,10 +7,12 @@ import { AnthropicProvider } from "./anthropic";
 import { GeminiProvider } from "./gemini";
 import { OllamaProvider } from "./ollama";
 import { MiniMaxProvider } from "./minimax";
+import { OpenAIResponsesProvider } from "./openaiResponses";
 import { config } from "../../../package.json";
 
 export type ProviderName =
   | "openai"
+  | "openai-siwc"
   | "deepseek"
   | "anthropic"
   | "gemini"
@@ -64,6 +66,11 @@ export class LLMManager {
         const apiKey =
           (Zotero.Prefs.get(`${p}.llm.openai.apiKey`, true) as string) ?? "";
         return new OpenAIProvider("openai", apiKey, OPENAI_BASE_URL);
+      }
+      case "openai-siwc": {
+        // ChatGPT 订阅通道（SIWC）：OAuth token 由 SiwcAuth 管理，无 API Key；
+        // 凭据就绪与否由 UI/发送层检查（refreshToken 非空即已登录）
+        return new OpenAIResponsesProvider();
       }
       case "deepseek": {
         const apiKey =
