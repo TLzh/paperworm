@@ -42,7 +42,9 @@ export function registerReaderPanel() {
       };
       // 还债：仅 reader tab 显示本 section（library view 下图标整体隐藏，
       // 不再出现"点开空白"；官方 API，见 itemPaneSection.js setEnabled→hidden）
-      setEnabled(tabType === "reader");
+      // 防御：旧版 Zotero 的 hook props 可能不提供 setEnabled
+      if (typeof setEnabled === "function") setEnabled(tabType === "reader");
+      if (!item) return;
       // 切换论文时清空视觉描述缓存，避免截图 base64 跨会话驻留内存
       clearVisionCache();
       // 仅当该论文有活跃会话时才自动导航，否则让用户看到信息/摘要
