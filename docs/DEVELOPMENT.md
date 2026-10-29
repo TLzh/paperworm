@@ -183,6 +183,13 @@ reader 面板通过 `wrapper.innerHTML = \`模板\``注入，**Zotero 的 reader
   `tab.data.icon`，缺省即抛 `TypeError: tab.data is undefined`
 - XUL tab 容器布局：给 `tab-content` 设 `display:flex;flex-direction:column`，
   HTML 挂载节点 `width/height:100%`（否则 tab 空白）
+- **自定义 tab 的右侧边栏**：Zotero 的 context pane 切换逻辑只处理
+  `library` / `reader` / `note` 三种 tab 类型（`elements/contextPane.js
+_handleTabSelect`），其他类型会**继承上一个 tab 的 sidebar 状态**。需要手动监听
+  `Zotero.Notifier` 的 `select`/`tab` 事件，对自定义类型执行
+  `#zotero-context-pane` 设 `collapsed="true"` + `#zotero-context-pane-sidenav` 设
+  `hidden="true"`（照抄官方 library 分支）；不要改 splitter 状态——否则切回
+  reader 时用户的侧栏开合状态会被覆盖
 
 ---
 
