@@ -20,6 +20,7 @@ PaperWorm adds an AI chat panel to Zotero's PDF reader. While reading a paper, y
 - **Input history** — press ↑ in the input box to recall previous prompts (including ones from a failed send), ↓ to move forward; editing exits history mode
 - **Persistent sessions with cross-device sync** — every conversation is automatically saved as a Zotero child note attached to the paper; sessions survive Zotero restarts and sync to other devices via your free Zotero account
 - **Multiple sessions per paper** — start new conversations and switch between them via the **Session List** view
+- **Standalone chat** — a paper-independent conversation space via the **PaperWorm** toolbar button (opens its own tab): literature-survey brainstorming, idea discussion, general science questions. Sessions are saved as standalone notes in the "PaperWorm 独立会话" collection (synced via your Zotero account)
 - **Rich text rendering** — Markdown (headings, bold, lists, code blocks) and LaTeX math (via KaTeX MathML) rendered in AI responses
 - **Precise layout extraction (MinerU)** — optional layout-aware text extraction using [MinerU](https://github.com/opendatalab/mineru) to better handle tables, formulas, and structured content
 - **Multimodal screenshot analysis** — drag to draw a rectangle over any figure, chart, or equation in the PDF, or paste an image directly from your clipboard; the image is attached to your next message and analyzed by a vision-capable model

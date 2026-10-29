@@ -1,7 +1,11 @@
 import { getString, initLocale } from "./utils/locale";
 import { registerPrefsScripts } from "./modules/preferenceScript";
 import { SiwcAuth } from "./modules/llm/siwcAuth";
-import { registerReaderPanel } from "./modules/ui/readerPanel";
+import { registerReaderPanel } from "./modules/ui/readerShell";
+import {
+  registerStandaloneChat,
+  unregisterStandaloneChat,
+} from "./modules/ui/standaloneShell";
 import { createZToolkit } from "./utils/ztoolkit";
 import { config } from "../package.json";
 
@@ -82,6 +86,9 @@ async function onStartup() {
   // 注册 Reader 侧边聊天面板
   registerReaderPanel();
 
+  // 注册独立会话（主工具栏常驻按钮 + 独立 tab）
+  registerStandaloneChat();
+
   // 注册偏好设置面板
   Zotero.PreferencePanes.register({
     pluginID: addon.data.config.addonID,
@@ -113,6 +120,12 @@ function onShutdown(): void {
   // 关闭可能仍在运行的 OAuth 回调监听器（避免端口占用/热重载残留）
   try {
     SiwcAuth.stopListener();
+  } catch {
+    /* ignore */
+  }
+  // 移除独立会话入口与 tab
+  try {
+    unregisterStandaloneChat();
   } catch {
     /* ignore */
   }

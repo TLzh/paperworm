@@ -143,6 +143,33 @@ reader 面板通过 `wrapper.innerHTML = \`模板\``注入，**Zotero 的 reader
 - 面板渲染失败时 `onRender` 的 catch 会把错误显示在面板中（`[PaperWorm] 面板初始化失败`）+ 落盘 `paperworm.debug.lastPanelError`；`getParamsBadgeText` 等模板插值已有独立降级，勿删除
 - 新增模板标记后，立即在 Zotero 里重开面板验证一次（不能只跑 build）
 
+### 自定义 Tab：插件 tab 内容渲染（v1.0 S5 事故链）
+
+在 `Zotero_Tabs.add()` 返回的 `tab-content`（XUL 主窗口文档）中渲染插件 UI 时，
+以下两条路径**全部不可用**（v1.0 开发中逐条踩过）：
+
+- ❌ `doc.createXULElement("iframe")` —— XUL `<iframe>` 元素已被现代 Firefox 移除
+- ❌ `doc.createXULElement("browser")` + `about:blank` + `contentDocument` ——
+  Zotero 7+ 基于 Fission，browser 为 remote（跨进程），插件的 `contentDocument`
+  永远为 null 或抛异常（表现：`4/4 等待内容文档` 永久卡住）
+- ✅ **正确做法**：`doc.implementation.createHTMLDocument()` 构建
+  （HTML 命名空间，`createElement` 行为与 reader 面板一致）→ 完成后
+  `doc.adoptNode(node)` 移入 XUL 容器。事件监听器、定时器、MutationObserver
+  均随节点保留（与 importNode 不同）
+
+配套注意（同一事故链）：
+
+- `createHTMLDocument` 的 `defaultView` 为 **null**：计时器一律
+  `(doc.defaultView ?? Zotero.getMainWindow())`；游离文档上的
+  `addEventListener("click")` 永远收不到主窗口点击——"点击外部关闭"类逻辑
+  必须回退监听主窗口 document（见 chatWidgets.ts `clickDoc()`）
+- `Zotero_Tabs` 挂在**主窗口全局**，插件 sandbox 的 `globalThis` 上没有：
+  用 `Zotero.getMainWindow().Zotero_Tabs`
+- `Zotero_Tabs.add()` 必须传 `data: {}`——Zotero 9 的 `_update()` 直接访问
+  `tab.data.icon`，缺省即抛 `TypeError: tab.data is undefined`
+- XUL tab 容器布局：给 `tab-content` 设 `display:flex;flex-direction:column`，
+  HTML 挂载节点 `width/height:100%`（否则 tab 空白）
+
 ---
 
 ## ⚠️ Zotero Prefs 开发陷阱 — 每次写设置相关代码必读
