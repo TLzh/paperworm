@@ -116,7 +116,7 @@ function buildNoteHtml(
 }
 
 /** 从笔记 HTML 中提取 SessionData，返回 null 表示非 PaperWorm 笔记或解析失败 */
-export function parseNoteHtml(html: string): SessionData | null {
+function parseNoteHtml(html: string): SessionData | null {
   if (!html.includes("PaperWorm")) return null;
   // 优先匹配带 class 属性的（刚保存、尚未经 Zotero 同步处理的笔记）
   let m = html.match(
@@ -283,8 +283,20 @@ export function setActiveNoteIDByScope(
   activeNoteIDs.set(key, noteID);
 }
 
-/** 获取（无则创建）standalone 会话专用 collection */
+/** 获取（无则创建）standalone 会话专用 collection；进行中的创建复用同一 Promise（防并发双建） */
+let collectionPromise: Promise<Zotero.Collection> | null = null;
+
 async function ensureStandaloneCollection(): Promise<Zotero.Collection> {
+  if (!collectionPromise) {
+    collectionPromise = createOrGetStandaloneCollection().catch((e) => {
+      collectionPromise = null; // 失败允许下次重试
+      throw e;
+    });
+  }
+  return collectionPromise;
+}
+
+async function createOrGetStandaloneCollection(): Promise<Zotero.Collection> {
   const libID = Zotero.Libraries.userLibraryID;
   const existing = Zotero.Collections.getByLibrary(libID).find(
     (c) => c.name === STANDALONE_COLLECTION_NAME,

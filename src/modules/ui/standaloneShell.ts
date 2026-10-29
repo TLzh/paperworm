@@ -10,8 +10,8 @@
  */
 
 import { config } from "../../../package.json";
-import { mountChatPanel } from "../chat/core";
-import type { ChatHost } from "../chat/types";
+import { mountChatPanel, renderSessionSidebar } from "../chat/core";
+import type { ChatHandle, ChatHost } from "../chat/types";
 
 const TAB_TITLE = "PaperWorm 会话";
 
@@ -25,6 +25,7 @@ function getZoteroTabs(): any {
 }
 
 let tabID: string | null = null;
+let tabHandle: ChatHandle | null = null;
 
 /** 注入主工具栏常驻按钮（不依赖任何条目选中状态） */
 export function registerStandaloneChat(): void {
@@ -51,6 +52,8 @@ export function unregisterStandaloneChat(): void {
   try {
     const win = Zotero.getMainWindow();
     win.document.getElementById(`${config.addonRef}-standalone-btn`)?.remove();
+    tabHandle?.destroy();
+    tabHandle = null;
     const tabs = getZoteroTabs();
     if (tabID && tabs?._tabs?.some((t: any) => t.id === tabID)) {
       tabs.close(tabID);
@@ -88,7 +91,9 @@ function openStandaloneTab(): void {
       data: {},
       select: true,
       onClose: () => {
-        // 挂载的 HTML 子树随 container 移除而销毁，ChatCore 定时器随之清理
+        // 主动销毁 ChatCore（定时器/Observer）——container 移除不会触发其内部 Observer
+        tabHandle?.destroy();
+        tabHandle = null;
         tabID = null;
       },
     }));
@@ -140,8 +145,25 @@ function renderStandaloneUI(container: HTMLElement): void {
   const htmlDoc = doc.implementation.createHTMLDocument("PaperWorm");
   const mountEl = htmlDoc.createElement("div");
   mountEl.className = "pw-standalone-wrap";
-  mountEl.style.cssText =
-    "display:flex;flex-direction:column;width:100%;height:100%;min-height:0;";
+  mountEl.style.cssText = "display:flex;width:100%;height:100%;min-height:0;";
+
+  // 左侧常驻会话栏
+  const sidebar = htmlDoc.createElement("div");
+  sidebar.className = "pw-standalone-sidebar";
+  const sidebarHeader = htmlDoc.createElement("div");
+  sidebarHeader.className = "pw-sidebar-header";
+  sidebarHeader.textContent = "会话";
+  sidebar.appendChild(sidebarHeader);
+  const sidebarList = htmlDoc.createElement("div");
+  sidebarList.className = "pw-sidebar-list";
+  sidebar.appendChild(sidebarList);
+  mountEl.appendChild(sidebar);
+
+  // 右侧聊天区（panel 内部为居中列）
+  const main = htmlDoc.createElement("div");
+  main.className = "pw-standalone-main";
+  mountEl.appendChild(main);
+
   // XUL tab-content 容器布局保险（HTML 子元素需要确定尺寸）
   try {
     (container as any).style.display = "flex";
@@ -158,6 +180,7 @@ function renderStandaloneUI(container: HTMLElement): void {
       screenshot: false,
       mineru: false,
       summarize: false,
+      sessionSidebar: true,
     },
     // 独立会话：仅用户系统提示词，无论文上下文
     buildSystemPrompt: async () =>
@@ -167,9 +190,15 @@ function renderStandaloneUI(container: HTMLElement): void {
       ) as string) ?? "",
   };
 
-  void mountChatPanel(htmlDoc, host, mountEl)
-    .then(() => {
+  void mountChatPanel(htmlDoc, host, main)
+    .then(async (handle) => {
+      tabHandle = handle;
       container.appendChild(doc.adoptNode(mountEl));
+      // adopt 之后元素归属主文档；侧栏渲染动态取 ownerDocument
+      const refreshSidebar = () =>
+        renderSessionSidebar(sidebarList, handle.messagesEl, host.scope);
+      host.onSessionSaved = () => void refreshSidebar();
+      await refreshSidebar();
     })
     .catch((e) => {
       const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);

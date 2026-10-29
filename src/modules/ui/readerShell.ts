@@ -105,6 +105,7 @@ async function initPanel(body: HTMLElement, item: Zotero.Item) {
       screenshot: true,
       mineru: true,
       summarize: true,
+      sessionSidebar: false,
     },
     buildSystemPrompt: () => buildSystemContent(item),
     extractingHint: "正在提取论文全文…",

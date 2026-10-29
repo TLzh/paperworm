@@ -10,7 +10,7 @@
 
 ### Added
 
-- **独立会话** — 主工具栏常驻入口 + 独立 tab（Zotero 原生 tab 体系），用于文献调研、创新点讨论、一般性科学问题等无需论文上下文场景；会话保存为 standalone 笔记并自动归入「PaperWorm 独立会话」collection（随 Zotero 免费同步、Zotero 内可直接阅读）；与论文会话同构（会话列表/切换/删除二次确认）
+- **独立会话** — 主工具栏常驻入口 + 独立 tab（Zotero 原生 tab 体系），用于文献调研、创新点讨论、一般性科学问题等无需论文上下文场景；左侧常驻会话栏（新建/切换/删除二次确认/当前高亮）+ 右侧居中聊天列（760px，符合常规 chat 产品阅读宽度）；会话保存为 standalone 笔记并自动归入「PaperWorm 独立会话」collection（随 Zotero 免费同步、Zotero 内可直接阅读）
 - **ChatCore 组件化架构（v1.0 地基）** — 聊天核心抽为共享模块，reader 与独立会话通过 ChatHost 注入上下文与能力差异；reader 专属功能（选择文本/框选截图/MinerU/总结全文）从架构上只存在于论文会话；会话存储统一为 SessionScope API（paper/standalone 双后端）
 
 ### Fixed

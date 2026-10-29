@@ -40,6 +40,18 @@ import {
 } from "../ui/chatWidgets";
 import type { ContentPart } from "../llm/provider";
 
+/** 跨文档安全 append：按目标节点文档收养元素（同文档时 adoptNode 为 no-op） */
+function adoptedAppend(target: Node, child: Node): void {
+  const tdoc = (target.ownerDocument ?? target) as Document;
+  target.appendChild(tdoc.adoptNode(child));
+}
+
+/** 跨文档安全 insertBefore（同上） */
+function adoptedInsertBefore(target: Node, child: Node, ref: Node): void {
+  const tdoc = (target.ownerDocument ?? target) as Document;
+  target.insertBefore(tdoc.adoptNode(child), ref);
+}
+
 // ── 面板挂载 ────────────────────────────────────────────────────────────────
 
 export async function mountChatPanel(
@@ -132,7 +144,7 @@ ${CHAT_CSS}
         <span class="pw-siwc-chip" role="button" tabindex="0" hidden="true"
           title="Using ChatGPT plan — 点击管理用量">ChatGPT 订阅</span>
       </div>
-      <div class="pw-sessions-btn" role="button" tabindex="0">会话列表</div>
+      ${cap.sessionSidebar ? "" : `<div class="pw-sessions-btn" role="button" tabindex="0">会话列表</div>`}
     </div>
     ${mineruProgressHtml}
     <div class="pw-actions">
@@ -213,14 +225,28 @@ ${CHAT_CSS}
   }, 1000);
 
   // 面板重建（mountEl.textContent=""）时自动清理定时器
-  new win.MutationObserver((_: MutationRecord[], obs: MutationObserver) => {
-    if (!badge.isConnected) {
-      win.clearInterval(badgeTimer);
-      obs.disconnect();
-    }
-  }).observe(mountEl, { childList: true });
+  const observer = new win.MutationObserver(
+    (_: MutationRecord[], obs: MutationObserver) => {
+      if (!badge.isConnected) {
+        win.clearInterval(badgeTimer);
+        obs.disconnect();
+      }
+    },
+  );
+  observer.observe(mountEl, { childList: true });
 
-  return { panel, messagesEl };
+  return {
+    panel,
+    messagesEl,
+    destroy() {
+      win.clearInterval(badgeTimer);
+      try {
+        observer.disconnect();
+      } catch {
+        /* ignore */
+      }
+    },
+  };
 }
 
 // ── 事件绑定 ─────────────────────────────────────────────────────────────────
@@ -234,7 +260,9 @@ function bindEvents(
 ) {
   const textarea = panel.querySelector(".pw-input") as HTMLTextAreaElement;
   const sendBtn = panel.querySelector(".pw-send-btn") as HTMLElement;
-  const sessionsBtn = panel.querySelector(".pw-sessions-btn") as HTMLElement;
+  const sessionsBtn = panel.querySelector(
+    ".pw-sessions-btn",
+  ) as HTMLElement | null;
   const modelTrigger = panel.querySelector(
     ".pw-model-dropdown-trigger",
   ) as HTMLElement;
@@ -487,7 +515,7 @@ function bindEvents(
     host.handleAction?.(action, textarea, panel);
   });
 
-  sessionsBtn.addEventListener("click", () => {
+  sessionsBtn?.addEventListener("click", () => {
     // 若当前已在会话列表 → 若有活跃会话则返回聊天，否则不响应
     if (messagesEl.querySelector(".pw-session-list")) {
       if (getHistoryByScope(host.scope).getAll().length > 0) {
@@ -753,7 +781,7 @@ async function send(
     const warn = doc.createElement("div");
     warn.className = "pw-msg pw-msg-error";
     warn.textContent = `⚠ 视觉辅助模型调用失败：${msg}`;
-    messagesEl.insertBefore(warn, aiEl);
+    adoptedInsertBefore(messagesEl, warn, aiEl);
     scrollToBottom(messagesEl);
   };
 
@@ -828,7 +856,7 @@ async function send(
       thinkUserToggled = true;
       setThinkOpen(!thinkWrap!.classList.contains("pw-open"));
     });
-    messagesEl.insertBefore(thinkWrap, aiEl);
+    adoptedInsertBefore(messagesEl, thinkWrap, aiEl);
   };
 
   const removeThinkingBlock = () => {
@@ -932,7 +960,14 @@ async function send(
               // 推理摘要元数据（原文不落盘，重载会话后仅显示"已深度思考 N 字"）
               ...(reasoningChars > 0 ? { reasoningLen: reasoningChars } : {}),
             });
-            void saveSessionByScope(host.scope, history); // 自动保存到 Zotero 笔记
+            void saveSessionByScope(host.scope, history)
+              .then(() => host.onSessionSaved?.())
+              .catch((e) =>
+                Zotero.log(
+                  `PaperWorm: session save failed — ${(e as Error)?.message ?? e}`,
+                  "error",
+                ),
+              ); // 自动保存到 Zotero 笔记
             // "length" = 因 Max Tokens 上限被截断；无提示而中断则说明是流/厂商问题
             if (finishReason === "length") {
               appendTruncationHint(doc, aiEl, maxTokens);
@@ -988,7 +1023,7 @@ async function send(
             manageBtn.addEventListener("click", () => {
               Zotero.launchURL("https://chatgpt.com/settings/usage");
             });
-            aiEl.appendChild(manageBtn);
+            adoptedAppend(aiEl, manageBtn);
           } else {
             aiEl.textContent = `错误：${err.message}`;
           }
@@ -1027,6 +1062,17 @@ async function send(
     if (resolved.visionError) showVisionError(resolved.visionError);
     userContent = resolved.content;
   }
+}
+
+/** 会话时间显示：精确到分钟，当年 MM-DD HH:mm，跨年补全年份（非法时间戳容错） */
+function formatSessionTime(updated: string): string {
+  const d = new Date(updated);
+  if (isNaN(d.getTime())) return updated.slice(0, 10);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear()
+    ? `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+    : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 /** 渲染聊天历史到消息区 */
@@ -1108,18 +1154,7 @@ export function showSessionList(
 
     const metaEl = doc.createElement("span");
     metaEl.className = "pw-session-date";
-    // 精确到分钟：updated 为每次 AI 回复完成时刷新的 ISO 时间戳（UTC），转本地时间
-    const d = new Date(sess.updated);
-    if (isNaN(d.getTime())) {
-      metaEl.textContent = sess.updated.slice(0, 10); // 容错：非法时间戳退回原显示
-    } else {
-      const pad = (n: number) => String(n).padStart(2, "0");
-      const now = new Date();
-      metaEl.textContent =
-        d.getFullYear() === now.getFullYear()
-          ? `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}` // 当年：MM-DD HH:mm
-          : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; // 跨年：补全年份
-    }
+    metaEl.textContent = formatSessionTime(sess.updated);
     row.appendChild(metaEl);
 
     const delBtn = doc.createElement("span");
@@ -1179,7 +1214,118 @@ export function showSessionList(
     list.appendChild(row);
   }
 
-  messagesEl.appendChild(list);
+  adoptedAppend(messagesEl, list);
+}
+
+// ── 独立会话侧栏 ─────────────────────────────────────────────────────────────
+
+/**
+ * 常驻会话侧栏（独立会话专用）：新建 / 切换 / 删除（行内二次确认）。
+ * 渲染进 sidebarEl；切换会话后由本函数负责消息区重绘。
+ */
+export async function renderSessionSidebar(
+  sidebarEl: HTMLElement,
+  messagesEl: HTMLElement,
+  scope: SessionScope,
+): Promise<void> {
+  const doc = (sidebarEl.ownerDocument ?? messagesEl.ownerDocument) as Document;
+  const sessions = await loadSessionsByScope(scope);
+
+  // 就地清空（保持滚动容器本身）
+  while (sidebarEl.firstChild) sidebarEl.removeChild(sidebarEl.firstChild);
+
+  const newBtn = doc.createElement("div");
+  newBtn.className = "pw-sidebar-new";
+  newBtn.setAttribute("role", "button");
+  newBtn.setAttribute("tabindex", "0");
+  newBtn.textContent = "+ 新建对话";
+  newBtn.addEventListener("click", () => {
+    getHistoryByScope(scope).clear();
+    setActiveNoteIDByScope(scope, null);
+    messagesEl.textContent = "";
+    void renderSessionSidebar(sidebarEl, messagesEl, scope);
+  });
+  sidebarEl.appendChild(newBtn);
+
+  if (!sessions.length) {
+    const empty = doc.createElement("div");
+    empty.className = "pw-sidebar-empty";
+    empty.textContent = "暂无历史会话";
+    sidebarEl.appendChild(empty);
+    return;
+  }
+
+  for (const sess of sessions) {
+    const row = doc.createElement("div");
+    row.className = "pw-sidebar-item";
+    if (getActiveNoteIDByScope(scope) === sess.noteID) {
+      row.classList.add("pw-sidebar-active");
+    }
+
+    const titleEl = doc.createElement("div");
+    titleEl.className = "pw-sidebar-title";
+    titleEl.textContent = sess.title;
+    row.appendChild(titleEl);
+
+    const metaEl = doc.createElement("div");
+    metaEl.className = "pw-sidebar-meta";
+    metaEl.textContent = formatSessionTime(sess.updated);
+    row.appendChild(metaEl);
+
+    // 删除（行内二次确认：首次点 × 变"确认?"，3s 内再点才删）
+    const delBtn = doc.createElement("span");
+    delBtn.className = "pw-session-del pw-sidebar-del";
+    delBtn.setAttribute("role", "button");
+    delBtn.setAttribute("tabindex", "0");
+    delBtn.textContent = "×";
+    row.appendChild(delBtn);
+
+    row.addEventListener("click", () => {
+      const history = getHistoryByScope(scope);
+      history.clear();
+      for (const msg of sess.data.messages) {
+        history.add({
+          role: msg.role as "user" | "assistant" | "system",
+          content: msg.content,
+          ...(msg.reasoningLen ? { reasoningLen: msg.reasoningLen } : {}),
+        });
+      }
+      setActiveNoteIDByScope(scope, sess.noteID);
+      renderChatHistory(doc, messagesEl, scope);
+      void renderSessionSidebar(sidebarEl, messagesEl, scope);
+    });
+
+    delBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (delBtn.dataset.confirm !== "1") {
+        delBtn.dataset.confirm = "1";
+        delBtn.textContent = "确认?";
+        delBtn.classList.add("pw-session-del-confirm");
+        const w = (doc.defaultView ?? Zotero.getMainWindow()) as any;
+        w.setTimeout(() => {
+          delBtn.dataset.confirm = "";
+          delBtn.textContent = "×";
+          delBtn.classList.remove("pw-session-del-confirm");
+        }, 3000);
+        return;
+      }
+      void (async () => {
+        try {
+          await Zotero.Items.get(sess.noteID).eraseTx();
+          if (getActiveNoteIDByScope(scope) === sess.noteID) {
+            getHistoryByScope(scope).clear();
+            setActiveNoteIDByScope(scope, null);
+            messagesEl.textContent = "";
+          }
+          await renderSessionSidebar(sidebarEl, messagesEl, scope);
+        } catch {
+          /* ignore */
+        }
+      })();
+    });
+
+    sidebarEl.appendChild(row);
+  }
 }
 
 // ── CSS ──────────────────────────────────────────────────────────────────────
@@ -1849,8 +1995,93 @@ const CHAT_CSS = `
   z-index: 10000;
   display: none;
 }
-/* ── Standalone tab 布局（独立会话）── */
-.pw-standalone-wrap { display: flex; width: 100%; height: 100%; }
-.pw-standalone-wrap .pw-panel { flex: 1; min-height: 0; }
-.pw-standalone-main { flex: 1; min-width: 0; }
+/* ── Standalone tab 布局（独立会话）：左侧会话栏 + 居中聊天列 ── */
+.pw-standalone-wrap {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  background: Canvas;
+}
+.pw-standalone-sidebar {
+  width: 240px;
+  min-width: 200px;
+  max-width: 280px;
+  border-right: 1px solid rgba(128,128,128,0.2);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: rgba(128,128,128,0.04);
+}
+.pw-sidebar-header {
+  padding: 14px 14px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(128,128,128,0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.pw-sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pw-sidebar-new {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(26,127,212,0.10);
+  color: #1a7fd4;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+.pw-sidebar-new:hover { background: rgba(26,127,212,0.18); }
+.pw-sidebar-item {
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+}
+.pw-sidebar-item:hover { background: rgba(128,128,128,0.12); }
+.pw-sidebar-active { background: rgba(26,127,212,0.12); }
+.pw-sidebar-active:hover { background: rgba(26,127,212,0.18); }
+.pw-sidebar-title {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 20px;
+}
+.pw-sidebar-meta {
+  font-size: 11px;
+  color: rgba(128,128,128,0.9);
+  margin-top: 2px;
+}
+.pw-sidebar-del { position: absolute; right: 6px; top: 8px; }
+.pw-sidebar-empty {
+  padding: 12px 10px;
+  font-size: 12px;
+  color: rgba(128,128,128,0.8);
+  text-align: center;
+}
+.pw-standalone-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pw-standalone-main .pw-panel {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  overflow-y: auto;
+}
+.pw-standalone-main .pw-messages { padding: 16px 20px; }
+.pw-standalone-main .pw-input-area { padding: 10px 20px 14px; }
 `;

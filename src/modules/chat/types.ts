@@ -21,6 +21,8 @@ export interface ChatCapabilities {
   mineru: boolean;
   /** 总结全文 */
   summarize: boolean;
+  /** 左侧常驻会话栏（启用时隐藏顶部"会话列表"按钮，避免功能重复） */
+  sessionSidebar: boolean;
 }
 
 /**
@@ -53,10 +55,15 @@ export interface ChatHost {
 
   /** 含元数据占位符的提示词填充（自定义按钮用）；缺省原样填入 */
   fillPrompt?(textarea: HTMLTextAreaElement, template: string): void;
+
+  /** 会话保存完成后的回调（独立会话用于刷新左侧会话栏） */
+  onSessionSaved?(): void;
 }
 
 /** mountChatPanel 返回的句柄 */
 export interface ChatHandle {
   panel: HTMLElement;
   messagesEl: HTMLElement;
+  /** 销毁面板并清理定时器/Observer（tab 关闭时由 Shell 调用） */
+  destroy(): void;
 }

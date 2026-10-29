@@ -35,8 +35,10 @@ PaperWorm/
 │   ├── modules/          ← 功能模块
 │   │   ├── llm/          ← LLM 抽象层（Provider 接口 + 各厂商实现）
 │   │   ├── paper/        ← PDF 内容提取
-│   │   ├── chat/         ← 聊天逻辑与历史管理
-│   │   └── ui/           ← UI 注册（面板、菜单等）
+│   │   ├── chat/         ← 聊天核心：core（ChatCore 装配器）/ types（ChatHost 抽象）
+│   │   │                      sessionStore（paper+standalone 双存储）/ markdown / paperContext
+│   │   └── ui/           ← Shell 装配层：readerShell（论文会话）/ standaloneShell（独立会话）
+│   │                          chatWidgets（共享 UI 组件：模型切换/参数徽章/SIWC）
 │   └── utils/            ← 工具函数
 └── typings/              ← 全局类型声明
 ```
@@ -53,9 +55,21 @@ PaperWorm/
 从 `Zotero.Reader` 获取当前打开的 PDF 条目，
 优先使用用户选中文本，其次提取全文（上限 400,000 字符，约 120 页）。
 
-### UI 策略
+### UI 策略（v1.0 组件化装配）
 
-主界面在 Reader Pane 右侧侧边面板（`registerReaderItemPaneSection`），
+- **ChatCore**（`chat/core.ts`）：聊天骨架唯一实现——消息渲染/流式/发送链路/会话列表。
+  不包含任何 reader 专属逻辑。
+- **ChatHost**（`chat/types.ts`）：Shell 注入的差异点——`scope`（会话作用域）、
+  `capabilities`（能力开关）、`buildSystemPrompt`（上下文来源）、以及可选
+  服务（选区读取/截图/MinerU 动作）。
+- **Shell 装配**：
+  - `ui/readerShell.ts`：Reader Pane 侧边面板（`ItemPaneManager.registerSection`，
+    仅 reader tab 显示），全能力开启
+  - `ui/standaloneShell.ts`：主工具栏常驻按钮 + `Zotero_Tabs` 原生 tab，
+    无 reader 能力，左侧常驻会话栏
+- **哲学**：reader 专属功能不是被隐藏，而是从架构上只存在于 ReaderShell；
+  新增会话形态 = 新增一个 Shell + host 实现，不改 ChatCore。
+
 设置界面在 Zotero 偏好设置中注册独立分页。
 
 ---

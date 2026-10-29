@@ -6,6 +6,12 @@
 
 import { config } from "../../../package.json";
 
+/** 跨文档安全 append：按目标节点文档收养元素（同文档时 adoptNode 为 no-op） */
+function adoptedAppend(target: Node, child: Node): void {
+  const tdoc = (target.ownerDocument ?? target) as Document;
+  target.appendChild(tdoc.adoptNode(child));
+}
+
 /** 外部点击监听的文档：游离 createHTMLDocument（defaultView 为 null）回退主窗口文档 */
 function clickDoc(doc: Document): Document {
   return doc.defaultView ? doc : (Zotero.getMainWindow().document as Document);
@@ -28,7 +34,7 @@ export function appendMessage(
   } else {
     el.textContent = text;
   }
-  container.appendChild(el);
+  adoptedAppend(container, el);
   return el;
 }
 
@@ -48,7 +54,7 @@ export function appendTruncationHint(
   const hint = doc.createElement("div");
   hint.className = "pw-truncated-hint";
   hint.textContent = `⚠ 回答因达到 Max Tokens 上限（${maxTokens}）被截断 — 输入"继续"可接着生成，或点上方 T 徽章调大 Max Tokens`;
-  msgEl.appendChild(hint);
+  adoptedAppend(msgEl, hint);
 }
 
 export function getProviderDisplayName(providerId: string): string {
@@ -170,7 +176,7 @@ export function maybeShowSiwcWelcome(doc: Document, panel: HTMLElement): void {
   card.appendChild(desc);
   card.appendChild(btn);
   overlay.appendChild(card);
-  panel.appendChild(overlay);
+  adoptedAppend(panel, overlay);
 }
 
 /** T 徽章文本：温度 · MaxTokens（· 推理档位后缀，per-vendor 原生档位的 short 标签） */
@@ -447,7 +453,7 @@ export function showParamsPopover(
   }
 
   // ── 定位 ──
-  panel.appendChild(popover);
+  adoptedAppend(panel, popover);
   const rect = trigger.getBoundingClientRect();
   const panelRect = panel.getBoundingClientRect();
   popover.style.top = `${rect.bottom - panelRect.top + 4}px`;
@@ -612,7 +618,7 @@ export function showProviderDropdown(
   renderProviders();
 
   // 添加到面板并定位
-  panel.appendChild(dropdown);
+  adoptedAppend(panel, dropdown);
 
   const rect = triggerEl.getBoundingClientRect();
   const panelRect = panel.getBoundingClientRect();
