@@ -117,12 +117,17 @@ export async function describeImage(
         const v = parseInt(getPref("llm.vision.maxTokens") || "8000", 10);
         return Number.isFinite(v) && v >= 100 ? v : 8000;
       })(),
+      // 视觉转述属长任务（图片上传 + 模型思考）：120s，远高于默认 30s
+      timeoutMs: 120_000,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     Zotero.log(`PaperWorm visionRouter error — ${msg}`, "error");
+    const isTimeout = /timed?\s*out|timeout|超时/i.test(msg);
     throw new Error(
-      `${msg}（若该模型不支持图片输入，请在设置中更换视觉模型，如 gpt-6.1-sol / claude-sonnet-5.5 / gemini-3.8-flash / kimi-k2.6 / glm-5.3-flash）`,
+      isTimeout
+        ? `${msg}（请求超时：图片较大或模型思考较长，可稍后重试）`
+        : `${msg}（若该模型不支持图片输入，请在设置中更换视觉模型，如 gpt-6.1-sol / claude-sonnet-5.5 / gemini-3.8-flash / kimi-k2.6 / glm-5.3-flash）`,
     );
   }
 

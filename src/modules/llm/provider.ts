@@ -161,6 +161,8 @@ export interface LLMRequestOptions {
    * 各 Provider 在 buildBody 中按官方文档映射为原生参数，无文档依据的厂商忽略。
    */
   reasoning?: string;
+  /** 非流式请求超时（ms）。用于视觉转述等长任务；缺省沿用 Zotero.HTTP 默认 30s */
+  timeoutMs?: number;
 }
 
 export interface LLMProvider {

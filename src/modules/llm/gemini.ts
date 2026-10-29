@@ -63,6 +63,7 @@ export class GeminiProvider implements LLMProvider {
       },
       body: JSON.stringify(this.buildBody(options)),
       successCodes: [200],
+      ...(options.timeoutMs ? { timeout: options.timeoutMs } : {}),
     });
     try {
       const data = JSON.parse(resp.responseText) as any;

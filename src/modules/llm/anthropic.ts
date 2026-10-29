@@ -53,6 +53,7 @@ export class AnthropicProvider implements LLMProvider {
       headers: this.headers(),
       body: JSON.stringify(this.buildBody(options, false)),
       successCodes: [200],
+      ...(options.timeoutMs ? { timeout: options.timeoutMs } : {}),
     });
     try {
       const data = JSON.parse(resp.responseText) as any;
