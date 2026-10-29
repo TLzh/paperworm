@@ -26,6 +26,7 @@ function getZoteroTabs(): any {
 
 let tabID: string | null = null;
 let tabHandle: ChatHandle | null = null;
+let tabObserverID: string | null = null;
 
 /** 注入主工具栏常驻按钮（不依赖任何条目选中状态） */
 export function registerStandaloneChat(): void {
@@ -37,6 +38,40 @@ export function registerStandaloneChat(): void {
     Zotero.log("PaperWorm: zotero-items-toolbar not found", "warning");
     return;
   }
+  // Zotero 的 context pane 切换逻辑只处理 library / reader / note 三种 tab 类型
+  // （见 elements/contextPane.js _handleTabSelect），自定义类型会继承上一个 tab 的
+  // sidebar 状态——监听 tab select 主动收起，照抄官方 library 分支的处理方式。
+  try {
+    tabObserverID = Zotero.Notifier.registerObserver(
+      {
+        notify: async (
+          event: string,
+          type: string,
+          ids: Array<string | number>,
+          extraData: any,
+        ) => {
+          if (event !== "select" || type !== "tab") return;
+          const selectedTabID = ids[0];
+          if (extraData?.[selectedTabID]?.type !== "paperworm-chat") return;
+          try {
+            const win = Zotero.getMainWindow() as any;
+            win.document
+              .getElementById("zotero-context-pane")
+              ?.setAttribute("collapsed", "true");
+            win.document
+              .getElementById("zotero-context-pane-sidenav")
+              ?.setAttribute("hidden", "true");
+          } catch {
+            /* ignore */
+          }
+        },
+      },
+      ["tab"],
+    );
+  } catch {
+    /* ignore */
+  }
+
   const btn = doc.createXULElement("toolbarbutton") as any;
   btn.id = `${config.addonRef}-standalone-btn`;
   btn.setAttribute("class", "zotero-tb-button");
@@ -54,6 +89,10 @@ export function unregisterStandaloneChat(): void {
     win.document.getElementById(`${config.addonRef}-standalone-btn`)?.remove();
     tabHandle?.destroy();
     tabHandle = null;
+    if (tabObserverID) {
+      Zotero.Notifier.unregisterObserver(tabObserverID);
+      tabObserverID = null;
+    }
     const tabs = getZoteroTabs();
     if (tabID && tabs?._tabs?.some((t: any) => t.id === tabID)) {
       tabs.close(tabID);
